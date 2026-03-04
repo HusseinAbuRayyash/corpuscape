@@ -10,7 +10,7 @@ import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { TableDownload } from "@/components/table-download";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack } from "lucide-react";
+import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle } from "lucide-react";
 import type { AlignedPair } from "@shared/schema";
 
 export default function Bilingual() {
@@ -203,6 +203,19 @@ export default function Bilingual() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {uploadMode === "separate" && (srcFiles.length > 0 || tgtFiles.length > 0) && (srcFiles.length === 0 || tgtFiles.length === 0) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mt-3 flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400 text-xs font-medium"
+            >
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              {srcFiles.length === 0
+                ? "Upload source file(s) on the left to enable alignment."
+                : "Upload target file(s) on the right to enable alignment."}
+            </motion.div>
+          )}
 
           <motion.div
             className="mt-5"
