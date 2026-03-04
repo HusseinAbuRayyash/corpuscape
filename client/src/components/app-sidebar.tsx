@@ -67,9 +67,6 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <div className="px-2 pb-3 space-y-2">
-          <div className="px-2 py-1.5">
-            <p className="text-[9px] uppercase tracking-widest text-sidebar-foreground/25 font-medium">Hussein Abu-Rayyash</p>
-          </div>
           <Button
             size="sm"
             variant="ghost"
