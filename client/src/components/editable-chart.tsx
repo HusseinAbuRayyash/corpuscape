@@ -381,15 +381,15 @@ export function EditableChart({
 
   return (
     <div ref={chartContainerRef} className="space-y-2">
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+      <div className="overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-1.5 min-w-max">
           {editingTitle ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Chart title..."
-                className="h-7 text-xs w-40"
+                className="h-7 text-xs w-36"
                 data-testid="input-chart-title"
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && setEditingTitle(false)}
@@ -401,73 +401,32 @@ export function EditableChart({
           ) : (
             <button
               onClick={() => setEditingTitle(true)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors group flex-shrink-0 border rounded-md px-2 h-6"
               data-testid="button-edit-title"
             >
               <Type className="w-3 h-3" />
-              {title ? <span className="font-medium text-foreground">{title}</span> : <span className="italic">Add title...</span>}
-              <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              {title ? <span className="font-medium text-foreground">{title}</span> : <span className="italic">Title</span>}
             </button>
           )}
-        </div>
-
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <Button
-            size="sm"
-            variant={showChartTypes ? "default" : "outline"}
-            className="h-6 text-[11px] px-2 gap-1"
-            onClick={() => togglePanel("types")}
-            data-testid="button-toggle-chart-type"
-          >
-            <CurrentIcon className="w-3 h-3" />
-            {currentTypeInfo.label}
-            <ChevronDown className="w-2.5 h-2.5" />
+          <div className="w-px h-4 bg-border flex-shrink-0" />
+          <Button size="sm" variant={showChartTypes ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("types")} data-testid="button-toggle-chart-type">
+            <CurrentIcon className="w-3 h-3" />{currentTypeInfo.label}<ChevronDown className="w-2.5 h-2.5" />
           </Button>
-          <Button
-            size="sm"
-            variant={showPalettes ? "default" : "outline"}
-            className="h-6 text-[11px] px-2 gap-1"
-            onClick={() => togglePanel("palettes")}
-            data-testid="button-toggle-palette"
-          >
+          <Button size="sm" variant={showPalettes ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("palettes")} data-testid="button-toggle-palette">
             <Palette className="w-3 h-3" />Colors
           </Button>
           {hasAxes(chartType) && (
-            <Button
-              size="sm"
-              variant={editingAxes ? "default" : "outline"}
-              className="h-6 text-[11px] px-2 gap-1"
-              onClick={() => togglePanel("axes")}
-              data-testid="button-toggle-axes"
-            >
+            <Button size="sm" variant={editingAxes ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("axes")} data-testid="button-toggle-axes">
               <Type className="w-3 h-3" />Axes
             </Button>
           )}
-          <Button
-            size="sm"
-            variant={showLabelOptions ? "default" : "outline"}
-            className="h-6 text-[11px] px-2 gap-1"
-            onClick={() => togglePanel("labels")}
-            data-testid="button-toggle-labels"
-          >
+          <Button size="sm" variant={showLabelOptions ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("labels")} data-testid="button-toggle-labels">
             <Tag className="w-3 h-3" />Labels
           </Button>
-          <Button
-            size="sm"
-            variant={editing ? "default" : "outline"}
-            className="h-6 text-[11px] px-2 gap-1"
-            onClick={() => togglePanel("edit")}
-            data-testid="button-toggle-edit"
-          >
+          <Button size="sm" variant={editing ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("edit")} data-testid="button-toggle-edit">
             <Pencil className="w-3 h-3" />{editing ? "Done" : "Edit"}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 text-[11px] px-2 gap-1"
-            onClick={downloadPNG}
-            data-testid="button-download-chart"
-          >
+          <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={downloadPNG} data-testid="button-download-chart">
             <Download className="w-3 h-3" />PNG
           </Button>
         </div>
