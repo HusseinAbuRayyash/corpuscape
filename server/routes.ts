@@ -275,47 +275,46 @@ export async function registerRoutes(
           });
         }
       } else {
-        const arabicRe = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
-        const cjkRe = /[\u3000-\u9FFF\uAC00-\uD7AF]/;
-        const cyrillicRe = /[\u0400-\u04FF]/;
+        const nonLatinRanges = [
+          /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/,
+          /[\u3000-\u9FFF\uAC00-\uD7AF\u30A0-\u30FF\u3040-\u309F]/,
+          /[\u0400-\u04FF\u0500-\u052F]/,
+          /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F]/,
+          /[\u0E00-\u0E7F]/,
+          /[\u1100-\u11FF]/,
+        ];
+
+        function findFirstNonLatinIndex(s: string): number {
+          for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            for (const re of nonLatinRanges) {
+              if (re.test(ch)) return i;
+            }
+          }
+          return -1;
+        }
 
         for (const line of lines) {
-          let source = "";
-          let target = "";
+          const idx = findFirstNonLatinIndex(line);
 
-          if (arabicRe.test(line)) {
-            const match = line.match(/^([\s\S]*?)(\s)([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF][\s\S]*)$/);
-            if (match) {
-              source = match[1].trim();
-              target = match[3].trim();
-            } else {
-              source = line;
-              target = "";
-            }
-          } else if (cjkRe.test(line) && /[a-zA-Z]/.test(line)) {
-            const match = line.match(/^([a-zA-Z][\s\S]*?)\s+([\u3000-\u9FFF\uAC00-\uD7AF][\s\S]*)$/);
-            if (match) {
-              source = match[1].trim();
-              target = match[2].trim();
-            } else {
-              source = line;
-              target = "";
-            }
-          } else if (cyrillicRe.test(line) && /[a-zA-Z]/.test(line)) {
-            const match = line.match(/^([a-zA-Z][\s\S]*?)\s+([\u0400-\u04FF][\s\S]*)$/);
-            if (match) {
-              source = match[1].trim();
-              target = match[2].trim();
-            } else {
-              source = line;
-              target = "";
-            }
-          } else {
-            source = line;
-            target = "";
+          if (idx <= 0) {
+            pairs.push({ source: line, target: "", similarity: 1.0 });
+            continue;
           }
 
-          pairs.push({ source, target, similarity: 1.0 });
+          let splitIdx = idx;
+          while (splitIdx > 0 && /[\s"'"\u201C\u201D\u0022([\-]/.test(line[splitIdx - 1])) {
+            splitIdx--;
+          }
+
+          const source = line.slice(0, splitIdx).trim();
+          const target = line.slice(idx).trim();
+
+          if (!source && target) {
+            pairs.push({ source: target, target: "", similarity: 1.0 });
+          } else {
+            pairs.push({ source, target, similarity: 1.0 });
+          }
         }
       }
 
