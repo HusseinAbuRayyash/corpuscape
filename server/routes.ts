@@ -229,9 +229,9 @@ export async function registerRoutes(
       for (const f of files) {
         allTexts.push(await extractTextFromFile(f.buffer, f.originalname));
       }
-      const fullText = cleanText(allTexts.join("\n\n"));
+      const fullText = allTexts.join("\n");
 
-      const lines = fullText.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+      const lines = fullText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
 
       const pairs: any[] = [];
       for (let i = 0; i < lines.length - 1; i += 2) {
