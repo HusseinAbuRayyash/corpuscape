@@ -9,18 +9,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
+import { EditableChart } from "@/components/editable-chart";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import {
   Upload, BarChart3, Link2, Search, Hash, Brain, BookText, Download,
   Loader2, TrendingUp, BookOpen,
 } from "lucide-react";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-} from "recharts";
 import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult } from "@shared/schema";
-
-const CHART_COLORS = ["#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4", "#0891b2", "#06b6d4", "#22d3ee"];
 
 export default function Monolingual() {
   const { toast } = useToast();
@@ -266,20 +262,12 @@ export default function Monolingual() {
                 )}
                 {keywords.length > 0 && (
                   <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className="h-64" data-testid="chart-keywords">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={keywords.slice(0, 15)}>
-                          <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
-                          <XAxis dataKey="term" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
-                          <YAxis tick={{ fontSize: 11 }} />
-                          <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
-                          <Bar dataKey="frequency" fill="url(#barGradient)" radius={[4, 4, 0, 0]}>
-                            {keywords.slice(0, 15).map((_, i) => (
-                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div data-testid="chart-keywords">
+                      <EditableChart
+                        data={keywords.slice(0, 15).map(kw => ({ label: kw.term, value: kw.frequency }))}
+                        defaultTitle=""
+                        layout="horizontal"
+                      />
                     </div>
                     <div className="max-h-64 overflow-auto rounded-lg border">
                       <table className="w-full text-sm polished-table" data-testid="table-keywords">
@@ -452,16 +440,12 @@ export default function Monolingual() {
             )}
             {ngrams.length > 0 && (
               <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <div className="h-64" data-testid="chart-ngrams">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={ngrams.slice(0, 12)} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis dataKey="ngram" type="category" width={150} tick={{ fontSize: 10 }} />
-                      <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
-                      <Bar dataKey="frequency" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div data-testid="chart-ngrams">
+                  <EditableChart
+                    data={ngrams.slice(0, 12).map(ng => ({ label: ng.ngram, value: ng.frequency }))}
+                    defaultTitle=""
+                    layout="vertical"
+                  />
                 </div>
                 <div className="max-h-64 overflow-auto rounded-lg border">
                   <table className="w-full text-sm polished-table" data-testid="table-ngrams">
