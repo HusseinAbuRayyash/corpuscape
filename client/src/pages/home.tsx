@@ -149,20 +149,22 @@ export default function Home() {
                   />
 
                   <div className="relative p-6 md:p-7">
-                    <motion.div
-                      className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${track.bgFrom} ${track.bgTo} flex items-center justify-center mb-5 shadow-lg`}
-                      style={{
-                        boxShadow: `0 8px 20px -4px ${track.glowColor}`,
-                      }}
-                      whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <track.icon className="w-7 h-7 text-white drop-shadow-sm" />
-                    </motion.div>
+                    <div className="flex items-center gap-4 mb-4">
+                      <motion.div
+                        className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${track.bgFrom} ${track.bgTo} flex items-center justify-center flex-shrink-0 shadow-lg`}
+                        style={{
+                          boxShadow: `0 8px 20px -4px ${track.glowColor}`,
+                        }}
+                        whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <track.icon className="w-7 h-7 text-white drop-shadow-sm" />
+                      </motion.div>
+                      <h3 className="text-xl font-extrabold tracking-tight" style={{ color: track.color }}>
+                        {track.title}
+                      </h3>
+                    </div>
 
-                    <h3 className="text-xl font-extrabold tracking-tight mb-2" style={{ color: track.color }}>
-                      {track.title}
-                    </h3>
                     <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
                       {track.description}
                     </p>
