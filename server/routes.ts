@@ -180,8 +180,15 @@ export async function registerRoutes(
       for (const f of srcFiles) srcTexts.push(await extractTextFromFile(f.buffer, f.originalname));
       for (const f of tgtFiles) tgtTexts.push(await extractTextFromFile(f.buffer, f.originalname));
 
-      const srcText = cleanText(srcTexts.join("\n\n"));
-      const tgtText = cleanText(tgtTexts.join("\n\n"));
+      const srcText = srcTexts.join("\n\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+      const tgtText = tgtTexts.join("\n\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+      console.log(`[Bilingual] Source text (${srcText.length} chars):`, srcText.slice(0, 300));
+      console.log(`[Bilingual] Target text (${tgtText.length} chars):`, tgtText.slice(0, 300));
+
+      if (srcText.length < 5 || tgtText.length < 5) {
+        return res.status(400).json({ error: "Could not extract sufficient text from the uploaded files. Please ensure the files contain readable text." });
+      }
 
       const corpusId = generateCorpusId();
       storeCorpus(`${corpusId}_src`, srcText);

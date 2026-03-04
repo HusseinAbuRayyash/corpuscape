@@ -196,7 +196,15 @@ export async function extractTextFromFile(
                   },
                 },
                 {
-                  text: "Extract ALL text from this PDF document. Return ONLY the extracted text, preserving the original language (Arabic, English, etc.), line breaks, and paragraph structure. Do not add any commentary, headers, or formatting. Just the raw text content.",
+                  text: `Extract the main body text content from this PDF document.
+
+IMPORTANT RULES:
+- Return ONLY the actual article/document content sentences.
+- REMOVE all metadata: timestamps, dates at top/bottom, page numbers, URLs, agency codes/logos (SPA, SPR, SAAS, etc.), navigation elements, headers/footers that repeat across pages.
+- Preserve the original language exactly (Arabic, English, etc.).
+- Separate each sentence or distinct paragraph with a newline.
+- Do NOT add any commentary, labels, or formatting of your own.
+- Do NOT duplicate content that appears as both a headline and in the body.`,
                 },
               ],
             },
