@@ -1,18 +1,24 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
+import { EditableChart } from "@/components/editable-chart";
+import { TableDownload } from "@/components/table-download";
+import { MarkdownRender } from "@/components/markdown-render";
 import {
   Loader2, Newspaper, Globe, Plus, X, Trash2, Edit3, Check, Send,
-  FileText, ExternalLink, ChevronDown, ChevronUp, Brain,
+  FileText, ExternalLink, ChevronDown, ChevronUp, Brain, Download,
+  BarChart3, Link2, Search, Hash, BookText, TrendingUp, BookOpen, Upload,
 } from "lucide-react";
+import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult } from "@shared/schema";
 
 interface ScrapedArticle {
   url: string;
@@ -24,7 +30,6 @@ interface ScrapedArticle {
 
 export default function Scraper() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [urlInput, setUrlInput] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
   const [articles, setArticles] = useState<ScrapedArticle[]>([]);
@@ -32,6 +37,16 @@ export default function Scraper() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [scraperCorpusId, setScraperCorpusId] = useState<string | null>(null);
+  const [corpusStats, setCorpusStats] = useState<CorpusStats | null>(null);
+
+  const [keywords, setKeywords] = useState<KeywordResult[]>([]);
+  const [ngrams, setNgrams] = useState<NgramResult[]>([]);
+  const [collocations, setCollocations] = useState<CollocationResult[]>([]);
+  const [concordanceResults, setConcordanceResults] = useState<ConcordanceResult[]>([]);
+  const [concordanceQuery, setConcordanceQuery] = useState("");
+  const [ngramN, setNgramN] = useState("2");
+  const [aiResult, setAiResult] = useState("");
+  const [termsResult, setTermsResult] = useState("");
 
   const addUrl = useCallback(() => {
     const trimmed = urlInput.trim();
@@ -61,40 +76,81 @@ export default function Scraper() {
     onError: () => toast({ title: "Scraping failed", variant: "destructive" }),
   });
 
-  const corpusMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const res = await apiRequest("POST", "/api/scrape/to-corpus", { text });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      toast({ title: "Corpus created", description: `${data.stats.words.toLocaleString()} words ready for analysis` });
-      sessionStorage.setItem("scraped_corpus_id", data.corpusId);
-      sessionStorage.setItem("scraped_corpus_stats", JSON.stringify(data.stats));
-      setLocation("/monolingual");
-    },
-    onError: () => toast({ title: "Failed to create corpus", variant: "destructive" }),
-  });
-
-  const analyzeHereMutation = useMutation({
+  const createCorpusMutation = useMutation({
     mutationFn: async (text: string) => {
       const res = await apiRequest("POST", "/api/scrape/to-corpus", { text });
       return res.json();
     },
     onSuccess: (data) => {
       setScraperCorpusId(data.corpusId);
-      toast({ title: "Corpus created", description: data.stats.words.toLocaleString() + " words ready for AI analysis" });
+      setCorpusStats(data.stats);
+      setKeywords([]);
+      setNgrams([]);
+      setCollocations([]);
+      setConcordanceResults([]);
+      setAiResult("");
+      setTermsResult("");
+      toast({ title: "Corpus created", description: `${data.stats.words.toLocaleString()} words ready for analysis` });
     },
     onError: () => toast({ title: "Failed to create corpus", variant: "destructive" }),
   });
 
-  const analyzeHere = () => {
+  const keywordsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId: scraperCorpusId, topN: 30 });
+      return res.json();
+    },
+    onSuccess: setKeywords,
+  });
+
+  const ngramsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/corpus/ngrams", { corpusId: scraperCorpusId, n: parseInt(ngramN), topN: 25 });
+      return res.json();
+    },
+    onSuccess: setNgrams,
+  });
+
+  const collocationsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/corpus/collocations", { corpusId: scraperCorpusId });
+      return res.json();
+    },
+    onSuccess: setCollocations,
+  });
+
+  const concordanceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/corpus/concordance", { corpusId: scraperCorpusId, query: concordanceQuery });
+      return res.json();
+    },
+    onSuccess: setConcordanceResults,
+  });
+
+  const aiMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai/summarize", { corpusId: scraperCorpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setAiResult(data.result),
+  });
+
+  const termsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai/terminology", { corpusId: scraperCorpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setTermsResult(data.result),
+  });
+
+  const buildCorpus = () => {
     const validArticles = articles.filter((a) => a.wordCount > 0);
     if (validArticles.length === 0) {
       toast({ title: "No content", description: "No valid articles to analyze", variant: "destructive" });
       return;
     }
     const merged = validArticles.map((a) => `## ${a.title}\n\n${a.content}`).join("\n\n---\n\n");
-    analyzeHereMutation.mutate(merged);
+    createCorpusMutation.mutate(merged);
   };
 
   const startEditing = (index: number) => {
@@ -114,18 +170,41 @@ export default function Scraper() {
     if (editingIndex === index) setEditingIndex(null);
   };
 
-  const mergeAndSend = () => {
+  const downloadArticleText = (article: ScrapedArticle) => {
+    const blob = new Blob([`${article.title}\n${"=".repeat(article.title.length)}\nSource: ${article.url}\n\n${article.content}`], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${article.title.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, "_").slice(0, 50)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const downloadAllTexts = () => {
     const validArticles = articles.filter((a) => a.wordCount > 0);
-    if (validArticles.length === 0) {
-      toast({ title: "No content", description: "No valid articles to analyze", variant: "destructive" });
-      return;
-    }
-    const merged = validArticles.map((a) => `## ${a.title}\n\n${a.content}`).join("\n\n---\n\n");
-    corpusMutation.mutate(merged);
+    const combined = validArticles.map((a) => `${"=".repeat(60)}\n${a.title}\nSource: ${a.url}\n${"=".repeat(60)}\n\n${a.content}`).join("\n\n\n");
+    const blob = new Blob([combined], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `scraped_corpus_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   const totalWords = articles.reduce((s, a) => s + a.wordCount, 0);
   const validCount = articles.filter((a) => a.wordCount > 0).length;
+
+  const MetricCard = ({ label, value, index = 0 }: { label: string; value: string | number; index?: number }) => (
+    <motion.div
+      className="metric-card p-4 text-center"
+      data-testid={`metric-${label.toLowerCase().replace(/\s/g, "-")}`}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.35 }}
+    >
+      <p className="text-2xl font-extrabold tabular-nums tracking-tight text-gradient">{typeof value === "number" ? value.toLocaleString() : value}</p>
+      <p className="text-[11px] text-muted-foreground mt-1.5 font-medium uppercase tracking-wider">{label}</p>
+    </motion.div>
+  );
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
@@ -264,45 +343,41 @@ export default function Scraper() {
             <div className="flex items-center gap-4">
               <h3 className="font-bold text-sm">Scraped Articles</h3>
               <div className="flex gap-2 text-xs">
-                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{validCount} valid</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">{validCount} valid</span>
                 <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{totalWords.toLocaleString()} words</span>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadAllTexts}
+                disabled={validCount === 0}
+                data-testid="button-download-all"
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" />Download All
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setArticles([])}
+                onClick={() => { setArticles([]); setScraperCorpusId(null); setCorpusStats(null); }}
                 data-testid="button-clear-articles"
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" />Clear All
               </Button>
               <Button
                 size="sm"
-                variant="secondary"
-                onClick={analyzeHere}
-                disabled={validCount === 0 || analyzeHereMutation.isPending}
-                data-testid="button-analyze-here"
+                onClick={buildCorpus}
+                disabled={validCount === 0 || createCorpusMutation.isPending}
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                data-testid="button-build-corpus"
               >
-                {analyzeHereMutation.isPending ? (
+                {createCorpusMutation.isPending ? (
                   <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                 ) : (
-                  <Brain className="w-3.5 h-3.5 mr-1.5" />
+                  <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
                 )}
-                Analyze Here
-              </Button>
-              <Button
-                size="sm"
-                onClick={mergeAndSend}
-                disabled={validCount === 0 || corpusMutation.isPending}
-                data-testid="button-send-to-analysis"
-              >
-                {corpusMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <Send className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                Send to Monolingual Analysis
+                Build Corpus & Analyze
               </Button>
             </div>
           </div>
@@ -322,11 +397,11 @@ export default function Scraper() {
                   className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/20 transition-colors"
                   onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
                 >
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${article.wordCount > 0 ? "bg-gradient-to-br from-primary/15 to-primary/5 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${article.wordCount > 0 ? "bg-gradient-to-br from-amber-500/15 to-orange-500/5 text-amber-600" : "bg-destructive/10 text-destructive"}`}>
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm truncate">{article.title}</h4>
+                    <h4 className="font-semibold text-sm truncate" data-testid={`text-article-title-${i}`}>{article.title}</h4>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                       <span className="truncate max-w-[200px] font-mono">{article.url}</span>
                       <span>·</span>
@@ -344,15 +419,26 @@ export default function Scraper() {
                       <ExternalLink className="w-3.5 h-3.5" />
                     </Button>
                     {article.wordCount > 0 && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="w-7 h-7"
-                        onClick={(e) => { e.stopPropagation(); editingIndex === i ? saveEdit(i) : startEditing(i); }}
-                        data-testid={`button-edit-article-${i}`}
-                      >
-                        {editingIndex === i ? <Check className="w-3.5 h-3.5 text-primary" /> : <Edit3 className="w-3.5 h-3.5" />}
-                      </Button>
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="w-7 h-7"
+                          onClick={(e) => { e.stopPropagation(); downloadArticleText(article); }}
+                          data-testid={`button-download-article-${i}`}
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="w-7 h-7"
+                          onClick={(e) => { e.stopPropagation(); editingIndex === i ? saveEdit(i) : startEditing(i); }}
+                          data-testid={`button-edit-article-${i}`}
+                        >
+                          {editingIndex === i ? <Check className="w-3.5 h-3.5 text-amber-600" /> : <Edit3 className="w-3.5 h-3.5" />}
+                        </Button>
+                      </>
                     )}
                     <Button
                       size="icon"
@@ -393,11 +479,8 @@ export default function Scraper() {
                             </div>
                           </div>
                         ) : (
-                          <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-auto font-mono text-xs p-3 rounded-lg bg-muted/20" data-testid={`text-article-content-${i}`}>
-                            {article.content.slice(0, 3000)}
-                            {article.content.length > 3000 && (
-                              <span className="text-primary font-sans text-xs ml-1">... ({article.content.length - 3000} more characters)</span>
-                            )}
+                          <div className="mt-3 text-sm whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-auto p-4 rounded-lg bg-muted/20 border border-border/30" data-testid={`text-article-content-${i}`}>
+                            {article.content}
                           </div>
                         )}
                       </div>
@@ -410,23 +493,241 @@ export default function Scraper() {
         </motion.div>
       )}
 
-      {scraperCorpusId && (
+      {corpusStats && scraperCorpusId && (
         <motion.div
+          className="space-y-6"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.1 }}
         >
-          <AIAnalysisPanel
-            corpusId={scraperCorpusId}
-            theme={{
-              gradient: "from-amber-500 to-orange-600",
-              accent: "text-amber-500",
-              text: "text-amber-600 dark:text-amber-400"
-            }}
-          />
+          <div className="polished-card overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500" />
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md">
+                  <BarChart3 className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400" style={{ fontFamily: "'Playfair Display', serif" }}>Corpus Analysis</h3>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <MetricCard label="Words" value={corpusStats.words} index={0} />
+                <MetricCard label="Unique Words" value={corpusStats.uniqueWords} index={1} />
+                <MetricCard label="Sentences" value={corpusStats.sentences} index={2} />
+                <MetricCard label="Avg Word Length" value={corpusStats.avgWordLength} index={3} />
+              </div>
+
+              <Tabs defaultValue="keywords" className="w-full">
+                <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-analysis">
+                  <TabsTrigger value="keywords" className="gap-1.5 text-xs" data-testid="tab-keywords">
+                    <TrendingUp className="w-3.5 h-3.5" />Keywords
+                  </TabsTrigger>
+                  <TabsTrigger value="ngrams" className="gap-1.5 text-xs" data-testid="tab-ngrams">
+                    <Hash className="w-3.5 h-3.5" />N-Grams
+                  </TabsTrigger>
+                  <TabsTrigger value="collocations" className="gap-1.5 text-xs" data-testid="tab-collocations">
+                    <Link2 className="w-3.5 h-3.5" />Collocations
+                  </TabsTrigger>
+                  <TabsTrigger value="concordance" className="gap-1.5 text-xs" data-testid="tab-concordance">
+                    <Search className="w-3.5 h-3.5" />Concordance
+                  </TabsTrigger>
+                  <TabsTrigger value="ai" className="gap-1.5 text-xs" data-testid="tab-ai">
+                    <Brain className="w-3.5 h-3.5" />AI Summary
+                  </TabsTrigger>
+                  <TabsTrigger value="terms" className="gap-1.5 text-xs" data-testid="tab-terms">
+                    <BookText className="w-3.5 h-3.5" />Terminology
+                  </TabsTrigger>
+                  <TabsTrigger value="insights" className="gap-1.5 text-xs" data-testid="tab-insights">
+                    <BookOpen className="w-3.5 h-3.5" />AI Insights
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="keywords" className="mt-4 space-y-4">
+                  <Button
+                    onClick={() => keywordsMutation.mutate()}
+                    disabled={keywordsMutation.isPending}
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                    data-testid="button-extract-keywords"
+                  >
+                    {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                    Extract Keywords
+                  </Button>
+                  {keywords.length > 0 && (
+                    <>
+                      <TableDownload
+                        headers={["Keyword", "Frequency", "Score"]}
+                        rows={keywords.map((k) => [k.word, k.frequency, k.score])}
+                        filename="scraper_keywords"
+                      />
+                      <EditableChart
+                        data={keywords.slice(0, 20).map((k) => ({ name: k.word, value: k.frequency, score: k.score }))}
+                        title="Top Keywords"
+                        xKey="name"
+                        yKey="value"
+                        downloadFilename="scraper_keywords"
+                      />
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="ngrams" className="mt-4 space-y-4">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Select value={ngramN} onValueChange={setNgramN}>
+                      <SelectTrigger className="w-28" data-testid="select-ngram-n">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">Bigrams</SelectItem>
+                        <SelectItem value="3">Trigrams</SelectItem>
+                        <SelectItem value="4">4-grams</SelectItem>
+                        <SelectItem value="5">5-grams</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={() => ngramsMutation.mutate()}
+                      disabled={ngramsMutation.isPending}
+                      size="sm"
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                      data-testid="button-extract-ngrams"
+                    >
+                      {ngramsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Hash className="w-4 h-4 mr-2" />}
+                      Extract N-Grams
+                    </Button>
+                  </div>
+                  {ngrams.length > 0 && (
+                    <>
+                      <TableDownload
+                        headers={["N-Gram", "Frequency"]}
+                        rows={ngrams.map((n) => [n.ngram, n.frequency])}
+                        filename="scraper_ngrams"
+                      />
+                      <EditableChart
+                        data={ngrams.slice(0, 20).map((n) => ({ name: n.ngram, value: n.frequency }))}
+                        title={`Top ${ngramN === "2" ? "Bigrams" : ngramN === "3" ? "Trigrams" : ngramN + "-grams"}`}
+                        xKey="name"
+                        yKey="value"
+                        downloadFilename="scraper_ngrams"
+                      />
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="collocations" className="mt-4 space-y-4">
+                  <Button
+                    onClick={() => collocationsMutation.mutate()}
+                    disabled={collocationsMutation.isPending}
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                    data-testid="button-extract-collocations"
+                  >
+                    {collocationsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
+                    Extract Collocations
+                  </Button>
+                  {collocations.length > 0 && (
+                    <>
+                      <TableDownload
+                        headers={["Collocation", "Frequency", "MI Score"]}
+                        rows={collocations.map((c) => [c.collocation, c.frequency, c.miScore])}
+                        filename="scraper_collocations"
+                      />
+                      <EditableChart
+                        data={collocations.slice(0, 20).map((c) => ({ name: c.collocation, value: c.miScore, frequency: c.frequency }))}
+                        title="Top Collocations (MI Score)"
+                        xKey="name"
+                        yKey="value"
+                        downloadFilename="scraper_collocations"
+                      />
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="concordance" className="mt-4 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      placeholder="Search word or phrase..."
+                      value={concordanceQuery}
+                      onChange={(e) => setConcordanceQuery(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") concordanceMutation.mutate(); }}
+                      className="flex-1 border-amber-200 dark:border-amber-800/30"
+                      data-testid="input-concordance"
+                    />
+                    <Button
+                      onClick={() => concordanceMutation.mutate()}
+                      disabled={!concordanceQuery.trim() || concordanceMutation.isPending}
+                      size="sm"
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                      data-testid="button-search-concordance"
+                    >
+                      {concordanceMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                      Search
+                    </Button>
+                  </div>
+                  {concordanceResults.length > 0 && (
+                    <>
+                      <TableDownload
+                        headers={["Left Context", "Keyword", "Right Context"]}
+                        rows={concordanceResults.map((c) => [c.left, c.keyword, c.right])}
+                        filename="scraper_concordance"
+                      />
+                      <div className="space-y-1 max-h-[400px] overflow-auto">
+                        {concordanceResults.map((c, i) => (
+                          <div key={i} className="flex text-xs font-mono py-1.5 px-3 rounded hover:bg-muted/30 transition-colors" data-testid={`concordance-row-${i}`}>
+                            <span className="text-right flex-1 text-muted-foreground truncate">{c.left}</span>
+                            <span className="mx-2 font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">{c.keyword}</span>
+                            <span className="flex-1 text-muted-foreground truncate">{c.right}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="ai" className="mt-4 space-y-4">
+                  <Button
+                    onClick={() => aiMutation.mutate()}
+                    disabled={aiMutation.isPending}
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                    data-testid="button-ai-summarize"
+                  >
+                    {aiMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
+                    Generate AI Summary
+                  </Button>
+                  {aiMutation.isPending && <Skeleton className="h-32 w-full" />}
+                  {aiResult && <MarkdownRender content={aiResult} downloadFilename="scraper_ai_summary" />}
+                </TabsContent>
+
+                <TabsContent value="terms" className="mt-4 space-y-4">
+                  <Button
+                    onClick={() => termsMutation.mutate()}
+                    disabled={termsMutation.isPending}
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                    data-testid="button-extract-terms"
+                  >
+                    {termsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookText className="w-4 h-4 mr-2" />}
+                    Extract Terminology
+                  </Button>
+                  {termsMutation.isPending && <Skeleton className="h-32 w-full" />}
+                  {termsResult && <MarkdownRender content={termsResult} downloadFilename="scraper_terminology" />}
+                </TabsContent>
+
+                <TabsContent value="insights" className="mt-4">
+                  <AIAnalysisPanel
+                    corpusId={scraperCorpusId}
+                    theme={{
+                      gradient: "from-amber-500 to-orange-600",
+                      accent: "text-amber-500",
+                      text: "text-amber-600 dark:text-amber-400"
+                    }}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
         </motion.div>
       )}
-
     </div>
   );
 }
