@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { Brain, Loader2, FlaskConical, BarChart3, Layers, AlertCircle } from "lucide-react";
+import { Brain, Loader2, FlaskConical, BarChart3, Layers, Upload } from "lucide-react";
 import { AI_ANALYSIS_CATEGORIES, AI_ANALYSIS_PRESETS } from "@shared/schema";
 
 export default function AIInsights() {
@@ -22,6 +23,7 @@ export default function AIInsights() {
   const [topicsResult, setTopicsResult] = useState("");
   const [metricsResult, setMetricsResult] = useState("");
   const [clustersResult, setClustersResult] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const allTypes = Object.keys(AI_ANALYSIS_PRESETS);
   const filteredTypes = category === "All"
@@ -30,15 +32,19 @@ export default function AIInsights() {
 
   const needsCorpus = !corpusId;
 
-  const loadCorpusMutation = useMutation({
+  const uploadMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/sample");
+      const formData = new FormData();
+      selectedFiles.forEach((f) => formData.append("files", f));
+      const res = await fetch("/api/corpus/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Upload failed");
       return res.json();
     },
     onSuccess: (data) => {
       setCorpusId(data.corpusId);
-      toast({ title: "Sample corpus loaded", description: `${data.stats.words.toLocaleString()} words` });
+      toast({ title: "Corpus loaded", description: `${data.stats.words.toLocaleString()} words ready for analysis` });
     },
+    onError: () => toast({ title: "Upload failed", variant: "destructive" }),
   });
 
   const analysisMutation = useMutation({
@@ -109,46 +115,47 @@ export default function AIInsights() {
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
         >
           <div className="h-1 bg-gradient-to-r from-purple-500 via-violet-400 to-fuchsia-500" />
-          <div className="p-8 md:p-10 text-center">
+          <div className="p-6 md:p-7">
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}
+              className="flex items-center gap-3 mb-1"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.25, duration: 0.4 }}
             >
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mx-auto mb-5 shadow-lg" style={{ boxShadow: "0 8px 20px -4px rgba(168,85,247,0.3)" }}>
-                <Brain className="w-8 h-8 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(168,85,247,0.3)" }}>
+                <Upload className="w-5 h-5 text-white" />
               </div>
+              <h3 className="text-lg font-bold tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }}>Add Your Corpus</h3>
             </motion.div>
-            <motion.h3
-              className="text-xl font-bold tracking-tight text-purple-600 dark:text-purple-400 mb-2"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-            >
-              Ready to Analyze
-            </motion.h3>
             <motion.p
-              className="text-sm text-muted-foreground/70 mb-6 max-w-sm mx-auto"
+              className="text-xs text-muted-foreground/70 mb-5 ml-[52px]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
+              transition={{ delay: 0.3 }}
             >
-              Upload a corpus in the Monolingual Track first, then return here for 31 specialized AI analyses.
+              Upload files to run 31 specialized AI analyses on your corpus.
             </motion.p>
             <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.4 }}
+            >
+              <FileUpload onFilesSelected={setSelectedFiles} />
+            </motion.div>
+            <motion.div
+              className="mt-5"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 }}
+              transition={{ delay: 0.45, duration: 0.4 }}
             >
               <Button
-                onClick={() => loadCorpusMutation.mutate()}
-                disabled={loadCorpusMutation.isPending}
+                onClick={() => uploadMutation.mutate()}
+                disabled={selectedFiles.length === 0 || uploadMutation.isPending}
                 className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-                data-testid="button-load-sample"
+                data-testid="button-upload-ai"
               >
-                {loadCorpusMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Load Sample Corpus
+                {uploadMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Upload & Analyze
               </Button>
             </motion.div>
           </div>
