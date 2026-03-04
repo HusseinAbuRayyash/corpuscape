@@ -102,22 +102,55 @@ export default function AIInsights() {
             <h1 className="text-3xl font-bold italic tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">AI Insights Lab</h1>
           </div>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <div className="empty-state">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 flex items-center justify-center mb-4">
-              <AlertCircle className="w-8 h-8 text-purple-500/40" />
-            </div>
-            <p className="text-sm text-muted-foreground mb-5">
-              Upload a corpus in the Monolingual Track first, or load the sample corpus below.
-            </p>
-            <Button
-              onClick={() => loadCorpusMutation.mutate()}
-              disabled={loadCorpusMutation.isPending}
-              data-testid="button-load-sample"
+        <motion.div
+          className="polished-card overflow-hidden"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+        >
+          <div className="h-1 bg-gradient-to-r from-purple-500 via-violet-400 to-fuchsia-500" />
+          <div className="p-8 md:p-10 text-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}
             >
-              {loadCorpusMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Load Sample Corpus
-            </Button>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center mx-auto mb-5 shadow-lg" style={{ boxShadow: "0 8px 20px -4px rgba(168,85,247,0.3)" }}>
+                <Brain className="w-8 h-8 text-white" />
+              </div>
+            </motion.div>
+            <motion.h3
+              className="text-xl font-bold tracking-tight text-purple-600 dark:text-purple-400 mb-2"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+            >
+              Ready to Analyze
+            </motion.h3>
+            <motion.p
+              className="text-sm text-muted-foreground/70 mb-6 max-w-sm mx-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              Upload a corpus in the Monolingual Track first, then return here for 31 specialized AI analyses.
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+            >
+              <Button
+                onClick={() => loadCorpusMutation.mutate()}
+                disabled={loadCorpusMutation.isPending}
+                className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                data-testid="button-load-sample"
+              >
+                {loadCorpusMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Load Sample Corpus
+              </Button>
+            </motion.div>
           </div>
         </motion.div>
       </div>

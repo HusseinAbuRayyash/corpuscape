@@ -121,28 +121,44 @@ export default function Scraper() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        className="polished-card overflow-hidden"
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
       >
-        <div className="polished-card p-6">
-          <div className="section-header">
-            <Globe className="w-4 h-4 text-amber-500" />
-            <h3>Add URLs to scrape</h3>
-          </div>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="https://example.com/article..."
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }}
-              className="flex-1"
-              data-testid="input-url"
-            />
-            <Button onClick={addUrl} size="sm" variant="secondary" data-testid="button-add-url">
-              <Plus className="w-4 h-4 mr-1" />Add
-            </Button>
-          </div>
+        <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500" />
+        <div className="p-6 md:p-7">
+          <motion.div
+            className="flex items-center gap-3 mb-5"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15, duration: 0.4 }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(245,158,11,0.3)" }}>
+              <Globe className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400" style={{ fontFamily: "'Playfair Display', serif" }}>Add URLs to Scrape</h3>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.4 }}
+          >
+            <div className="flex gap-2 mb-4">
+              <Input
+                placeholder="https://example.com/article..."
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }}
+                className="flex-1 border-amber-200 dark:border-amber-800/30 focus-visible:ring-amber-400/40"
+                data-testid="input-url"
+              />
+              <Button onClick={addUrl} size="sm" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-sm" data-testid="button-add-url">
+                <Plus className="w-4 h-4 mr-1" />Add
+              </Button>
+            </div>
+          </motion.div>
 
           <AnimatePresence>
             {urls.length > 0 && (
@@ -155,13 +171,13 @@ export default function Scraper() {
                 {urls.map((url, i) => (
                   <motion.div
                     key={url}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-muted/50 to-muted/30 text-sm group border border-border/40"
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-amber-50/60 to-orange-50/40 dark:from-amber-950/20 dark:to-orange-950/10 text-sm group border border-amber-200/50 dark:border-amber-800/20"
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -8 }}
                     data-testid={`url-item-${i}`}
                   >
-                    <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    <Globe className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
                     <span className="flex-1 truncate font-mono text-xs">{url}</span>
                     <Button
                       size="icon"
@@ -178,19 +194,25 @@ export default function Scraper() {
             )}
           </AnimatePresence>
 
-          <Button
-            onClick={() => scrapeMutation.mutate()}
-            disabled={urls.length === 0 || scrapeMutation.isPending}
-            className="w-full sm:w-auto"
-            data-testid="button-scrape"
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, duration: 0.4 }}
           >
-            {scrapeMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Newspaper className="w-4 h-4 mr-2" />
-            )}
-            {scrapeMutation.isPending ? "Scraping..." : `Scrape ${urls.length} URL${urls.length !== 1 ? "s" : ""}`}
-          </Button>
+            <Button
+              onClick={() => scrapeMutation.mutate()}
+              disabled={urls.length === 0 || scrapeMutation.isPending}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+              data-testid="button-scrape"
+            >
+              {scrapeMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Newspaper className="w-4 h-4 mr-2" />
+              )}
+              {scrapeMutation.isPending ? "Scraping..." : `Scrape ${urls.length} URL${urls.length !== 1 ? "s" : ""}`}
+            </Button>
+          </motion.div>
         </div>
       </motion.div>
 

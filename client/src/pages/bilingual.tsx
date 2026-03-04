@@ -86,45 +86,66 @@ export default function Bilingual() {
       </motion.div>
 
       <motion.div
-        className="grid md:grid-cols-2 gap-4"
-        initial={{ opacity: 0, y: 12 }}
+        className="polished-card overflow-hidden"
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
       >
-        <div className="polished-card p-5">
-          <div className="section-header">
-            <Globe className="w-4 h-4 text-teal-500" />
-            <h3>Source Files</h3>
-          </div>
-          <FileUpload
-            onFilesSelected={setSrcFiles}
-            label="Upload source files"
-            description="Original language texts"
-          />
-        </div>
-        <div className="polished-card p-5">
-          <div className="section-header">
-            <Globe className="w-4 h-4 text-indigo-500" />
-            <h3>Target Files</h3>
-          </div>
-          <FileUpload
-            onFilesSelected={setTgtFiles}
-            label="Upload target files"
-            description="Translated texts"
-          />
-        </div>
-      </motion.div>
+        <div className="h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-500" />
+        <div className="p-6 md:p-7">
+          <motion.div
+            className="flex items-center gap-3 mb-5"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15, duration: 0.4 }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(20,184,166,0.3)" }}>
+              <Globe className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="text-lg font-bold tracking-tight text-teal-600 dark:text-teal-400" style={{ fontFamily: "'Playfair Display', serif" }}>Parallel Corpus</h3>
+          </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <Button
-          onClick={() => uploadMutation.mutate()}
-          disabled={srcFiles.length === 0 || tgtFiles.length === 0 || uploadMutation.isPending}
-          className="w-full md:w-auto"
-          data-testid="button-align"
-        >
-          {uploadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
-          Align & Analyze
-        </Button>
+          <motion.div
+            className="grid md:grid-cols-2 gap-5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.4 }}
+          >
+            <div className="relative rounded-xl border-2 border-dashed border-teal-200 dark:border-teal-800/40 bg-teal-50/30 dark:bg-teal-950/10 p-4">
+              <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Source</span>
+              <FileUpload
+                onFilesSelected={setSrcFiles}
+                label="Upload source files"
+                description="Original language texts"
+              />
+            </div>
+            <div className="relative rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/30 dark:bg-emerald-950/10 p-4">
+              <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Target</span>
+              <FileUpload
+                onFilesSelected={setTgtFiles}
+                label="Upload target files"
+                description="Translated texts"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="mt-5"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, duration: 0.4 }}
+          >
+            <Button
+              onClick={() => uploadMutation.mutate()}
+              disabled={srcFiles.length === 0 || tgtFiles.length === 0 || uploadMutation.isPending}
+              className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+              data-testid="button-align"
+            >
+              {uploadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
+              Align & Analyze
+            </Button>
+          </motion.div>
+        </div>
       </motion.div>
 
       {uploadMutation.isPending && (
