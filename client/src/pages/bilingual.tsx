@@ -81,7 +81,7 @@ export default function Bilingual() {
           <Globe className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-teal-600 dark:text-teal-400" data-testid="text-page-title">Bilingual Track</h1>
+          <h1 className="text-3xl font-bold italic tracking-tight text-teal-600 dark:text-teal-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Bilingual Track</h1>
         </div>
       </motion.div>
 

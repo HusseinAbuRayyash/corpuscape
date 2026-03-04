@@ -99,7 +99,7 @@ export default function AIInsights() {
             <Brain className="w-5 h-5 text-white relative z-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-purple-600 dark:text-purple-400" data-testid="text-page-title">AI Insights Lab</h1>
+            <h1 className="text-3xl font-bold italic tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">AI Insights Lab</h1>
           </div>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -136,7 +136,7 @@ export default function AIInsights() {
           <Brain className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-purple-600 dark:text-purple-400" data-testid="text-page-title">AI Insights Lab</h1>
+          <h1 className="text-3xl font-bold italic tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">AI Insights Lab</h1>
         </div>
       </motion.div>
 

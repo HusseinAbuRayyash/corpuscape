@@ -152,7 +152,7 @@ export default function Monolingual() {
           <BookOpen className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-400" data-testid="text-page-title">Monolingual Track</h1>
+          <h1 className="text-3xl font-bold italic tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Monolingual Track</h1>
         </div>
       </motion.div>
 
