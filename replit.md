@@ -1,4 +1,4 @@
-# TransCorpus AI
+# Traduxa
 
 AI-powered corpus linguistics lab for translation studies, rebuilt from Python/Streamlit to React/Express/TypeScript.
 
@@ -53,15 +53,19 @@ shared/schema.ts        - Shared types and analysis category definitions
 
 ## Design System
 
+- **Name:** Traduxa (one-word brand name evoking translation)
 - Gradient mesh background (teal/indigo/purple radials)
-- Dark sidebar (slate-900)
-- Glass-morphism cards
-- CSS + Framer Motion animations (fade-in, slide-up, stagger)
+- Dark sidebar (slate-900) with text-gradient brand name
+- Custom CSS classes: `.metric-card`, `.polished-card`, `.polished-table`, `.section-header`, `.empty-state`, `.page-header-icon`, `.upload-zone`
+- Metric cards with gradient top-bar on hover, lift effect
+- Polished cards with subtle border glow on hover
+- Tables with gradient header backgrounds and uppercase headers
+- CSS + Framer Motion animations (fade-in, slide-up, stagger, scale)
 - Custom SVG logo with gradient
 - Text gradient for brand name
-- Real shadows (not flat)
+- Real layered shadows
 - Inter font family
-- Consistent page headers with colored icon badges per track
+- Consistent page headers with gradient icon badges per track
 
 ## Environment
 

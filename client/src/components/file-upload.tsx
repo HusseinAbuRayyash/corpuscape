@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { Upload, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
@@ -45,11 +44,7 @@ export function FileUpload({
   return (
     <div className="space-y-3">
       <div
-        className={`relative border-2 border-dashed rounded-md p-8 text-center transition-colors cursor-pointer ${
-          isDragging
-            ? "border-primary bg-primary/5"
-            : "border-border hover:border-primary/50"
-        }`}
+        className={`upload-zone ${isDragging ? "dragging" : ""}`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
@@ -65,9 +60,11 @@ export function FileUpload({
           onChange={(e) => handleFiles(e.target.files)}
           data-testid="input-file"
         />
-        <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-3">
+          <Upload className="w-5 h-5 text-primary/60" />
+        </div>
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">{description}</p>
       </div>
 
       {files.length > 0 && (
@@ -75,18 +72,18 @@ export function FileUpload({
           {files.map((file, i) => (
             <div
               key={`${file.name}-${i}`}
-              className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 text-sm"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-muted/50 to-muted/30 text-sm border border-border/30 group"
               data-testid={`file-item-${i}`}
             >
-              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <span className="flex-1 truncate">{file.name}</span>
-              <span className="text-xs text-muted-foreground">
+              <FileText className="w-4 h-4 text-primary/50 flex-shrink-0" />
+              <span className="flex-1 truncate font-medium text-sm">{file.name}</span>
+              <span className="text-xs text-muted-foreground/60 font-mono">
                 {(file.size / 1024).toFixed(0)}KB
               </span>
               <Button
                 size="icon"
                 variant="ghost"
-                className="w-6 h-6"
+                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => { e.stopPropagation(); removeFile(i); }}
                 data-testid={`button-remove-file-${i}`}
               >
