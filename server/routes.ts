@@ -239,7 +239,7 @@ export async function registerRoutes(
     const pairs = pairsStr ? JSON.parse(pairsStr) : undefined;
     const report = generateResearchReport(stats, keywords, pairs, aiSummary, aiAnalyses);
     res.setHeader("Content-Type", "text/markdown");
-    res.setHeader("Content-Disposition", "attachment; filename=transcorpus_report.md");
+    res.setHeader("Content-Disposition", "attachment; filename=traduxa_report.md");
     res.send(report);
   });
 

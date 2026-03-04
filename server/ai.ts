@@ -384,7 +384,7 @@ export function generateResearchReport(
   aiAnalyses?: Array<{ name: string; content: string }>
 ): string {
   const lines: string[] = [
-    "# TransCorpus AI - Research Report",
+    "# Traduxa - Research Report",
     "",
     `*Generated: ${new Date().toISOString().split("T")[0]}*`,
     "",
@@ -392,10 +392,10 @@ export function generateResearchReport(
     "",
     "## 1. Methodology",
     "",
-    "This report was produced using TransCorpus AI, an AI-powered corpus analysis tool for translation studies.",
+    "This report was produced using Traduxa, a corpus linguistics lab for translation studies.",
     "Analyses include: corpus statistics, keyword extraction, n-gram analysis, concordancing, and AI-powered insights.",
     "",
-    "**Tool citation:** TransCorpus AI. (2026). ATISA Pre-Workshop. Hussein Abu-Rayyash.",
+    "**Tool citation:** Traduxa. (2026). ATISA Pre-Workshop. Hussein Abu-Rayyash.",
     "",
     "---",
     "",
@@ -438,7 +438,7 @@ export function generateResearchReport(
     }
   }
 
-  lines.push("## References", "", "TransCorpus AI. (2026). AI-Powered Corpus Lab for Translation Studies. ATISA Pre-Workshop.", "");
+  lines.push("## References", "", "Traduxa. (2026). Corpus Linguistics Lab for Translation Studies. ATISA Pre-Workshop.", "");
   return lines.join("\n");
 }
 
@@ -448,5 +448,5 @@ export function generateTMX(pairs: any[], srcLang: string = "en", tgtLang: strin
   for (const p of pairs) {
     body += `    <tu>\n      <tuv xml:lang="${srcLang}"><seg>${esc(p.source || "")}</seg></tuv>\n      <tuv xml:lang="${tgtLang}"><seg>${esc(p.target || "")}</seg></tuv>\n    </tu>\n`;
   }
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<tmx version="1.4">\n  <header creationtool="TransCorpus AI" creationtoolversion="1.0" datatype="plaintext" segtype="sentence" adminlang="en" srclang="${srcLang}" o-tmf="unknown">\n    <note>Exported from TransCorpus AI</note>\n  </header>\n  <body>\n${body}  </body>\n</tmx>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<tmx version="1.4">\n  <header creationtool="Traduxa" creationtoolversion="1.0" datatype="plaintext" segtype="sentence" adminlang="en" srclang="${srcLang}" o-tmf="unknown">\n    <note>Exported from Traduxa</note>\n  </header>\n  <body>\n${body}  </body>\n</tmx>`;
 }

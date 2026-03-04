@@ -35,15 +35,15 @@ export function AppSidebar() {
             <div className="flex items-center gap-3 cursor-pointer group" data-testid="link-home-logo">
               <LogoMark size={32} className="transition-transform duration-300 group-hover:scale-110" />
               <div>
-                <h1 className="text-sm font-bold tracking-tight">TransCorpus AI</h1>
-                <p className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5">Corpus Linguistics Lab</p>
+                <h1 className="text-sm font-extrabold tracking-tighter text-gradient">Traduxa</h1>
+                <p className="text-[10px] text-sidebar-foreground/40 leading-none mt-0.5 font-medium">Corpus Linguistics Lab</p>
               </div>
             </div>
           </Link>
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/30 font-semibold">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -68,7 +68,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <div className="px-2 pb-3 space-y-2">
           <div className="px-2 py-1.5">
-            <p className="text-[9px] uppercase tracking-widest text-sidebar-foreground/30 font-medium">ATISA 2026</p>
+            <p className="text-[9px] uppercase tracking-widest text-sidebar-foreground/25 font-medium">ATISA 2026</p>
           </div>
           <Button
             size="sm"

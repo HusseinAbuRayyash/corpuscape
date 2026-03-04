@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -94,30 +93,34 @@ export default function AIInsights() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex items-center gap-3 mb-2"
+          className="flex items-center gap-3.5 mb-2"
         >
-          <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center shadow-lg">
-            <Brain className="w-5 h-5 text-white" />
+          <div className="page-header-icon bg-gradient-to-br from-purple-500 to-violet-600">
+            <Brain className="w-5 h-5 text-white relative z-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
-            <p className="text-sm text-muted-foreground">31 specialized analysis types for translation studies</p>
+            <h1 className="text-2xl font-extrabold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
+            <p className="text-sm text-muted-foreground/70">31 specialized analysis types for translation studies</p>
           </div>
         </motion.div>
-        <Card className="p-8 text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground mb-4">
-            Upload a corpus in the Monolingual Track first, or load the sample corpus below.
-          </p>
-          <Button
-            onClick={() => loadCorpusMutation.mutate()}
-            disabled={loadCorpusMutation.isPending}
-            data-testid="button-load-sample"
-          >
-            {loadCorpusMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Load Sample Corpus
-          </Button>
-        </Card>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <div className="empty-state">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-purple-500/40" />
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              Upload a corpus in the Monolingual Track first, or load the sample corpus below.
+            </p>
+            <Button
+              onClick={() => loadCorpusMutation.mutate()}
+              disabled={loadCorpusMutation.isPending}
+              data-testid="button-load-sample"
+            >
+              {loadCorpusMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Load Sample Corpus
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -128,18 +131,18 @@ export default function AIInsights() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center gap-3 mb-2"
+        className="flex items-center gap-3.5 mb-2"
       >
-        <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center shadow-lg">
-          <Brain className="w-5 h-5 text-white" />
+        <div className="page-header-icon bg-gradient-to-br from-purple-500 to-violet-600">
+          <Brain className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
-          <p className="text-sm text-muted-foreground">31 specialized analysis types - industry, criticism, visibility, gender, and more</p>
+          <h1 className="text-2xl font-extrabold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
+          <p className="text-sm text-muted-foreground/70">31 specialized analysis types — industry, criticism, visibility, gender, and more</p>
         </div>
       </motion.div>
 
-      <Tabs defaultValue="analysis" className="space-y-4">
+      <Tabs defaultValue="analysis" className="space-y-5">
         <TabsList data-testid="tabs-ai-insights">
           <TabsTrigger value="analysis" data-testid="tab-analysis"><FlaskConical className="w-3.5 h-3.5 mr-1.5" />Specialized Analysis</TabsTrigger>
           <TabsTrigger value="topics" data-testid="tab-topics"><Layers className="w-3.5 h-3.5 mr-1.5" />Domain Classification</TabsTrigger>
@@ -147,13 +150,16 @@ export default function AIInsights() {
           <TabsTrigger value="clusters" data-testid="tab-clusters"><Brain className="w-3.5 h-3.5 mr-1.5" />Term Clusters</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="analysis" className="space-y-4">
-          <Card className="p-5">
-            <h3 className="font-semibold text-sm mb-4">Specialized Analysis for Translation Studies</h3>
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-3">
+        <TabsContent value="analysis" className="space-y-5">
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <FlaskConical className="w-4 h-4 text-purple-500" />
+              <h3>Specialized Analysis for Translation Studies</h3>
+            </div>
+            <div className="grid md:grid-cols-2 gap-5 mb-5">
+              <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+                  <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Category</label>
                   <Select value={category} onValueChange={(v) => { setCategory(v); setAnalysisType(v === "All" ? allTypes[0] : (AI_ANALYSIS_CATEGORIES.find(c => c.name === v)?.types[0] || allTypes[0])); }}>
                     <SelectTrigger data-testid="select-category">
                       <SelectValue />
@@ -167,7 +173,7 @@ export default function AIInsights() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Analysis Type</label>
+                  <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Analysis Type</label>
                   <Select value={analysisType} onValueChange={setAnalysisType}>
                     <SelectTrigger data-testid="select-analysis-type">
                       <SelectValue />
@@ -180,11 +186,11 @@ export default function AIInsights() {
                   </Select>
                 </div>
                 {AI_ANALYSIS_PRESETS[analysisType] && (
-                  <p className="text-xs text-muted-foreground italic">{AI_ANALYSIS_PRESETS[analysisType].description}</p>
+                  <p className="text-xs text-muted-foreground/70 italic leading-relaxed">{AI_ANALYSIS_PRESETS[analysisType].description}</p>
                 )}
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">
+                <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">
                   {analysisType === "Custom" ? "Custom Instructions (required)" : "Additional Instructions (optional)"}
                 </label>
                 <Textarea
@@ -204,26 +210,37 @@ export default function AIInsights() {
               {analysisMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
               Run Analysis
             </Button>
-          </Card>
+          </motion.div>
 
           {analysisMutation.isPending && (
-            <Card className="p-5">
+            <div className="polished-card p-6">
               <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>
-            </Card>
+            </div>
           )}
           {analysisResult && (
-            <Card className="p-5" data-testid="card-analysis-result">
-              <h3 className="font-semibold text-sm mb-3">{analysisType} - Results</h3>
-              <div className="p-4 bg-muted/30 rounded-md">
+            <motion.div
+              className="polished-card p-6"
+              data-testid="card-analysis-result"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="section-header">
+                <Brain className="w-4 h-4 text-purple-500" />
+                <h3>{analysisType} — Results</h3>
+              </div>
+              <div className="p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent">
                 <MarkdownRender content={analysisResult} />
               </div>
-            </Card>
+            </motion.div>
           )}
         </TabsContent>
 
         <TabsContent value="topics" className="space-y-4">
-          <Card className="p-5">
-            <h3 className="font-semibold text-sm mb-3">AI Domain Classification</h3>
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <Layers className="w-4 h-4 text-primary" />
+              <h3>AI Domain Classification</h3>
+            </div>
             <Button
               onClick={() => topicsMutation.mutate()}
               disabled={topicsMutation.isPending}
@@ -234,16 +251,24 @@ export default function AIInsights() {
             </Button>
             {topicsMutation.isPending && <div className="mt-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
             {topicsResult && (
-              <div className="mt-4 p-4 bg-muted/30 rounded-md" data-testid="text-topics-result">
+              <motion.div
+                className="mt-5 p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent"
+                data-testid="text-topics-result"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
                 <MarkdownRender content={topicsResult} />
-              </div>
+              </motion.div>
             )}
-          </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="metrics" className="space-y-4">
-          <Card className="p-5">
-            <h3 className="font-semibold text-sm mb-3">AI Comparative Metrics</h3>
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <h3>AI Comparative Metrics</h3>
+            </div>
             <Button
               onClick={() => metricsMutation.mutate()}
               disabled={metricsMutation.isPending}
@@ -254,16 +279,24 @@ export default function AIInsights() {
             </Button>
             {metricsMutation.isPending && <div className="mt-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
             {metricsResult && (
-              <div className="mt-4 p-4 bg-muted/30 rounded-md" data-testid="text-metrics-result">
+              <motion.div
+                className="mt-5 p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent"
+                data-testid="text-metrics-result"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
                 <MarkdownRender content={metricsResult} />
-              </div>
+              </motion.div>
             )}
-          </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="clusters" className="space-y-4">
-          <Card className="p-5">
-            <h3 className="font-semibold text-sm mb-3">AI Term Clusters</h3>
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <Brain className="w-4 h-4 text-purple-500" />
+              <h3>AI Term Clusters</h3>
+            </div>
             <Button
               onClick={() => clustersMutation.mutate()}
               disabled={clustersMutation.isPending}
@@ -274,11 +307,16 @@ export default function AIInsights() {
             </Button>
             {clustersMutation.isPending && <div className="mt-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
             {clustersResult && (
-              <div className="mt-4 p-4 bg-muted/30 rounded-md" data-testid="text-clusters-result">
+              <motion.div
+                className="mt-5 p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent"
+                data-testid="text-clusters-result"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
                 <MarkdownRender content={clustersResult} />
-              </div>
+              </motion.div>
             )}
-          </Card>
+          </motion.div>
         </TabsContent>
       </Tabs>
     </div>

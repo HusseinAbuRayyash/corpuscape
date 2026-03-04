@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,7 +8,7 @@ import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { Loader2, Download, Globe, FileText } from "lucide-react";
+import { Loader2, Download, Globe, FileText, Brain, BarChart3 } from "lucide-react";
 import type { AlignedPair } from "@shared/schema";
 
 export default function Bilingual() {
@@ -58,11 +57,16 @@ export default function Bilingual() {
     onSuccess: (data) => setStrategiesResult(data.result),
   });
 
-  const MetricCard = ({ label, value }: { label: string; value: string | number }) => (
-    <Card className="p-4 text-center">
-      <p className="text-2xl font-bold tabular-nums">{typeof value === "number" ? value.toLocaleString() : value}</p>
-      <p className="text-xs text-muted-foreground mt-1">{label}</p>
-    </Card>
+  const MetricCard = ({ label, value, index = 0 }: { label: string; value: string | number; index?: number }) => (
+    <motion.div
+      className="metric-card p-4 text-center"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <p className="text-2xl font-extrabold tabular-nums tracking-tight text-gradient">{typeof value === "number" ? value.toLocaleString() : value}</p>
+      <p className="text-[11px] text-muted-foreground mt-1.5 font-medium uppercase tracking-wider">{label}</p>
+    </motion.div>
   );
 
   return (
@@ -71,94 +75,104 @@ export default function Bilingual() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center gap-3 mb-2"
+        className="flex items-center gap-3.5 mb-2"
       >
-        <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center shadow-lg">
-          <Globe className="w-5 h-5 text-white" />
+        <div className="page-header-icon bg-gradient-to-br from-teal-500 to-emerald-600">
+          <Globe className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Bilingual Track</h1>
-          <p className="text-sm text-muted-foreground">Parallel corpus alignment, translation strategies, universals, TMX export</p>
+          <h1 className="text-2xl font-extrabold tracking-tight" data-testid="text-page-title">Bilingual Track</h1>
+          <p className="text-sm text-muted-foreground/70">Parallel corpus alignment, translation strategies, universals, TMX export</p>
         </div>
       </motion.div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+      <motion.div
+        className="grid md:grid-cols-2 gap-4"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+      >
+        <div className="polished-card p-5">
+          <div className="section-header">
             <Globe className="w-4 h-4 text-teal-500" />
-            Source Files
-          </h3>
+            <h3>Source Files</h3>
+          </div>
           <FileUpload
             onFilesSelected={setSrcFiles}
             label="Upload source files"
             description="Original language texts"
           />
-        </Card>
-        <Card className="p-5">
-          <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+        </div>
+        <div className="polished-card p-5">
+          <div className="section-header">
             <Globe className="w-4 h-4 text-indigo-500" />
-            Target Files
-          </h3>
+            <h3>Target Files</h3>
+          </div>
           <FileUpload
             onFilesSelected={setTgtFiles}
             label="Upload target files"
             description="Translated texts"
           />
-        </Card>
-      </div>
+        </div>
+      </motion.div>
 
-      <Button
-        onClick={() => uploadMutation.mutate()}
-        disabled={srcFiles.length === 0 || tgtFiles.length === 0 || uploadMutation.isPending}
-        className="w-full md:w-auto"
-        data-testid="button-align"
-      >
-        {uploadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
-        Align & Analyze
-      </Button>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <Button
+          onClick={() => uploadMutation.mutate()}
+          disabled={srcFiles.length === 0 || tgtFiles.length === 0 || uploadMutation.isPending}
+          className="w-full md:w-auto"
+          data-testid="button-align"
+        >
+          {uploadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
+          Align & Analyze
+        </Button>
+      </motion.div>
 
       {uploadMutation.isPending && (
-        <Card className="p-5">
+        <div className="polished-card p-6">
           <div className="space-y-3">
             <Skeleton className="h-4 w-48" />
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
           </div>
-        </Card>
+        </div>
       )}
 
       {metrics && (
-        <>
+        <motion.div className="space-y-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard label="Aligned Pairs" value={metrics.alignedPairs} />
-            <MetricCard label="Avg Similarity" value={metrics.avgSimilarity?.toFixed(3) || "0"} />
-            <MetricCard label="Strategies Labeled" value={metrics.strategiesLabeled} />
-            <MetricCard label="Length Ratio (T/S)" value={metrics.lengthRatio?.toFixed(2) || "0"} />
+            <MetricCard label="Aligned Pairs" value={metrics.alignedPairs} index={0} />
+            <MetricCard label="Avg Similarity" value={metrics.avgSimilarity?.toFixed(3) || "0"} index={1} />
+            <MetricCard label="Strategies Labeled" value={metrics.strategiesLabeled} index={2} />
+            <MetricCard label="Length Ratio (T/S)" value={metrics.lengthRatio?.toFixed(2) || "0"} index={3} />
           </div>
 
-          <Card className="p-5">
-            <h3 className="font-semibold text-sm mb-4">Aligned Pairs</h3>
-            <div className="max-h-96 overflow-auto">
-              <table className="w-full text-sm" data-testid="table-aligned-pairs">
-                <thead className="sticky top-0 bg-card">
-                  <tr className="border-b text-left">
-                    <th className="py-2 px-3 font-medium text-muted-foreground">#</th>
-                    <th className="py-2 px-3 font-medium text-muted-foreground">Source</th>
-                    <th className="py-2 px-3 font-medium text-muted-foreground">Target</th>
-                    <th className="py-2 px-3 font-medium text-muted-foreground text-right">Sim</th>
-                    <th className="py-2 px-3 font-medium text-muted-foreground">Strategy</th>
+          <div className="polished-card p-6">
+            <div className="section-header">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <h3>Aligned Pairs</h3>
+            </div>
+            <div className="max-h-96 overflow-auto rounded-lg border">
+              <table className="w-full text-sm polished-table" data-testid="table-aligned-pairs">
+                <thead className="sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-3 text-left">#</th>
+                    <th className="py-2.5 px-3 text-left">Source</th>
+                    <th className="py-2.5 px-3 text-left">Target</th>
+                    <th className="py-2.5 px-3 text-right">Sim</th>
+                    <th className="py-2.5 px-3 text-left">Strategy</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pairs.map((p, i) => (
-                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                    <tr key={i} className="border-b border-border/30">
                       <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
                       <td className="py-2 px-3 text-xs max-w-[200px] truncate">{p.source}</td>
                       <td className="py-2 px-3 text-xs max-w-[200px] truncate">{p.target}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-xs">{(p.similarity || 0).toFixed(3)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-xs font-medium">{(p.similarity || 0).toFixed(3)}</td>
                       <td className="py-2 px-3 text-xs">
                         {p.strategy && (
-                          <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium">
+                          <span className="inline-block px-2.5 py-1 rounded-full bg-gradient-to-r from-primary/10 to-primary/5 text-primary text-[10px] font-semibold">
                             {p.strategy}
                           </span>
                         )}
@@ -168,21 +182,24 @@ export default function Bilingual() {
                 </tbody>
               </table>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-5">
-            <h3 className="font-semibold text-sm mb-3">Export</h3>
-            <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="polished-card p-6">
+            <div className="section-header">
+              <Download className="w-4 h-4 text-primary" />
+              <h3>Export</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-5">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Source Language</label>
+                <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Source Language</label>
                 <Input value={srcLang} onChange={(e) => setSrcLang(e.target.value)} placeholder="en" data-testid="input-src-lang" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Target Language</label>
+                <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Target Language</label>
                 <Input value={tgtLang} onChange={(e) => setTgtLang(e.target.value)} placeholder="ar" data-testid="input-tgt-lang" />
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-3 flex-wrap">
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -215,11 +232,14 @@ export default function Bilingual() {
                 <FileText className="w-4 h-4 mr-2" />TMX (CAT)
               </Button>
             </div>
-          </Card>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Card className="p-5">
-              <h3 className="font-semibold text-sm mb-3">Translation Universals (AI)</h3>
+            <div className="polished-card p-5">
+              <div className="section-header">
+                <Brain className="w-4 h-4 text-purple-500" />
+                <h3>Translation Universals</h3>
+              </div>
               <Button
                 size="sm"
                 onClick={() => universalsMutation.mutate()}
@@ -231,14 +251,22 @@ export default function Bilingual() {
               </Button>
               {universalsMutation.isPending && <div className="mt-3 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
               {universalsResult && (
-                <div className="mt-3 p-3 bg-muted/30 rounded-md" data-testid="text-universals-result">
+                <motion.div
+                  className="mt-4 p-4 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent"
+                  data-testid="text-universals-result"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <MarkdownRender content={universalsResult} />
-                </div>
+                </motion.div>
               )}
-            </Card>
+            </div>
 
-            <Card className="p-5">
-              <h3 className="font-semibold text-sm mb-3">Strategy Analysis (AI)</h3>
+            <div className="polished-card p-5">
+              <div className="section-header">
+                <Brain className="w-4 h-4 text-purple-500" />
+                <h3>Strategy Analysis</h3>
+              </div>
               <Button
                 size="sm"
                 onClick={() => strategiesMutation.mutate()}
@@ -250,20 +278,33 @@ export default function Bilingual() {
               </Button>
               {strategiesMutation.isPending && <div className="mt-3 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
               {strategiesResult && (
-                <div className="mt-3 p-3 bg-muted/30 rounded-md" data-testid="text-strategies-result">
+                <motion.div
+                  className="mt-4 p-4 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent"
+                  data-testid="text-strategies-result"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <MarkdownRender content={strategiesResult} />
-                </div>
+                </motion.div>
               )}
-            </Card>
+            </div>
           </div>
-        </>
+        </motion.div>
       )}
 
       {!metrics && !uploadMutation.isPending && (
-        <Card className="p-8 text-center">
-          <Globe className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">Upload source and target files to begin bilingual analysis.</p>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className="empty-state">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/10 to-emerald-500/10 flex items-center justify-center mb-4">
+              <Globe className="w-8 h-8 text-teal-500/40" />
+            </div>
+            <p className="text-sm text-muted-foreground">Upload source and target files to begin bilingual analysis.</p>
+          </div>
+        </motion.div>
       )}
     </div>
   );

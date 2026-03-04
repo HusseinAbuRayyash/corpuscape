@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -111,13 +110,13 @@ export default function Scraper() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg">
-            <Newspaper className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-3.5 mb-1">
+          <div className="page-header-icon bg-gradient-to-br from-amber-500 to-orange-600">
+            <Newspaper className="w-5 h-5 text-white relative z-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Web Scraper</h1>
-            <p className="text-sm text-muted-foreground">Scrape articles from the web, clean and edit them, then analyze as a corpus</p>
+            <h1 className="text-2xl font-extrabold tracking-tight" data-testid="text-page-title">Web Scraper</h1>
+            <p className="text-sm text-muted-foreground/70">Scrape articles from the web, clean and edit them, then analyze as a corpus</p>
           </div>
         </div>
       </motion.div>
@@ -127,8 +126,11 @@ export default function Scraper() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
       >
-        <Card className="p-6">
-          <h3 className="font-bold text-sm mb-4">Add URLs to scrape</h3>
+        <div className="polished-card p-6">
+          <div className="section-header">
+            <Globe className="w-4 h-4 text-amber-500" />
+            <h3>Add URLs to scrape</h3>
+          </div>
           <div className="flex gap-2 mb-4">
             <Input
               placeholder="https://example.com/article..."
@@ -154,7 +156,7 @@ export default function Scraper() {
                 {urls.map((url, i) => (
                   <motion.div
                     key={url}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 text-sm group"
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-muted/50 to-muted/30 text-sm group border border-border/40"
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -8 }}
@@ -190,11 +192,11 @@ export default function Scraper() {
             )}
             {scrapeMutation.isPending ? "Scraping..." : `Scrape ${urls.length} URL${urls.length !== 1 ? "s" : ""}`}
           </Button>
-        </Card>
+        </div>
       </motion.div>
 
       {scrapeMutation.isPending && (
-        <Card className="p-6">
+        <div className="polished-card p-6 loading-shine">
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="space-y-2">
@@ -204,7 +206,7 @@ export default function Scraper() {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {articles.length > 0 && (
@@ -216,10 +218,9 @@ export default function Scraper() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-4">
               <h3 className="font-bold text-sm">Scraped Articles</h3>
-              <div className="flex gap-3 text-xs text-muted-foreground">
-                <span>{validCount} valid</span>
-                <span>·</span>
-                <span>{totalWords.toLocaleString()} words total</span>
+              <div className="flex gap-2 text-xs">
+                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{validCount} valid</span>
+                <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{totalWords.toLocaleString()} words</span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -254,15 +255,15 @@ export default function Scraper() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <Card
-                className={`overflow-hidden transition-all duration-200 ${article.wordCount === 0 ? "border-destructive/30 bg-destructive/5" : ""}`}
+              <div
+                className={`polished-card overflow-hidden ${article.wordCount === 0 ? "border-destructive/30 bg-destructive/5" : ""}`}
                 data-testid={`card-article-${i}`}
               >
                 <div
-                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/20 transition-colors"
                   onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${article.wordCount > 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${article.wordCount > 0 ? "bg-gradient-to-br from-primary/15 to-primary/5 text-primary" : "bg-destructive/10 text-destructive"}`}>
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -270,7 +271,7 @@ export default function Scraper() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                       <span className="truncate max-w-[200px] font-mono">{article.url}</span>
                       <span>·</span>
-                      <span>{article.wordCount.toLocaleString()} words</span>
+                      <span className="font-medium">{article.wordCount.toLocaleString()} words</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -318,7 +319,7 @@ export default function Scraper() {
                     >
                       <div className="px-4 pb-4 border-t">
                         {editingIndex === i ? (
-                          <div className="mt-3 space-y-2">
+                          <div className="mt-3 space-y-3">
                             <Textarea
                               value={editContent}
                               onChange={(e) => setEditContent(e.target.value)}
@@ -333,7 +334,7 @@ export default function Scraper() {
                             </div>
                           </div>
                         ) : (
-                          <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-auto font-mono text-xs" data-testid={`text-article-content-${i}`}>
+                          <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-auto font-mono text-xs p-3 rounded-lg bg-muted/20" data-testid={`text-article-content-${i}`}>
                             {article.content.slice(0, 3000)}
                             {article.content.length > 3000 && (
                               <span className="text-primary font-sans text-xs ml-1">... ({article.content.length - 3000} more characters)</span>
@@ -344,7 +345,7 @@ export default function Scraper() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </Card>
+              </div>
             </motion.div>
           ))}
         </motion.div>
@@ -352,20 +353,20 @@ export default function Scraper() {
 
       {articles.length === 0 && !scrapeMutation.isPending && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="p-12 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
-              <Newspaper className="w-8 h-8 text-amber-500/50" />
+          <div className="empty-state">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center mb-4">
+              <Newspaper className="w-8 h-8 text-amber-500/40" />
             </div>
-            <h3 className="font-semibold text-sm mb-1">No articles scraped yet</h3>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            <h3 className="font-semibold text-sm mb-1.5">No articles scraped yet</h3>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
               Add one or more URLs above and click "Scrape" to extract text content from web pages.
               You can then edit, clean, and send the scraped data to the analysis pipeline.
             </p>
-          </Card>
+          </div>
         </motion.div>
       )}
     </div>

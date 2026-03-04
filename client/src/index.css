@@ -275,6 +275,151 @@
   @apply py-1.5 px-3 border-b border-border/50;
 }
 
+.metric-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0d9488, #6366f1, #a855f7);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.metric-card:hover::before {
+  opacity: 1;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(20, 184, 166, 0.12), 0 4px 8px -4px rgba(0,0,0,0.06);
+}
+.dark .metric-card:hover {
+  box-shadow: 0 8px 24px -4px rgba(20, 184, 166, 0.08), 0 4px 8px -4px rgba(0,0,0,0.3);
+}
+
+.polished-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.polished-card:hover {
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.04);
+  border-color: hsl(var(--primary) / 0.3);
+}
+.dark .polished-card:hover {
+  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 2px 6px -2px rgba(0,0,0,0.2);
+  border-color: hsl(var(--primary) / 0.25);
+}
+
+.polished-table thead {
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.6), hsl(var(--muted) / 0.3));
+}
+.polished-table thead th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+}
+.polished-table tbody tr {
+  transition: background 0.15s;
+}
+.polished-table tbody tr:hover {
+  background: hsl(var(--primary) / 0.04);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+}
+.section-header h3 {
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: -0.02em;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.3), transparent);
+  border-radius: var(--radius);
+  border: 1px dashed hsl(var(--border));
+}
+
+.page-header-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px -2px rgba(0,0,0,0.15);
+  position: relative;
+  overflow: hidden;
+}
+.page-header-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  border-radius: inherit;
+}
+
+.upload-zone {
+  border: 2px dashed hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  transition: all 0.3s;
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.2), transparent);
+  cursor: pointer;
+}
+.upload-zone:hover {
+  border-color: hsl(var(--primary) / 0.5);
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.05), transparent);
+}
+.upload-zone.dragging {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.06);
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.08);
+}
+
+@keyframes shine {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.loading-shine {
+  position: relative;
+  overflow: hidden;
+}
+.loading-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  animation: shine 1.5s ease-in-out infinite;
+}
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
