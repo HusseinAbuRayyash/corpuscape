@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { GoogleGenAI } from "@google/genai";
 
 export interface ScrapedArticle {
   url: string;
@@ -22,6 +23,66 @@ function isAllowedUrl(urlStr: string): boolean {
   }
 }
 
+function extractFromNextData(html: string): { title: string; content: string } | null {
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) return null;
+
+  try {
+    const data = JSON.parse(match[1]);
+    let title = "";
+    let content = "";
+
+    function findContent(obj: any, depth: number = 0): void {
+      if (!obj || typeof obj !== "object" || depth > 8) return;
+      for (const key of Object.keys(obj)) {
+        const val = obj[key];
+        if (typeof val === "string" && val.length > 50) {
+          const lk = key.toLowerCase();
+          if (lk === "content" || lk === "body" || lk === "text" || lk === "article_body" || lk === "articleBody") {
+            if (val.length > content.length) {
+              content = val;
+            }
+          }
+          if ((lk === "title" || lk === "headline") && val.length > title.length && val.length < 500) {
+            title = val;
+          }
+        }
+        if (typeof val === "object") {
+          findContent(val, depth + 1);
+        }
+      }
+    }
+
+    findContent(data);
+
+    if (content) {
+      content = content.replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+      return { title, content };
+    }
+  } catch {}
+
+  return null;
+}
+
+function extractFromJsonLd(html: string): { title: string; content: string } | null {
+  const regex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(match[1]);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        if (item.articleBody || item.text) {
+          const content = (item.articleBody || item.text || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          const title = item.headline || item.name || "";
+          if (content.length > 50) return { title, content };
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export async function scrapeUrl(url: string): Promise<ScrapedArticle> {
   if (!isAllowedUrl(url)) {
     throw new Error("URL not allowed: only public HTTP/HTTPS URLs are supported");
@@ -34,9 +95,9 @@ export async function scrapeUrl(url: string): Promise<ScrapedArticle> {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; Traduxa/1.0; Research Tool)",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
       },
     });
 
@@ -47,34 +108,64 @@ export async function scrapeUrl(url: string): Promise<ScrapedArticle> {
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    $("script, style, nav, footer, header, aside, iframe, noscript, [role='navigation'], [role='banner'], .sidebar, .menu, .nav, .footer, .header, .ad, .ads, .advertisement, .cookie, .popup, .modal").remove();
-
     let title = $("title").first().text().trim();
     if (!title) title = $("h1").first().text().trim();
     if (!title) title = $('meta[property="og:title"]').attr("content")?.trim() || "Untitled";
 
     let content = "";
 
-    const articleEl = $("article, [role='main'], .article, .post-content, .entry-content, .content, main").first();
-    if (articleEl.length) {
-      content = extractTextFromElement($, articleEl);
+    const nextData = extractFromNextData(html);
+    if (nextData && nextData.content.length > 50) {
+      content = nextData.content;
+      if (nextData.title) title = nextData.title;
+      console.log(`[Scraper] Extracted ${content.length} chars from __NEXT_DATA__ for ${url}`);
     }
 
-    if (!content || content.length < 100) {
-      const paragraphs: string[] = [];
-      $("p").each((_, el) => {
-        const text = $(el).text().trim();
-        if (text.length > 30) {
-          paragraphs.push(text);
-        }
-      });
-      if (paragraphs.length > 0) {
-        content = paragraphs.join("\n\n");
+    if (!content || content.length < 50) {
+      const jsonLd = extractFromJsonLd(html);
+      if (jsonLd && jsonLd.content.length > 50) {
+        content = jsonLd.content;
+        if (jsonLd.title) title = jsonLd.title;
+        console.log(`[Scraper] Extracted ${content.length} chars from JSON-LD for ${url}`);
       }
     }
 
     if (!content || content.length < 50) {
-      content = $("body").text().replace(/\s+/g, " ").trim();
+      $("script, style, nav, footer, header, aside, iframe, noscript, [role='navigation'], [role='banner'], .sidebar, .menu, .nav, .footer, .header, .ad, .ads, .advertisement, .cookie, .popup, .modal").remove();
+
+      const articleEl = $("article, [role='main'], .article, .post-content, .entry-content, .content, main").first();
+      if (articleEl.length) {
+        content = extractTextFromElement($, articleEl);
+      }
+
+      if (!content || content.length < 100) {
+        const paragraphs: string[] = [];
+        $("p").each((_, el) => {
+          const text = $(el).text().trim();
+          if (text.length > 20) {
+            paragraphs.push(text);
+          }
+        });
+        if (paragraphs.length > 0) {
+          content = paragraphs.join("\n\n");
+        }
+      }
+
+      if (!content || content.length < 50) {
+        content = $("body").text().replace(/\s+/g, " ").trim();
+      }
+
+      if (content) {
+        console.log(`[Scraper] Extracted ${content.length} chars from HTML for ${url}`);
+      }
+    }
+
+    if (!content || content.length < 30) {
+      console.log(`[Scraper] HTML extraction failed, trying Gemini for ${url}`);
+      content = await extractWithGemini(url, html);
+      if (content) {
+        console.log(`[Scraper] Gemini extracted ${content.length} chars for ${url}`);
+      }
     }
 
     content = cleanScrapedText(content);
@@ -89,6 +180,30 @@ export async function scrapeUrl(url: string): Promise<ScrapedArticle> {
     };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function extractWithGemini(url: string, html: string): Promise<string> {
+  try {
+    const ai = new GoogleGenAI({
+      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+      },
+    });
+
+    const htmlSnippet = html.slice(0, 30000);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Extract the main article text content from this HTML. Return ONLY the article body text, preserving the original language (Arabic, English, etc.). Remove navigation, ads, footers, and metadata. If the HTML contains JSON data (like __NEXT_DATA__), extract the article content from it.\n\nURL: ${url}\n\nHTML:\n${htmlSnippet}`,
+    });
+
+    return (response.text || "").trim();
+  } catch (err) {
+    console.error(`[Scraper] Gemini extraction failed for ${url}:`, err);
+    return "";
   }
 }
 
