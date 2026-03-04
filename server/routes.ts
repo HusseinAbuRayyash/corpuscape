@@ -21,6 +21,7 @@ import {
   analyzeStrategies,
   generateResearchReport,
   generateTMX,
+  generateChartData,
 } from "./ai";
 import {
   storeCorpus,
@@ -153,6 +154,19 @@ export async function registerRoutes(
     if (!text) return res.status(404).json({ error: "Corpus not found" });
     const result = await extractTopics(text, nTopics);
     res.json({ result });
+  });
+
+  app.post("/api/ai/chart", async (req, res) => {
+    try {
+      const { corpusId, prompt } = req.body;
+      if (!prompt) return res.status(400).json({ error: "Prompt required" });
+      const text = resolveCorpusText(corpusId);
+      if (!text) return res.status(404).json({ error: "Corpus not found" });
+      const chartData = await generateChartData(text, prompt);
+      res.json(chartData);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Chart generation failed" });
+    }
   });
 
   app.post("/api/ai/terminology", async (req, res) => {

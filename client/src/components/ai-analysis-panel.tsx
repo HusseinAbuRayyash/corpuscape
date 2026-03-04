@@ -3,13 +3,15 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MarkdownRender } from "@/components/markdown-render";
+import { EditableChart } from "@/components/editable-chart";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
-import { Brain, Loader2, FlaskConical, BarChart3, Layers } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Brain, Loader2, FlaskConical, BarChart3, Layers, LineChart, Sparkles, X } from "lucide-react";
 import { AI_ANALYSIS_CATEGORIES, AI_ANALYSIS_PRESETS } from "@shared/schema";
 
 interface TrackTheme {
@@ -23,11 +25,31 @@ interface AIAnalysisPanelProps {
   theme?: TrackTheme;
 }
 
+interface ChartResult {
+  id: number;
+  title: string;
+  data: { label: string; value: number }[];
+  prompt: string;
+}
+
 const defaultTheme: TrackTheme = {
   gradient: "from-purple-500 to-violet-600",
   accent: "text-purple-500",
   text: "text-purple-600 dark:text-purple-400",
 };
+
+const CHART_SUGGESTIONS = [
+  "Word frequency distribution by category",
+  "Most frequent content words",
+  "Sentence length distribution",
+  "Register and formality levels",
+  "Topic distribution across the corpus",
+  "Parts of speech distribution",
+  "Translation strategy frequency",
+  "Domain-specific term density",
+  "Lexical diversity by section",
+  "Semantic field distribution",
+];
 
 export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPanelProps) {
   const { toast } = useToast();
@@ -38,6 +60,9 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
   const [topicsResult, setTopicsResult] = useState("");
   const [metricsResult, setMetricsResult] = useState("");
   const [clustersResult, setClustersResult] = useState("");
+  const [chartPrompt, setChartPrompt] = useState("");
+  const [charts, setCharts] = useState<ChartResult[]>([]);
+  const [chartIdCounter, setChartIdCounter] = useState(0);
 
   const allTypes = Object.keys(AI_ANALYSIS_PRESETS);
   const filteredTypes = category === "All"
@@ -89,6 +114,33 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
     onSuccess: (data) => setClustersResult(data.result),
   });
 
+  const chartMutation = useMutation({
+    mutationFn: async (prompt: string) => {
+      const res = await apiRequest("POST", "/api/ai/chart", { corpusId, prompt });
+      return res.json();
+    },
+    onSuccess: (data, prompt) => {
+      if (!data.title || !Array.isArray(data.data) || data.data.length === 0) {
+        toast({ title: "No chart data", description: "AI couldn't generate quantifiable data for this prompt. Try being more specific.", variant: "destructive" });
+        return;
+      }
+      const newId = chartIdCounter + 1;
+      setChartIdCounter(newId);
+      setCharts(prev => [{ id: newId, title: data.title, data: data.data, prompt }, ...prev]);
+      setChartPrompt("");
+    },
+    onError: (error: any) => toast({ title: "Chart generation failed", description: error.message, variant: "destructive" }),
+  });
+
+  const handleChartGenerate = () => {
+    if (!chartPrompt.trim()) return;
+    chartMutation.mutate(chartPrompt.trim());
+  };
+
+  const removeChart = (id: number) => {
+    setCharts(prev => prev.filter(c => c.id !== id));
+  };
+
   return (
     <div className="space-y-5">
       <motion.div
@@ -104,11 +156,12 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
       </motion.div>
 
       <Tabs defaultValue="analysis" className="space-y-5">
-        <TabsList data-testid="tabs-ai-analysis">
-          <TabsTrigger value="analysis" data-testid="tab-ai-specialized"><FlaskConical className="w-3.5 h-3.5 mr-1.5" />Specialized Analysis</TabsTrigger>
-          <TabsTrigger value="topics" data-testid="tab-ai-topics"><Layers className="w-3.5 h-3.5 mr-1.5" />Domain Classification</TabsTrigger>
-          <TabsTrigger value="metrics" data-testid="tab-ai-metrics"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Comparative Metrics</TabsTrigger>
-          <TabsTrigger value="clusters" data-testid="tab-ai-clusters"><Brain className="w-3.5 h-3.5 mr-1.5" />Term Clusters</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-ai-analysis">
+          <TabsTrigger value="analysis" className="shrink-0" data-testid="tab-ai-specialized"><FlaskConical className="w-3.5 h-3.5 mr-1.5" />Analysis</TabsTrigger>
+          <TabsTrigger value="charts" className="shrink-0" data-testid="tab-ai-charts"><LineChart className="w-3.5 h-3.5 mr-1.5" />Chart Generator</TabsTrigger>
+          <TabsTrigger value="topics" className="shrink-0" data-testid="tab-ai-topics"><Layers className="w-3.5 h-3.5 mr-1.5" />Domains</TabsTrigger>
+          <TabsTrigger value="metrics" className="shrink-0" data-testid="tab-ai-metrics"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Metrics</TabsTrigger>
+          <TabsTrigger value="clusters" className="shrink-0" data-testid="tab-ai-clusters"><Brain className="w-3.5 h-3.5 mr-1.5" />Clusters</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis" className="space-y-5">
@@ -191,6 +244,122 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
               </div>
               <div className="p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent">
                 <MarkdownRender content={analysisResult} downloadFilename={`AI_${analysisType.replace(/\s/g, "_")}`} />
+              </div>
+            </motion.div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="charts" className="space-y-5">
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <LineChart className={`w-4 h-4 ${theme.accent}`} />
+              <h3>AI Chart Generator</h3>
+            </div>
+            <p className="text-xs text-muted-foreground/70 mb-4 leading-relaxed">
+              Describe what you want to visualize from your corpus and AI will generate an interactive, editable chart.
+            </p>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  value={chartPrompt}
+                  onChange={(e) => setChartPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !chartMutation.isPending && handleChartGenerate()}
+                  placeholder="e.g. Show the distribution of translation strategies..."
+                  className="flex-1"
+                  data-testid="input-chart-prompt"
+                />
+                <Button
+                  onClick={handleChartGenerate}
+                  disabled={!chartPrompt.trim() || chartMutation.isPending}
+                  className={`bg-gradient-to-r ${theme.gradient} text-white shrink-0`}
+                  data-testid="button-generate-chart"
+                >
+                  {chartMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  Generate Chart
+                </Button>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                {CHART_SUGGESTIONS.slice(0, 5).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => { setChartPrompt(suggestion); }}
+                    className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    data-testid={`button-chart-suggestion-${suggestion.slice(0, 20).replace(/\s/g, "-").toLowerCase()}`}
+                  >
+                    <Sparkles className="w-3 h-3 inline mr-1 opacity-50" />
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {chartMutation.isPending && (
+            <div className="polished-card p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
+                  <Loader2 className="w-4 h-4 text-white animate-spin" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Generating chart...</p>
+                  <p className="text-xs text-muted-foreground">AI is analyzing your corpus and building visualization data</p>
+                </div>
+              </div>
+              <Skeleton className="h-[250px] w-full rounded-lg" />
+            </div>
+          )}
+
+          <AnimatePresence mode="popLayout">
+            {charts.map((chart) => (
+              <motion.div
+                key={chart.id}
+                className="polished-card overflow-hidden"
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }}
+                transition={{ duration: 0.3 }}
+                layout
+              >
+                <div className={`h-1 bg-gradient-to-r ${theme.gradient}`} />
+                <div className="p-6">
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Sparkles className={`w-4 h-4 shrink-0 ${theme.accent}`} />
+                      <p className="text-[11px] text-muted-foreground truncate" title={chart.prompt}>
+                        Prompt: "{chart.prompt}"
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeChart(chart.id)}
+                      className="text-muted-foreground/40 hover:text-destructive transition-colors shrink-0 p-1"
+                      data-testid={`button-remove-chart-${chart.id}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div data-testid={`chart-ai-generated-${chart.id}`}>
+                    <EditableChart
+                      data={chart.data}
+                      defaultTitle={chart.title}
+                      layout="horizontal"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {charts.length === 0 && !chartMutation.isPending && (
+            <motion.div
+              className="polished-card p-10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <div className="text-center">
+                <LineChart className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground mb-1">No charts generated yet</p>
+                <p className="text-xs text-muted-foreground/60">Describe what you want to visualize above, or click a suggestion to get started</p>
               </div>
             </motion.div>
           )}

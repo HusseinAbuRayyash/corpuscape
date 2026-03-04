@@ -254,6 +254,51 @@ export async function runAnalysis(
   return generateContent(prompt, text, maxChars);
 }
 
+export async function generateChartData(
+  text: string,
+  prompt: string,
+  maxChars: number = 12000
+): Promise<{ title: string; data: { label: string; value: number }[] }> {
+  const systemPrompt = `You are a corpus analysis assistant. The user wants to visualize specific data from a corpus as a chart.
+Based on their request, analyze the corpus text and produce chart-ready data.
+
+User request: ${prompt}
+
+IMPORTANT: Respond ONLY with a valid JSON object in this exact format, no markdown fences, no explanation:
+{"title":"Chart Title Here","data":[{"label":"Category 1","value":42},{"label":"Category 2","value":28}]}
+
+Rules:
+- Return between 3 and 20 data points, sorted by value descending unless order matters (e.g. chronological)
+- Labels must be short (1-4 words) and descriptive
+- Values must be positive numbers (counts, percentages, scores — whatever fits the request)
+- The title should clearly describe what the chart shows
+- If the user asks for something not quantifiable from the text, approximate based on textual evidence
+- Always base the data on actual analysis of the provided corpus text`;
+
+  const raw = await generateContent(systemPrompt, text, maxChars);
+  try {
+    const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.title || !Array.isArray(parsed.data) || parsed.data.length === 0) {
+      throw new Error("Invalid chart data structure");
+    }
+    const filteredData = parsed.data
+      .map((d: any) => ({
+        label: String(d.label || "").trim(),
+        value: Number(d.value) || 0,
+      }))
+      .filter((d: any) => d.label && d.value > 0);
+    if (filteredData.length === 0) {
+      throw new Error("AI could not extract quantifiable data for this prompt. Try a more specific request.");
+    }
+    return { title: parsed.title, data: filteredData };
+  } catch (e: any) {
+    throw new Error(e.message || "Failed to generate chart data");
+  }
+}
+
 export async function summarizeCorpus(text: string, maxChars: number = 15000): Promise<string> {
   const prompt = `Summarize this corpus in 3-5 concise paragraphs for a translation studies researcher. Cover: main themes, register/style, key terminology domains, and any notable patterns. Be specific and use examples from the text.`;
   return generateContent(prompt, text, maxChars);
