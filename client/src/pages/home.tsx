@@ -105,13 +105,15 @@ export default function Home() {
           </motion.h1>
 
           <motion.p
-            className="text-base md:text-lg text-muted-foreground max-w-md mx-auto leading-relaxed"
+            className="text-lg md:text-xl max-w-lg mx-auto leading-relaxed font-semibold tracking-tight"
             data-testid="text-hero-subtitle"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.7 }}
           >
-            Corpus compilation & analysis lab for translation studies
+            <span className="text-gradient">Corpus Compilation & Analysis</span>
+            <span className="text-muted-foreground font-normal"> Lab for </span>
+            <span className="text-gradient">Translation Studies</span>
           </motion.p>
 
         </motion.div>
