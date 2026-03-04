@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,6 +47,10 @@ export function EditableChart({
   const [newLabel, setNewLabel] = useState("");
   const [newValue, setNewValue] = useState("");
   const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setChartData(initialData);
+  }, [initialData]);
 
   const updateLabel = useCallback((index: number, newLabel: string) => {
     setChartData(prev => prev.map((item, i) => i === index ? { ...item, label: newLabel } : item));
@@ -278,7 +282,7 @@ export function EditableChart({
           </h4>
         )}
         {chartData.length > 0 ? (
-          <div className={layout === "vertical" ? "h-64" : "h-64"}>
+          <div className={layout === "vertical" ? "h-72" : "h-80"}>
             <ResponsiveContainer width="100%" height="100%">
               {layout === "vertical" ? (
                 <BarChart data={chartData} layout="vertical">
@@ -295,7 +299,14 @@ export function EditableChart({
               ) : (
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
-                  <XAxis dataKey="label" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="label"
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    tick={{ fontSize: 10 }}
+                  />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
