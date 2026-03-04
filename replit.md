@@ -59,10 +59,12 @@ shared/schema.ts        - Shared types and analysis category definitions
 
 ### MarkdownRender (`client/src/components/markdown-render.tsx`)
 - Enhanced markdown renderer with custom table styling (bordered, headers, hover rows)
-- Auto-detects markdown tables and shows Excel/Word download buttons
+- Full-document Word download: converts entire markdown (headings, paragraphs, lists, bold/italic, tables) into structured .docx with branded header, styled tables, footer
+- PDF download: renders markdown to styled HTML, captures via html2canvas, outputs multi-page A4 PDF via jsPDF
+- Excel download: auto-detects markdown tables and exports table data to .xlsx
 - Tables rendered in scrollable containers to prevent overflow/cut-off
 - Custom heading, paragraph, list, and strong text styling
-- Uses `parseMarkdownTables()` to extract table data for download
+- Markdown parser: `parseMarkdownToBlocks()` for full document structure, `parseMarkdownTables()` for table extraction
 
 ### EditableChart (`client/src/components/editable-chart.tsx`)
 - 8 chart types, 18 monochromatic color palettes (incl. B&W)
