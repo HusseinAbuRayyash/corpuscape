@@ -246,18 +246,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Could not extract aligned pairs. Ensure alternating source/target lines." });
       }
 
-      const strategies = await labelStrategies(pairs);
-      const labeledPairs = pairs.map((p, i) => ({
+      const finalPairs = pairs.map((p) => ({
         ...p,
-        strategy: strategies[i] || "",
+        strategy: "",
       }));
 
       const corpusId = generateCorpusId();
-      const srcText = labeledPairs.map(p => p.source).join("\n");
-      const tgtText = labeledPairs.map(p => p.target).join("\n");
+      const srcText = finalPairs.map(p => p.source).join("\n");
+      const tgtText = finalPairs.map(p => p.target).join("\n");
       storeCorpus(`${corpusId}_src`, srcText);
       storeCorpus(`${corpusId}_tgt`, tgtText);
-      storeCorpus(`${corpusId}_pairs`, JSON.stringify(labeledPairs));
+      storeCorpus(`${corpusId}_pairs`, JSON.stringify(finalPairs));
 
       const srcWords = srcText.split(/\s+/).length;
       const tgtWords = tgtText.split(/\s+/).length;
@@ -266,11 +265,11 @@ export async function registerRoutes(
 
       res.json({
         corpusId,
-        pairs: labeledPairs,
+        pairs: finalPairs,
         metrics: {
-          alignedPairs: labeledPairs.length,
+          alignedPairs: finalPairs.length,
           avgSimilarity: 1.0,
-          strategiesLabeled: labeledPairs.filter(p => p.strategy && p.strategy.trim()).length,
+          strategiesLabeled: 0,
           lengthRatio: srcWords > 0 ? Math.round((tgtWords / srcWords) * 100) / 100 : 0,
         },
       });
