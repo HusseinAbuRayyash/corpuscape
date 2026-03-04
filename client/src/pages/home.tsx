@@ -1,174 +1,226 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, Brain, ArrowRight, Newspaper } from "lucide-react";
+import { BookOpen, Globe, Brain, ArrowRight, Newspaper, Sparkles } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { motion } from "framer-motion";
 
 const tracks = [
   {
     title: "Monolingual",
-    description: "Explore reception, register, and discourse patterns in a single corpus with full statistical analysis.",
+    description: "Corpus stats, keywords, collocations, concordance & AI analysis",
     icon: BookOpen,
     href: "/monolingual",
-    gradient: "from-indigo-500 to-blue-600",
-    bgClass: "bg-gradient-to-br from-indigo-50/80 to-blue-50/60 dark:from-indigo-950/40 dark:to-blue-950/30",
-    borderClass: "border-indigo-200/50 dark:border-indigo-800/30",
-    iconBg: "bg-gradient-to-br from-indigo-500 to-blue-600",
-    hoverGlow: "hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/30",
+    color: "#6366f1",
+    colorEnd: "#818cf8",
+    bgFrom: "from-indigo-500",
+    bgTo: "to-blue-500",
+    glowColor: "rgba(99, 102, 241, 0.35)",
+    lightBg: "from-indigo-50 via-white to-blue-50",
+    darkBg: "dark:from-indigo-950/60 dark:via-slate-900/80 dark:to-blue-950/40",
   },
   {
     title: "Bilingual",
-    description: "Align parallel corpora, trace translation shifts, identify strategies, and export TMX for CAT tools.",
+    description: "Parallel alignment, translation strategies, universals & TMX export",
     icon: Globe,
     href: "/bilingual",
-    gradient: "from-teal-500 to-emerald-600",
-    bgClass: "bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:from-teal-950/40 dark:to-emerald-950/30",
-    borderClass: "border-teal-200/50 dark:border-teal-800/30",
-    iconBg: "bg-gradient-to-br from-teal-500 to-emerald-600",
-    hoverGlow: "hover:shadow-teal-200/50 dark:hover:shadow-teal-900/30",
+    color: "#0d9488",
+    colorEnd: "#14b8a6",
+    bgFrom: "from-teal-500",
+    bgTo: "to-emerald-500",
+    glowColor: "rgba(20, 184, 166, 0.35)",
+    lightBg: "from-teal-50 via-white to-emerald-50",
+    darkBg: "dark:from-teal-950/60 dark:via-slate-900/80 dark:to-emerald-950/40",
   },
   {
     title: "AI Insights",
-    description: "Run 31 specialized analyses covering industry mapping, feminist translation, quality assessment, and more.",
+    description: "31 specialized analyses — industry, feminist, quality & more",
     icon: Brain,
     href: "/ai-insights",
-    gradient: "from-purple-500 to-violet-600",
-    bgClass: "bg-gradient-to-br from-purple-50/80 to-violet-50/60 dark:from-purple-950/40 dark:to-violet-950/30",
-    borderClass: "border-purple-200/50 dark:border-purple-800/30",
-    iconBg: "bg-gradient-to-br from-purple-500 to-violet-600",
-    hoverGlow: "hover:shadow-purple-200/50 dark:hover:shadow-purple-900/30",
+    color: "#a855f7",
+    colorEnd: "#c084fc",
+    bgFrom: "from-purple-500",
+    bgTo: "to-violet-500",
+    glowColor: "rgba(168, 85, 247, 0.35)",
+    lightBg: "from-purple-50 via-white to-violet-50",
+    darkBg: "dark:from-purple-950/60 dark:via-slate-900/80 dark:to-violet-950/40",
   },
   {
     title: "Web Scraper",
-    description: "Scrape articles from the web, clean and organize content, then feed it directly into your analysis pipeline.",
+    description: "Scrape, clean & edit web articles, then feed into analysis",
     icon: Newspaper,
     href: "/scraper",
-    gradient: "from-amber-500 to-orange-600",
-    bgClass: "bg-gradient-to-br from-amber-50/80 to-orange-50/60 dark:from-amber-950/40 dark:to-orange-950/30",
-    borderClass: "border-amber-200/50 dark:border-amber-800/30",
-    iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
-    hoverGlow: "hover:shadow-amber-200/50 dark:hover:shadow-amber-900/30",
+    color: "#f59e0b",
+    colorEnd: "#fbbf24",
+    bgFrom: "from-amber-500",
+    bgTo: "to-orange-500",
+    glowColor: "rgba(245, 158, 11, 0.35)",
+    lightBg: "from-amber-50 via-white to-orange-50",
+    darkBg: "dark:from-amber-950/60 dark:via-slate-900/80 dark:to-orange-950/40",
   },
 ];
 
 const containerVariants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.1 } },
+  show: { transition: { staggerChildren: 0.12 } },
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 24, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } },
+const cardVariants = {
+  hidden: { opacity: 0, y: 40, scale: 0.92 },
+  show: {
+    opacity: 1, y: 0, scale: 1,
+    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+  },
 };
 
 export default function Home() {
   return (
     <div className="min-h-full">
-      <div className="max-w-5xl mx-auto px-6 py-20">
+      <div className="max-w-5xl mx-auto px-6 py-16 md:py-24">
+
         <motion.div
-          className="text-center mb-20"
-          initial={{ opacity: 0, y: 30 }}
+          className="text-center mb-16 md:mb-20"
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
           <motion.div
-            className="flex justify-center mb-8"
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+            className="flex justify-center mb-6"
+            initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
           >
-            <div className="animate-pulse-glow rounded-2xl p-1">
-              <Logo size={80} />
+            <div className="relative">
+              <div className="absolute inset-0 blur-2xl opacity-40 bg-gradient-to-br from-teal-400 via-indigo-400 to-purple-400 rounded-full scale-150" />
+              <Logo size={88} className="relative z-10 drop-shadow-lg" />
             </div>
           </motion.div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter mb-5 leading-[0.95]" data-testid="text-hero-title">
+          <motion.h1
+            className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-4"
+            data-testid="text-hero-title"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.6 }}
+          >
             <span className="text-gradient">Traduxa</span>
-          </h1>
+          </motion.h1>
 
           <motion.p
-            className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed font-light"
+            className="text-base md:text-lg text-muted-foreground max-w-md mx-auto leading-relaxed"
             data-testid="text-hero-subtitle"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
+            transition={{ delay: 0.4, duration: 0.7 }}
           >
-            The corpus linguistics lab for translation studies.
-            Analyze, align, scrape, and discover patterns.
+            Corpus linguistics lab for translation studies
           </motion.p>
+
+          <motion.div
+            className="flex items-center justify-center gap-1.5 mt-4"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.55, duration: 0.5 }}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs text-muted-foreground/50 font-medium">4 tracks · 31 analysis types · web scraping</span>
+          </motion.div>
         </motion.div>
 
         <motion.div
-          className="grid gap-5 md:grid-cols-2 mb-20"
+          className="grid gap-5 md:grid-cols-2 mb-16"
           variants={containerVariants}
           initial="hidden"
           animate="show"
         >
-          {tracks.map((track) => (
-            <motion.div key={track.title} variants={itemVariants}>
+          {tracks.map((track, i) => (
+            <motion.div key={track.title} variants={cardVariants}>
               <Link href={track.href}>
-                <div
-                  className={`group relative p-6 cursor-pointer rounded-xl transition-all duration-300 border ${track.borderClass} ${track.bgClass} hover:shadow-xl ${track.hoverGlow} hover:-translate-y-1.5`}
+                <motion.div
+                  className={`track-card group relative overflow-hidden rounded-2xl cursor-pointer bg-gradient-to-br ${track.lightBg} ${track.darkBg} border border-white/60 dark:border-white/[0.06]`}
                   data-testid={`card-track-${track.title.toLowerCase().replace(/\s/g, "-")}`}
+                  whileHover={{ y: -6, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  style={{
+                    boxShadow: `0 4px 24px -4px ${track.glowColor.replace("0.35", "0.12")}, 0 1px 3px rgba(0,0,0,0.06)`,
+                  }}
                 >
-                  <div className="flex items-start gap-4">
-                    <div className={`page-header-icon ${track.iconBg} flex-shrink-0`}>
-                      <track.icon className="w-5 h-5 text-white relative z-10" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold mb-1.5 tracking-tight">{track.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{track.description}</p>
+                  <div
+                    className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                    style={{ background: `linear-gradient(90deg, ${track.color}, ${track.colorEnd})` }}
+                  />
+
+                  <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.07] dark:opacity-[0.04] pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle at 100% 0%, ${track.color}, transparent 70%)`,
+                    }}
+                  />
+
+                  <div className="relative p-6 md:p-7">
+                    <motion.div
+                      className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${track.bgFrom} ${track.bgTo} flex items-center justify-center mb-5 shadow-lg`}
+                      style={{
+                        boxShadow: `0 8px 20px -4px ${track.glowColor}`,
+                      }}
+                      whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <track.icon className="w-7 h-7 text-white drop-shadow-sm" />
+                    </motion.div>
+
+                    <h3 className="text-xl font-extrabold tracking-tight mb-2" style={{ color: track.color }}>
+                      {track.title}
+                    </h3>
+                    <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
+                      {track.description}
+                    </p>
+
+                    <div className="flex items-center gap-1.5 text-xs font-bold opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" style={{ color: track.color }}>
+                      <span>Explore</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </div>
                   </div>
-                  <div className="mt-5 flex items-center gap-1.5 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-0 group-hover:translate-x-1">
-                    <span className="text-primary">Get started</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                </div>
+                </motion.div>
               </Link>
             </motion.div>
           ))}
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
+          transition={{ delay: 0.7, duration: 0.5 }}
         >
-          <div className="polished-card p-7" data-testid="card-quickstart">
-            <div className="section-header">
-              <h3>Quick Start</h3>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-5 text-sm text-muted-foreground">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">1</span>
-                  <p><strong className="text-foreground">Monolingual</strong> — Upload a corpus to get stats, keywords, collocations, concordance, and AI analysis</p>
+          <div className="relative overflow-hidden rounded-2xl border border-white/60 dark:border-white/[0.06] bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-900/80 dark:via-slate-900/60 dark:to-slate-900/80 p-7 md:p-8" data-testid="card-quickstart">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-indigo-500 to-purple-500 opacity-60" />
+
+            <h3 className="text-base font-extrabold tracking-tight mb-5 flex items-center gap-2">
+              <span className="text-gradient">Quick Start</span>
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
+              {tracks.map((t, i) => (
+                <div key={t.title} className="flex items-start gap-3">
+                  <span
+                    className={`w-7 h-7 rounded-lg bg-gradient-to-br ${t.bgFrom} ${t.bgTo} text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md`}
+                    style={{ boxShadow: `0 4px 10px -2px ${t.glowColor.replace("0.35", "0.25")}` }}
+                  >
+                    {i + 1}
+                  </span>
+                  <div>
+                    <strong className="text-sm font-bold" style={{ color: t.color }}>{t.title}</strong>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t.description}</p>
+                  </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">2</span>
-                  <p><strong className="text-foreground">Bilingual</strong> — Sentence alignment, translation strategies, universals, TMX export</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">3</span>
-                  <p><strong className="text-foreground">AI Insights</strong> — 31 analysis types, domain classification, term clusters</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">4</span>
-                  <p><strong className="text-foreground">Web Scraper</strong> — Scrape articles, clean and edit content, send to analysis</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </motion.div>
 
         <motion.div
-          className="mt-12 text-center text-xs text-muted-foreground/40 font-medium"
+          className="mt-10 text-center text-[11px] text-muted-foreground/30 font-medium tracking-wide"
           data-testid="text-footer"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.9 }}
+          transition={{ delay: 1 }}
         >
           Traduxa · ATISA 2026 · Hussein Abu-Rayyash
         </motion.div>
