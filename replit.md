@@ -53,7 +53,10 @@ shared/schema.ts        - Shared types and analysis category definitions
 ### AIAnalysisPanel (`client/src/components/ai-analysis-panel.tsx`)
 - Embeddable AI analysis component used by all 3 tracks
 - Accepts `corpusId` and `theme` (gradient, accent, text color) props
-- 4 tabs: Specialized Analysis (31 types), Domain Classification, Comparative Metrics, Term Clusters
+- 5 tabs: Specialized Analysis (31 types), **Chart Generator**, Domain Classification, Comparative Metrics, Term Clusters
+- Chart Generator: user types a prompt, AI returns JSON chart data, rendered as interactive EditableChart
+- Multiple charts can be generated and stacked; each is removable
+- Suggestion chips for quick prompts (word frequency, strategy distribution, etc.)
 - Category/type selectors, custom instructions, markdown result rendering
 - All results pass `downloadFilename` to MarkdownRender for automatic Excel/Word export
 
