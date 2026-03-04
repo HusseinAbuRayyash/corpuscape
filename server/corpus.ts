@@ -161,15 +161,55 @@ export async function extractTextFromFile(
   }
 
   if (ext === "pdf") {
+    let text = "";
     try {
-      const pdfParse = (await import("pdf-parse")).default;
+      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
       const data = await pdfParse(buffer);
-      console.log(`[PDF] Extracted ${data.text.length} chars from ${filename}`);
-      return data.text;
+      text = (data.text || "").trim();
+      console.log(`[PDF] pdf-parse extracted ${text.length} chars from ${filename}`);
     } catch (err) {
-      console.error(`[PDF] Failed to extract text from ${filename}:`, err);
-      return "";
+      console.error(`[PDF] pdf-parse failed for ${filename}:`, err);
     }
+
+    if (text.length < 10) {
+      console.log(`[PDF] Text too short, using Gemini OCR for ${filename}`);
+      try {
+        const { GoogleGenAI } = await import("@google/genai");
+        const ai = new GoogleGenAI({
+          apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+          httpOptions: {
+            apiVersion: "",
+            baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+          },
+        });
+        const base64Data = buffer.toString("base64");
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: "application/pdf",
+                    data: base64Data,
+                  },
+                },
+                {
+                  text: "Extract ALL text from this PDF document. Return ONLY the extracted text, preserving the original language (Arabic, English, etc.), line breaks, and paragraph structure. Do not add any commentary, headers, or formatting. Just the raw text content.",
+                },
+              ],
+            },
+          ],
+        });
+        text = (response.text || "").trim();
+        console.log(`[PDF] Gemini OCR extracted ${text.length} chars from ${filename}`);
+      } catch (err) {
+        console.error(`[PDF] Gemini OCR failed for ${filename}:`, err);
+      }
+    }
+
+    return text;
   }
 
   if (ext === "xlsx" || ext === "xls") {
