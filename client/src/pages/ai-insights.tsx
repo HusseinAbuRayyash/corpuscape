@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
-import { Brain, Loader2, FlaskConical, BarChart3, Layers, Upload } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Brain, Loader2, FlaskConical, BarChart3, Layers, Upload, BookOpen, Globe, Search, Database } from "lucide-react";
 import { AI_ANALYSIS_CATEGORIES, AI_ANALYSIS_PRESETS } from "@shared/schema";
 
 export default function AIInsights() {
@@ -31,6 +31,35 @@ export default function AIInsights() {
     : AI_ANALYSIS_CATEGORIES.find((c) => c.name === category)?.types || allTypes;
 
   const needsCorpus = !corpusId;
+
+  const corporaQuery = useQuery<{ corpora: Array<{ id: string; name: string; source: string; words: number; createdAt: number }> }>({
+    queryKey: ["/api/corpora"],
+    enabled: needsCorpus,
+    refetchInterval: needsCorpus ? 5000 : false,
+  });
+
+  const existingCorpora = corporaQuery.data?.corpora || [];
+
+  const sourceIcons: Record<string, typeof Brain> = {
+    monolingual: BookOpen,
+    bilingual: Globe,
+    scraper: Search,
+    "ai-insights": Brain,
+  };
+
+  const sourceColors: Record<string, string> = {
+    monolingual: "from-indigo-500 to-blue-600",
+    bilingual: "from-teal-500 to-emerald-600",
+    scraper: "from-amber-500 to-orange-600",
+    "ai-insights": "from-purple-500 to-violet-600",
+  };
+
+  const sourceLabels: Record<string, string> = {
+    monolingual: "Monolingual",
+    bilingual: "Bilingual",
+    scraper: "Web Scraper",
+    "ai-insights": "AI Insights",
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -108,46 +137,82 @@ export default function AIInsights() {
             <h1 className="text-3xl font-bold italic tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">AI Insights Lab</h1>
           </div>
         </motion.div>
+
+        {existingCorpora.length > 0 && (
+          <motion.div
+            className="polished-card overflow-hidden"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+          >
+            <div className="h-1 bg-gradient-to-r from-purple-500 via-violet-400 to-fuchsia-500" />
+            <div className="p-6 md:p-7">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(168,85,247,0.3)" }}>
+                  <Database className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }}>Your Datasets</h3>
+              </div>
+              <p className="text-xs text-muted-foreground/70 mb-5 ml-[52px]">
+                Select a previously uploaded dataset to analyze with AI.
+              </p>
+              <div className="space-y-2">
+                <AnimatePresence>
+                  {existingCorpora.map((corpus, index) => {
+                    const Icon = sourceIcons[corpus.source] || Brain;
+                    const colors = sourceColors[corpus.source] || "from-purple-500 to-violet-600";
+                    const label = sourceLabels[corpus.source] || corpus.source;
+                    return (
+                      <motion.button
+                        key={corpus.id}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 + index * 0.05, duration: 0.3 }}
+                        onClick={() => {
+                          setCorpusId(corpus.id);
+                          toast({ title: "Dataset loaded", description: `${corpus.words.toLocaleString()} words ready for analysis` });
+                        }}
+                        className="w-full flex items-center gap-3.5 p-3.5 rounded-xl border border-border/50 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 transition-all duration-200 text-left group"
+                        data-testid={`button-select-corpus-${corpus.id}`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${colors} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate text-foreground">{corpus.name}</p>
+                          <p className="text-xs text-muted-foreground/60">{label} · {corpus.words.toLocaleString()} words</p>
+                        </div>
+                        <div className="text-xs text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity font-medium flex-shrink-0">
+                          Select →
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <motion.div
           className="polished-card overflow-hidden"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: existingCorpora.length > 0 ? 0.3 : 0.2 }}
         >
           <div className="h-1 bg-gradient-to-r from-purple-500 via-violet-400 to-fuchsia-500" />
           <div className="p-6 md:p-7">
-            <motion.div
-              className="flex items-center gap-3 mb-1"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.25, duration: 0.4 }}
-            >
+            <div className="flex items-center gap-3 mb-1">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(168,85,247,0.3)" }}>
                 <Upload className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-lg font-bold tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }}>Add Your Corpus</h3>
-            </motion.div>
-            <motion.p
-              className="text-xs text-muted-foreground/70 mb-5 ml-[52px]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
+              <h3 className="text-lg font-bold tracking-tight text-purple-600 dark:text-purple-400" style={{ fontFamily: "'Playfair Display', serif" }}>Upload New Corpus</h3>
+            </div>
+            <p className="text-xs text-muted-foreground/70 mb-5 ml-[52px]">
               Upload files to run 31 specialized AI analyses on your corpus.
-            </motion.p>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.4 }}
-            >
-              <FileUpload onFilesSelected={setSelectedFiles} />
-            </motion.div>
-            <motion.div
-              className="mt-5"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45, duration: 0.4 }}
-            >
+            </p>
+            <FileUpload onFilesSelected={setSelectedFiles} />
+            <div className="mt-5">
               <Button
                 onClick={() => uploadMutation.mutate()}
                 disabled={selectedFiles.length === 0 || uploadMutation.isPending}
@@ -157,7 +222,7 @@ export default function AIInsights() {
                 {uploadMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Upload & Analyze
               </Button>
-            </motion.div>
+            </div>
           </div>
         </motion.div>
       </div>

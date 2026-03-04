@@ -26,10 +26,21 @@ import {
   storeCorpus,
   getCorpus,
   generateCorpusId,
+  registerCorpus,
+  listCorpora,
 } from "./corpusStorage";
 import { scrapeUrl, scrapeMultipleUrls } from "./scraper";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+function resolveCorpusText(corpusId: string): string | undefined {
+  const text = getCorpus(corpusId);
+  if (text) return text;
+  const src = getCorpus(`${corpusId}_src`);
+  const tgt = getCorpus(`${corpusId}_tgt`);
+  if (src || tgt) return [src, tgt].filter(Boolean).join("\n\n");
+  return undefined;
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -52,6 +63,8 @@ export async function registerRoutes(
       const corpusId = generateCorpusId();
       storeCorpus(corpusId, combined);
       const stats = getStats(combined);
+      const fileNames = files.map((f: Express.Multer.File) => f.originalname).join(", ");
+      registerCorpus({ id: corpusId, name: fileNames, source: "monolingual", words: stats.words, createdAt: Date.now() });
 
       res.json({ corpusId, stats, wordCount: stats.words });
     } catch (error: any) {
@@ -75,6 +88,7 @@ export async function registerRoutes(
       const corpusId = generateCorpusId();
       storeCorpus(corpusId, cleaned);
       const stats = getStats(cleaned);
+      registerCorpus({ id: corpusId, name: "Sample Literary Corpus", source: "monolingual", words: stats.words, createdAt: Date.now() });
       res.json({ corpusId, stats, wordCount: stats.words });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -119,7 +133,7 @@ export async function registerRoutes(
 
   app.post("/api/ai/analyze", async (req, res) => {
     const { corpusId, analysisType, customInstructions, maxChars = 12000 } = req.body;
-    const text = getCorpus(corpusId);
+    const text = resolveCorpusText(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
     const result = await runAnalysis(text, analysisType, customInstructions, maxChars);
     res.json({ result });
@@ -127,7 +141,7 @@ export async function registerRoutes(
 
   app.post("/api/ai/summarize", async (req, res) => {
     const { corpusId } = req.body;
-    const text = getCorpus(corpusId);
+    const text = resolveCorpusText(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
     const result = await summarizeCorpus(text);
     res.json({ result });
@@ -135,7 +149,7 @@ export async function registerRoutes(
 
   app.post("/api/ai/topics", async (req, res) => {
     const { corpusId, nTopics = 8 } = req.body;
-    const text = getCorpus(corpusId);
+    const text = resolveCorpusText(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
     const result = await extractTopics(text, nTopics);
     res.json({ result });
@@ -143,7 +157,7 @@ export async function registerRoutes(
 
   app.post("/api/ai/terminology", async (req, res) => {
     const { corpusId } = req.body;
-    const text = getCorpus(corpusId);
+    const text = resolveCorpusText(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
     const result = await extractTerminology(text);
     res.json({ result });
@@ -184,6 +198,9 @@ export async function registerRoutes(
 
       const srcWords = srcText.split(/\s+/).length;
       const tgtWords = tgtText.split(/\s+/).length;
+      const srcNames = srcFiles.map((f: Express.Multer.File) => f.originalname).join(", ");
+      const tgtNames = tgtFiles.map((f: Express.Multer.File) => f.originalname).join(", ");
+      registerCorpus({ id: corpusId, name: `${srcNames} ↔ ${tgtNames}`, source: "bilingual", words: srcWords + tgtWords, createdAt: Date.now() });
 
       res.json({
         corpusId,
@@ -244,6 +261,8 @@ export async function registerRoutes(
 
       const srcWords = srcText.split(/\s+/).length;
       const tgtWords = tgtText.split(/\s+/).length;
+      const fileNames = files.map((f: Express.Multer.File) => f.originalname).join(", ");
+      registerCorpus({ id: corpusId, name: `${fileNames} (aligned)`, source: "bilingual", words: srcWords + tgtWords, createdAt: Date.now() });
 
       res.json({
         corpusId,
@@ -327,10 +346,15 @@ export async function registerRoutes(
       const corpusId = generateCorpusId();
       storeCorpus(corpusId, cleaned);
       const stats = getStats(cleaned);
+      registerCorpus({ id: corpusId, name: "Web Scraper Results", source: "scraper", words: stats.words, createdAt: Date.now() });
       res.json({ corpusId, stats, wordCount: stats.words });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to create corpus" });
     }
+  });
+
+  app.get("/api/corpora", (_req, res) => {
+    res.json({ corpora: listCorpora() });
   });
 
   return httpServer;
