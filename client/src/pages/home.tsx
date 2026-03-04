@@ -177,35 +177,6 @@ export default function Home() {
           ))}
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.5 }}
-        >
-          <div className="relative overflow-hidden rounded-2xl border border-white/60 dark:border-white/[0.06] bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-900/80 dark:via-slate-900/60 dark:to-slate-900/80 p-7 md:p-8" data-testid="card-quickstart">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-indigo-500 to-purple-500 opacity-60" />
-
-            <h3 className="text-base font-extrabold tracking-tight mb-5 flex items-center gap-2">
-              <span className="text-gradient">Quick Start</span>
-            </h3>
-            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
-              {tracks.map((t, i) => (
-                <div key={t.title} className="flex items-start gap-3">
-                  <span
-                    className={`w-7 h-7 rounded-lg bg-gradient-to-br ${t.bgFrom} ${t.bgTo} text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md`}
-                    style={{ boxShadow: `0 4px 10px -2px ${t.glowColor.replace("0.35", "0.25")}` }}
-                  >
-                    {i + 1}
-                  </span>
-                  <div>
-                    <strong className="text-sm font-bold" style={{ color: t.color }}>{t.title}</strong>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
 
         <motion.div
           className="mt-10 text-center text-[11px] text-muted-foreground/30 font-medium tracking-wide"
