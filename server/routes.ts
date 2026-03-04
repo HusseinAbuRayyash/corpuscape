@@ -234,12 +234,89 @@ export async function registerRoutes(
       const lines = fullText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
 
       const pairs: any[] = [];
-      for (let i = 0; i < lines.length - 1; i += 2) {
-        pairs.push({
-          source: lines[i],
-          target: lines[i + 1] || "",
-          similarity: 1.0,
-        });
+
+      const hasTabOrDelimiter = lines.some(l => l.includes("\t") || /\|\|/.test(l));
+      const looksAlternating = !hasTabOrDelimiter && lines.length >= 2;
+      let isAlternatingFormat = false;
+
+      if (looksAlternating) {
+        const arabicRe = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+        const cjkRe = /[\u3000-\u9FFF\uAC00-\uD7AF]/;
+        const cyrillicRe = /[\u0400-\u04FF]/;
+        const hasNonLatin = (s: string) => arabicRe.test(s) || cjkRe.test(s) || cyrillicRe.test(s);
+
+        const line0NonLatin = hasNonLatin(lines[0]);
+        const line1NonLatin = hasNonLatin(lines[1]);
+
+        if (line0NonLatin !== line1NonLatin) {
+          isAlternatingFormat = true;
+        } else {
+          const line0HasMixed = /[a-zA-Z]/.test(lines[0]) && hasNonLatin(lines[0]);
+          if (!line0HasMixed) {
+            isAlternatingFormat = true;
+          }
+        }
+      }
+
+      if (hasTabOrDelimiter) {
+        const delimiter = lines[0].includes("\t") ? "\t" : "||";
+        for (const line of lines) {
+          const parts = line.split(delimiter).map(s => s.trim());
+          if (parts.length >= 2) {
+            pairs.push({ source: parts[0], target: parts[1], similarity: 1.0 });
+          }
+        }
+      } else if (isAlternatingFormat) {
+        for (let i = 0; i < lines.length - 1; i += 2) {
+          pairs.push({
+            source: lines[i],
+            target: lines[i + 1] || "",
+            similarity: 1.0,
+          });
+        }
+      } else {
+        const arabicRe = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+        const cjkRe = /[\u3000-\u9FFF\uAC00-\uD7AF]/;
+        const cyrillicRe = /[\u0400-\u04FF]/;
+
+        for (const line of lines) {
+          let source = "";
+          let target = "";
+
+          if (arabicRe.test(line)) {
+            const match = line.match(/^([\s\S]*?)(\s)([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF][\s\S]*)$/);
+            if (match) {
+              source = match[1].trim();
+              target = match[3].trim();
+            } else {
+              source = line;
+              target = "";
+            }
+          } else if (cjkRe.test(line) && /[a-zA-Z]/.test(line)) {
+            const match = line.match(/^([a-zA-Z][\s\S]*?)\s+([\u3000-\u9FFF\uAC00-\uD7AF][\s\S]*)$/);
+            if (match) {
+              source = match[1].trim();
+              target = match[2].trim();
+            } else {
+              source = line;
+              target = "";
+            }
+          } else if (cyrillicRe.test(line) && /[a-zA-Z]/.test(line)) {
+            const match = line.match(/^([a-zA-Z][\s\S]*?)\s+([\u0400-\u04FF][\s\S]*)$/);
+            if (match) {
+              source = match[1].trim();
+              target = match[2].trim();
+            } else {
+              source = line;
+              target = "";
+            }
+          } else {
+            source = line;
+            target = "";
+          }
+
+          pairs.push({ source, target, similarity: 1.0 });
+        }
       }
 
       if (pairs.length === 0) {
