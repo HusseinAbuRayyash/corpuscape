@@ -222,7 +222,7 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
         >
-          Traduxa · ATISA 2026 · Hussein Abu-Rayyash
+          Traduxa · Hussein Abu-Rayyash
         </motion.div>
       </div>
     </div>
