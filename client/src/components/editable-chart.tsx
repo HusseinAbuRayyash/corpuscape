@@ -14,22 +14,24 @@ import {
 } from "lucide-react";
 
 const PRESET_PALETTES = [
-  { name: "Teal", colors: ["#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc"] },
-  { name: "Blue", colors: ["#1e3a8a", "#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#1d4ed8", "#0ea5e9", "#38bdf8"] },
-  { name: "Indigo", colors: ["#312e81", "#3730a3", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#4338ca", "#5b21b6", "#7c3aed"] },
-  { name: "Purple", colors: ["#581c87", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#6d28d9", "#9333ea", "#a855f7", "#c084fc"] },
-  { name: "Rose", colors: ["#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#be185d", "#ec4899", "#f472b6"] },
-  { name: "Warm", colors: ["#dc2626", "#ea580c", "#f59e0b", "#eab308", "#84cc16", "#ef4444", "#f97316", "#fbbf24", "#a3e635", "#facc15"] },
-  { name: "Sunset", colors: ["#7c2d12", "#c2410c", "#ea580c", "#f97316", "#fb923c", "#fdba74", "#fed7aa", "#b45309", "#d97706", "#f59e0b"] },
-  { name: "Ocean", colors: ["#164e63", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#0c4a6e", "#0369a1", "#0284c7"] },
-  { name: "Forest", colors: ["#14532d", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#166534", "#15803d", "#22c55e"] },
-  { name: "Earth", colors: ["#78350f", "#92400e", "#b45309", "#d97706", "#a16207", "#854d0e", "#ca8a04", "#65a30d", "#4d7c0f", "#15803d"] },
-  { name: "Mono", colors: ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#1f2937", "#374151", "#6b7280"] },
+  { name: "Teal", colors: ["#134e4a", "#115e59", "#0f766e", "#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4", "#b2f5ea", "#ccfbf1"] },
+  { name: "Blue", colors: ["#1e3a8a", "#1e40af", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe", "#eff6ff"] },
+  { name: "Indigo", colors: ["#312e81", "#3730a3", "#4338ca", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#e0e7ff", "#eef2ff"] },
+  { name: "Purple", colors: ["#581c87", "#6b21a8", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff", "#d8b4fe"] },
+  { name: "Rose", colors: ["#881337", "#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#ffe4e6", "#fff1f2"] },
+  { name: "Amber", colors: ["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a", "#fef3c7", "#fffbeb"] },
+  { name: "Orange", colors: ["#7c2d12", "#9a3412", "#c2410c", "#ea580c", "#f97316", "#fb923c", "#fdba74", "#fed7aa", "#ffedd5", "#fff7ed"] },
+  { name: "Cyan", colors: ["#164e63", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc", "#cffafe", "#ecfeff"] },
+  { name: "Green", colors: ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7", "#f0fdf4"] },
+  { name: "Emerald", colors: ["#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5", "#ecfdf5"] },
+  { name: "Red", colors: ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2", "#fef2f2"] },
+  { name: "Slate", colors: ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9", "#f8fafc"] },
+  { name: "B&W", colors: ["#000000", "#1a1a1a", "#333333", "#4d4d4d", "#666666", "#808080", "#999999", "#b3b3b3", "#cccccc", "#e6e6e6"] },
   { name: "Pastel", colors: ["#fca5a5", "#fdba74", "#fde68a", "#bef264", "#86efac", "#67e8f9", "#a5b4fc", "#d8b4fe", "#f9a8d4", "#fecdd3"] },
-  { name: "Neon", colors: ["#f43f5e", "#ec4899", "#d946ef", "#a855f7", "#6366f1", "#0ea5e9", "#14b8a6", "#22c55e", "#eab308", "#f97316"] },
-  { name: "Candy", colors: ["#e879f9", "#c084fc", "#a78bfa", "#818cf8", "#60a5fa", "#38bdf8", "#22d3ee", "#2dd4bf", "#4ade80", "#facc15"] },
-  { name: "Vintage", colors: ["#6b4226", "#a0522d", "#c19a6b", "#d2b48c", "#8b7355", "#7b6843", "#9c8a5e", "#b8a88a", "#c4a35a", "#8b8378"] },
-  { name: "Academic", colors: ["#1b3a5c", "#2c5f8a", "#3d84b8", "#4e9ac7", "#7ab8d6", "#a6d4e8", "#1a4731", "#2d7a4f", "#4ca06d", "#7ec89b"] },
+  { name: "Rainbow", colors: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"] },
+  { name: "Earth", colors: ["#451a03", "#78350f", "#92400e", "#a16207", "#854d0e", "#713f12", "#65a30d", "#4d7c0f", "#3f6212", "#365314"] },
+  { name: "Academic", colors: ["#1e3a5f", "#2a5078", "#366891", "#4280aa", "#5098c3", "#1a4731", "#24603f", "#2e794d", "#3a925b", "#48ab6a"] },
+  { name: "Navy", colors: ["#0c1445", "#111b5e", "#162277", "#1b2990", "#2030a9", "#2b3dc2", "#3a4ed5", "#4f63e0", "#6b7ce8", "#8d9af0"] },
 ];
 
 type ChartType = "bar" | "barHorizontal" | "line" | "area" | "pie" | "donut" | "radar" | "scatter";
@@ -158,7 +160,19 @@ export function EditableChart({
 
   const totalValue = chartData.reduce((sum, d) => sum + d.value, 0);
 
-  const formatBarLabel = (val: number) => {
+  const formatSingleLabel = (val: number) => {
+    if (labelMode === "none") return "";
+    const pct = totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
+    if (labelMode === "values") return String(val);
+    if (labelMode === "percentages") return pct;
+    return String(val);
+  };
+
+  const formatPctLabel = (val: number) => {
+    return totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
+  };
+
+  const formatLineLabel = (val: number) => {
     if (labelMode === "none") return "";
     const pct = totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
     if (labelMode === "values") return String(val);
@@ -169,7 +183,25 @@ export function EditableChart({
   const renderCustomBarLabel = (props: any) => {
     if (labelMode === "none") return null;
     const { x, y, width, height, value } = props;
-    const text = formatBarLabel(value);
+
+    if (labelMode === "both") {
+      if (chartType === "barHorizontal") {
+        return (
+          <g>
+            <text x={x + width / 2} y={y + height / 2} dy={4} textAnchor="middle" fontSize={8} fill="#ffffff" fontWeight={700}>{value}</text>
+            <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={8} fill="#6b7280" fontWeight={500}>{formatPctLabel(value)}</text>
+          </g>
+        );
+      }
+      return (
+        <g>
+          <text x={x + width / 2} y={y + height / 2} dy={4} textAnchor="middle" fontSize={8} fill="#ffffff" fontWeight={700}>{value}</text>
+          <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={8} fill="#6b7280" fontWeight={500}>{formatPctLabel(value)}</text>
+        </g>
+      );
+    }
+
+    const text = formatSingleLabel(value);
     if (chartType === "barHorizontal") {
       return <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={9} fill="#6b7280" fontWeight={500}>{text}</text>;
     }
@@ -248,7 +280,7 @@ export function EditableChart({
                       strokeWidth={2.5}
                       dot={{ fill: colors[0], r: 4 }}
                       activeDot={{ r: 6, fill: colors[1] || colors[0] }}
-                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{formatBarLabel(value)}</text> : false}
+                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{formatLineLabel(value)}</text> : false}
                     />
                   </LineChart>
                 );
@@ -274,7 +306,7 @@ export function EditableChart({
                       stroke={colors[0]}
                       strokeWidth={2}
                       fill="url(#areaGrad)"
-                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{formatBarLabel(value)}</text> : false}
+                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{formatLineLabel(value)}</text> : false}
                     />
                   </AreaChart>
                 );
