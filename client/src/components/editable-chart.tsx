@@ -14,12 +14,22 @@ import {
 } from "lucide-react";
 
 const PRESET_PALETTES = [
-  { name: "Teal", colors: ["#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4", "#0891b2", "#06b6d4", "#22d3ee"] },
-  { name: "Blue", colors: ["#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#1d4ed8", "#3b82f6", "#60a5fa"] },
-  { name: "Purple", colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#6d28d9", "#7c3aed", "#8b5cf6"] },
-  { name: "Warm", colors: ["#dc2626", "#ea580c", "#f59e0b", "#eab308", "#84cc16", "#ef4444", "#f97316", "#fbbf24"] },
-  { name: "Mono", colors: ["#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#374151", "#4b5563", "#6b7280"] },
-  { name: "Forest", colors: ["#065f46", "#047857", "#059669", "#10b981", "#34d399", "#047857", "#059669", "#10b981"] },
+  { name: "Teal", colors: ["#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc"] },
+  { name: "Blue", colors: ["#1e3a8a", "#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#1d4ed8", "#0ea5e9", "#38bdf8"] },
+  { name: "Indigo", colors: ["#312e81", "#3730a3", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#4338ca", "#5b21b6", "#7c3aed"] },
+  { name: "Purple", colors: ["#581c87", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#6d28d9", "#9333ea", "#a855f7", "#c084fc"] },
+  { name: "Rose", colors: ["#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#be185d", "#ec4899", "#f472b6"] },
+  { name: "Warm", colors: ["#dc2626", "#ea580c", "#f59e0b", "#eab308", "#84cc16", "#ef4444", "#f97316", "#fbbf24", "#a3e635", "#facc15"] },
+  { name: "Sunset", colors: ["#7c2d12", "#c2410c", "#ea580c", "#f97316", "#fb923c", "#fdba74", "#fed7aa", "#b45309", "#d97706", "#f59e0b"] },
+  { name: "Ocean", colors: ["#164e63", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#0c4a6e", "#0369a1", "#0284c7"] },
+  { name: "Forest", colors: ["#14532d", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#166534", "#15803d", "#22c55e"] },
+  { name: "Earth", colors: ["#78350f", "#92400e", "#b45309", "#d97706", "#a16207", "#854d0e", "#ca8a04", "#65a30d", "#4d7c0f", "#15803d"] },
+  { name: "Mono", colors: ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#1f2937", "#374151", "#6b7280"] },
+  { name: "Pastel", colors: ["#fca5a5", "#fdba74", "#fde68a", "#bef264", "#86efac", "#67e8f9", "#a5b4fc", "#d8b4fe", "#f9a8d4", "#fecdd3"] },
+  { name: "Neon", colors: ["#f43f5e", "#ec4899", "#d946ef", "#a855f7", "#6366f1", "#0ea5e9", "#14b8a6", "#22c55e", "#eab308", "#f97316"] },
+  { name: "Candy", colors: ["#e879f9", "#c084fc", "#a78bfa", "#818cf8", "#60a5fa", "#38bdf8", "#22d3ee", "#2dd4bf", "#4ade80", "#facc15"] },
+  { name: "Vintage", colors: ["#6b4226", "#a0522d", "#c19a6b", "#d2b48c", "#8b7355", "#7b6843", "#9c8a5e", "#b8a88a", "#c4a35a", "#8b8378"] },
+  { name: "Academic", colors: ["#1b3a5c", "#2c5f8a", "#3d84b8", "#4e9ac7", "#7ab8d6", "#a6d4e8", "#1a4731", "#2d7a4f", "#4ca06d", "#7ec89b"] },
 ];
 
 type ChartType = "bar" | "barHorizontal" | "line" | "area" | "pie" | "donut" | "radar" | "scatter";
