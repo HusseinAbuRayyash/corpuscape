@@ -7,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
-import { Loader2, Download, Globe, FileText, Brain, BarChart3 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack } from "lucide-react";
 import type { AlignedPair } from "@shared/schema";
 
 export default function Bilingual() {
@@ -18,6 +18,8 @@ export default function Bilingual() {
   const [metrics, setMetrics] = useState<any>(null);
   const [srcFiles, setSrcFiles] = useState<File[]>([]);
   const [tgtFiles, setTgtFiles] = useState<File[]>([]);
+  const [alignedFiles, setAlignedFiles] = useState<File[]>([]);
+  const [uploadMode, setUploadMode] = useState<"separate" | "prealigned">("separate");
   const [srcLang, setSrcLang] = useState("en");
   const [tgtLang, setTgtLang] = useState("ar");
   const [universalsResult, setUniversalsResult] = useState("");
@@ -26,11 +28,18 @@ export default function Bilingual() {
   const uploadMutation = useMutation({
     mutationFn: async () => {
       const formData = new FormData();
-      srcFiles.forEach((f) => formData.append("sourceFiles", f));
-      tgtFiles.forEach((f) => formData.append("targetFiles", f));
-      const res = await fetch("/api/bilingual/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Processing failed");
-      return res.json();
+      if (uploadMode === "separate") {
+        srcFiles.forEach((f) => formData.append("sourceFiles", f));
+        tgtFiles.forEach((f) => formData.append("targetFiles", f));
+        const res = await fetch("/api/bilingual/upload", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Processing failed");
+        return res.json();
+      } else {
+        alignedFiles.forEach((f) => formData.append("files", f));
+        const res = await fetch("/api/bilingual/upload-aligned", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Processing failed");
+        return res.json();
+      }
     },
     onSuccess: (data) => {
       setCorpusId(data.corpusId);
@@ -106,28 +115,87 @@ export default function Bilingual() {
           </motion.div>
 
           <motion.div
-            className="grid md:grid-cols-2 gap-5"
-            initial={{ opacity: 0, y: 10 }}
+            className="flex gap-2 mb-5"
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.4 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
           >
-            <div className="relative rounded-xl border-2 border-dashed border-teal-200 dark:border-teal-800/40 bg-teal-50/30 dark:bg-teal-950/10 p-4">
-              <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Source</span>
-              <FileUpload
-                onFilesSelected={setSrcFiles}
-                label="Upload source files"
-                description="Original language texts"
-              />
-            </div>
-            <div className="relative rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/30 dark:bg-emerald-950/10 p-4">
-              <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Target</span>
-              <FileUpload
-                onFilesSelected={setTgtFiles}
-                label="Upload target files"
-                description="Translated texts"
-              />
-            </div>
+            <button
+              onClick={() => setUploadMode("separate")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                uploadMode === "separate"
+                  ? "bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+              data-testid="button-mode-separate"
+            >
+              <SplitSquareHorizontal className="w-4 h-4" />
+              Separate Files
+            </button>
+            <button
+              onClick={() => setUploadMode("prealigned")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                uploadMode === "prealigned"
+                  ? "bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+              data-testid="button-mode-prealigned"
+            >
+              <FileStack className="w-4 h-4" />
+              Pre-Aligned
+            </button>
           </motion.div>
+
+          <AnimatePresence mode="wait">
+            {uploadMode === "separate" ? (
+              <motion.div
+                key="separate"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="grid md:grid-cols-2 gap-5">
+                  <div className="relative rounded-xl border-2 border-dashed border-teal-200 dark:border-teal-800/40 bg-teal-50/30 dark:bg-teal-950/10 p-4">
+                    <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Source</span>
+                    <FileUpload
+                      onFilesSelected={setSrcFiles}
+                      label="Upload source files"
+                      description="Original language texts"
+                    />
+                  </div>
+                  <div className="relative rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/30 dark:bg-emerald-950/10 p-4">
+                    <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Target</span>
+                    <FileUpload
+                      onFilesSelected={setTgtFiles}
+                      label="Upload target files"
+                      description="Translated texts"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="prealigned"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="relative rounded-xl border-2 border-dashed border-teal-200 dark:border-teal-800/40 bg-gradient-to-br from-teal-50/40 to-emerald-50/40 dark:from-teal-950/10 dark:to-emerald-950/10 p-4">
+                  <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Pre-Aligned</span>
+                  <FileUpload
+                    onFilesSelected={setAlignedFiles}
+                    label="Upload pre-aligned file(s)"
+                    description="Alternating source/target lines"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground/60 mt-2.5 ml-1">
+                  File should have alternating lines: source sentence, then target sentence, repeating.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <motion.div
             className="mt-5"
@@ -137,12 +205,16 @@ export default function Bilingual() {
           >
             <Button
               onClick={() => uploadMutation.mutate()}
-              disabled={srcFiles.length === 0 || tgtFiles.length === 0 || uploadMutation.isPending}
+              disabled={
+                uploadMode === "separate"
+                  ? (srcFiles.length === 0 || tgtFiles.length === 0 || uploadMutation.isPending)
+                  : (alignedFiles.length === 0 || uploadMutation.isPending)
+              }
               className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
               data-testid="button-align"
             >
               {uploadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
-              Align & Analyze
+              {uploadMode === "separate" ? "Align & Analyze" : "Process & Analyze"}
             </Button>
           </motion.div>
         </div>

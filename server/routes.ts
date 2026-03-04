@@ -201,6 +201,66 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/bilingual/upload-aligned", upload.array("files", 10), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || !files.length) {
+        return res.status(400).json({ error: "At least one file required" });
+      }
+
+      const allTexts: string[] = [];
+      for (const f of files) {
+        allTexts.push(await extractTextFromFile(f.buffer, f.originalname));
+      }
+      const fullText = cleanText(allTexts.join("\n\n"));
+
+      const lines = fullText.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+
+      const pairs: any[] = [];
+      for (let i = 0; i < lines.length - 1; i += 2) {
+        pairs.push({
+          source: lines[i],
+          target: lines[i + 1] || "",
+          similarity: 1.0,
+        });
+      }
+
+      if (pairs.length === 0) {
+        return res.status(400).json({ error: "Could not extract aligned pairs. Ensure alternating source/target lines." });
+      }
+
+      const strategies = await labelStrategies(pairs);
+      const labeledPairs = pairs.map((p, i) => ({
+        ...p,
+        strategy: strategies[i] || "",
+      }));
+
+      const corpusId = generateCorpusId();
+      const srcText = labeledPairs.map(p => p.source).join("\n");
+      const tgtText = labeledPairs.map(p => p.target).join("\n");
+      storeCorpus(`${corpusId}_src`, srcText);
+      storeCorpus(`${corpusId}_tgt`, tgtText);
+      storeCorpus(`${corpusId}_pairs`, JSON.stringify(labeledPairs));
+
+      const srcWords = srcText.split(/\s+/).length;
+      const tgtWords = tgtText.split(/\s+/).length;
+
+      res.json({
+        corpusId,
+        pairs: labeledPairs,
+        metrics: {
+          alignedPairs: labeledPairs.length,
+          avgSimilarity: 1.0,
+          strategiesLabeled: labeledPairs.filter(p => p.strategy && p.strategy.trim()).length,
+          lengthRatio: srcWords > 0 ? Math.round((tgtWords / srcWords) * 100) / 100 : 0,
+        },
+      });
+    } catch (error: any) {
+      console.error("Pre-aligned upload error:", error);
+      res.status(500).json({ error: error.message || "Processing failed" });
+    }
+  });
+
   app.post("/api/bilingual/universals", async (req, res) => {
     const { corpusId } = req.body;
     const pairsStr = getCorpus(`${corpusId}_pairs`);
