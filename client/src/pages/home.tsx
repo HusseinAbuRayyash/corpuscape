@@ -109,7 +109,7 @@ export default function Home() {
           animate="show"
         >
           {tracks.map((track, i) => (
-            <motion.div key={track.title} variants={cardVariants}>
+            <motion.div key={track.title} variants={cardVariants} className={tracks.length % 2 !== 0 && i === tracks.length - 1 ? "md:col-span-2 md:max-w-[calc(50%-0.625rem)] md:mx-auto" : ""}>
               <Link href={track.href}>
                 <motion.div
                   className={`track-card group relative overflow-hidden rounded-2xl cursor-pointer bg-gradient-to-br ${track.lightBg} ${track.darkBg} border border-white/60 dark:border-white/[0.06]`}
