@@ -10,6 +10,7 @@ import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { EditableChart } from "@/components/editable-chart";
+import { TableDownload } from "@/components/table-download";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import {
@@ -269,6 +270,17 @@ export default function Monolingual() {
                         layout="horizontal"
                       />
                     </div>
+                    <div className="flex justify-end mb-1">
+                      <TableDownload
+                        data={keywords.map((kw, i) => ({ rank: i + 1, term: kw.term, frequency: kw.frequency }))}
+                        columns={[
+                          { header: "#", key: "rank", align: "left" },
+                          { header: "Term", key: "term", align: "left" },
+                          { header: "Frequency", key: "frequency", align: "right" },
+                        ]}
+                        filename="Keywords"
+                      />
+                    </div>
                     <div className="max-h-64 overflow-auto rounded-lg border">
                       <table className="w-full text-sm polished-table" data-testid="table-keywords">
                         <thead className="sticky top-0">
@@ -317,7 +329,20 @@ export default function Monolingual() {
               <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
             )}
             {collocations.length > 0 && (
-              <motion.div className="max-h-96 overflow-auto rounded-lg border" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div className="space-y-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="flex justify-end">
+                  <TableDownload
+                    data={collocations.map(c => ({ collocate: c.collocate, frequency: c.frequency, mi: c.mi.toFixed(2), dice: c.dice.toFixed(3) }))}
+                    columns={[
+                      { header: "Collocate", key: "collocate", align: "left" },
+                      { header: "Frequency", key: "frequency", align: "right" },
+                      { header: "MI", key: "mi", align: "right" },
+                      { header: "Dice", key: "dice", align: "right" },
+                    ]}
+                    filename="Collocations"
+                  />
+                </div>
+                <div className="max-h-96 overflow-auto rounded-lg border">
                 <table className="w-full text-sm polished-table" data-testid="table-collocations">
                   <thead className="sticky top-0">
                     <tr>
@@ -338,6 +363,7 @@ export default function Monolingual() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </motion.div>
             )}
             {collocations.length === 0 && !collocationsMutation.isPending && (
@@ -378,7 +404,19 @@ export default function Monolingual() {
               <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
             )}
             {concordanceResults.length > 0 && (
-              <motion.div className="max-h-96 overflow-auto rounded-lg border" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div className="space-y-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="flex justify-end">
+                  <TableDownload
+                    data={concordanceResults.map(c => ({ left: c.left, match: c.match, right: c.right }))}
+                    columns={[
+                      { header: "Left Context", key: "left", align: "right" },
+                      { header: "Match", key: "match", align: "center" },
+                      { header: "Right Context", key: "right", align: "left" },
+                    ]}
+                    filename="Concordance"
+                  />
+                </div>
+                <div className="max-h-96 overflow-auto rounded-lg border">
                 <table className="w-full text-sm font-mono polished-table" data-testid="table-concordance">
                   <thead className="sticky top-0">
                     <tr>
@@ -397,6 +435,7 @@ export default function Monolingual() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </motion.div>
             )}
             {concordanceResults.length === 0 && !concordanceMutation.isPending && (
@@ -445,6 +484,17 @@ export default function Monolingual() {
                     data={ngrams.slice(0, 12).map(ng => ({ label: ng.ngram, value: ng.frequency }))}
                     defaultTitle=""
                     layout="vertical"
+                  />
+                </div>
+                <div className="flex justify-end mb-1">
+                  <TableDownload
+                    data={ngrams.map((ng, i) => ({ rank: i + 1, ngram: ng.ngram, frequency: ng.frequency }))}
+                    columns={[
+                      { header: "#", key: "rank", align: "left" },
+                      { header: "N-gram", key: "ngram", align: "left" },
+                      { header: "Frequency", key: "frequency", align: "right" },
+                    ]}
+                    filename="N-grams"
                   />
                 </div>
                 <div className="max-h-64 overflow-auto rounded-lg border">

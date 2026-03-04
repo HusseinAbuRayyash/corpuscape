@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
+import { TableDownload } from "@/components/table-download";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack } from "lucide-react";
@@ -244,6 +245,19 @@ export default function Bilingual() {
             <div className="section-header">
               <BarChart3 className="w-4 h-4 text-primary" />
               <h3>Aligned Pairs</h3>
+            </div>
+            <div className="flex justify-end mb-1">
+              <TableDownload
+                data={pairs.map((p, i) => ({ rank: i + 1, source: p.source, target: p.target, similarity: (p.similarity || 0).toFixed(3), strategy: p.strategy || "" }))}
+                columns={[
+                  { header: "#", key: "rank", align: "left" },
+                  { header: "Source", key: "source", align: "left" },
+                  { header: "Target", key: "target", align: "left" },
+                  { header: "Similarity", key: "similarity", align: "right" },
+                  { header: "Strategy", key: "strategy", align: "left" },
+                ]}
+                filename="Aligned_Pairs"
+              />
             </div>
             <div className="max-h-96 overflow-auto rounded-lg border">
               <table className="w-full text-sm polished-table" data-testid="table-aligned-pairs">
