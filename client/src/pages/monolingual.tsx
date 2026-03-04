@@ -556,7 +556,7 @@ export default function Monolingual() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={termsResult} />
+                <MarkdownRender content={termsResult} downloadFilename="AI_Terminology" />
               </motion.div>
             )}
           </motion.div>

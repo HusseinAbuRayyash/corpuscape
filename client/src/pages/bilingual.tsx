@@ -364,7 +364,7 @@ export default function Bilingual() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
-                  <MarkdownRender content={universalsResult} />
+                  <MarkdownRender content={universalsResult} downloadFilename="Translation_Universals" />
                 </motion.div>
               )}
             </div>
@@ -391,7 +391,7 @@ export default function Bilingual() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
-                  <MarkdownRender content={strategiesResult} />
+                  <MarkdownRender content={strategiesResult} downloadFilename="Strategy_Analysis" />
                 </motion.div>
               )}
             </div>

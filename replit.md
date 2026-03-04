@@ -55,6 +55,24 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Accepts `corpusId` and `theme` (gradient, accent, text color) props
 - 4 tabs: Specialized Analysis (31 types), Domain Classification, Comparative Metrics, Term Clusters
 - Category/type selectors, custom instructions, markdown result rendering
+- All results pass `downloadFilename` to MarkdownRender for automatic Excel/Word export
+
+### MarkdownRender (`client/src/components/markdown-render.tsx`)
+- Enhanced markdown renderer with custom table styling (bordered, headers, hover rows)
+- Auto-detects markdown tables and shows Excel/Word download buttons
+- Tables rendered in scrollable containers to prevent overflow/cut-off
+- Custom heading, paragraph, list, and strong text styling
+- Uses `parseMarkdownTables()` to extract table data for download
+
+### EditableChart (`client/src/components/editable-chart.tsx`)
+- 8 chart types, 18 monochromatic color palettes (incl. B&W)
+- Toolbar: horizontally scrollable with `overflow-x-auto scrollbar-hide min-w-max` to prevent button overlap
+- Editable title, axes labels, data labels (None/Values/%/Both)
+- PNG download via html2canvas
+
+### TableDownload (`client/src/components/table-download.tsx`)
+- Excel (.xlsx) and Word (.docx) download for structured table data
+- Styled Word documents with branded headers and alternating row shading
 
 ### Corpus Registry (`server/corpusStorage.ts`)
 - In-memory corpus storage with metadata registry

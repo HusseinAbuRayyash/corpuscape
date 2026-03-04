@@ -190,7 +190,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 <h3>{analysisType} — Results</h3>
               </div>
               <div className="p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent">
-                <MarkdownRender content={analysisResult} />
+                <MarkdownRender content={analysisResult} downloadFilename={`AI_${analysisType.replace(/\s/g, "_")}`} />
               </div>
             </motion.div>
           )}
@@ -218,7 +218,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={topicsResult} />
+                <MarkdownRender content={topicsResult} downloadFilename="AI_Domain_Classification" />
               </motion.div>
             )}
           </motion.div>
@@ -246,7 +246,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={metricsResult} />
+                <MarkdownRender content={metricsResult} downloadFilename="AI_Comparative_Metrics" />
               </motion.div>
             )}
           </motion.div>
@@ -274,7 +274,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={clustersResult} />
+                <MarkdownRender content={clustersResult} downloadFilename="AI_Term_Clusters" />
               </motion.div>
             )}
           </motion.div>
