@@ -155,7 +155,7 @@ export default function Monolingual() {
       </motion.div>
 
       <Tabs defaultValue="upload" className="space-y-5">
-        <TabsList className="flex-wrap" data-testid="tabs-monolingual">
+        <TabsList className="w-full justify-start" data-testid="tabs-monolingual">
           <TabsTrigger value="upload" data-testid="tab-upload"><Upload className="w-3.5 h-3.5 mr-1.5" />Upload</TabsTrigger>
           <TabsTrigger value="stats" disabled={!corpusId} data-testid="tab-stats"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Stats</TabsTrigger>
           <TabsTrigger value="collocations" disabled={!corpusId} data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
