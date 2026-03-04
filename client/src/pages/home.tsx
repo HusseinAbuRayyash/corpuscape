@@ -111,9 +111,9 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.7 }}
           >
-            <span className="text-gradient">Corpus Compilation & Analysis</span>
-            <span className="text-muted-foreground font-normal"> Lab for </span>
-            <span className="text-gradient">Translation Studies</span>
+            <span className="subtitle-gradient">Corpus Compilation & Analysis</span>
+            <span className="text-muted-foreground/60 font-normal"> Lab for </span>
+            <span className="subtitle-gradient">Translation Studies</span>
           </motion.p>
 
         </motion.div>
