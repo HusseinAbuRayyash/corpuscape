@@ -97,7 +97,7 @@ export default function Home() {
               <motion.img
                 src={traduxaLogo}
                 alt="Traduxa"
-                className="relative z-10 w-[280px] md:w-[380px] h-auto drop-shadow-xl dark:brightness-[1.8] dark:contrast-[1.1]"
+                className="relative z-10 w-[280px] md:w-[380px] h-auto drop-shadow-xl mix-blend-multiply dark:mix-blend-screen dark:invert"
                 data-testid="img-hero-logo"
                 whileHover={{ scale: 1.05, rotate: [0, -1, 1, 0] }}
                 transition={{ duration: 0.4 }}
