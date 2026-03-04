@@ -81,8 +81,7 @@ export default function Bilingual() {
           <Globe className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight" data-testid="text-page-title">Bilingual Track</h1>
-          <p className="text-sm text-muted-foreground/70">Parallel corpus alignment, translation strategies, universals, TMX export</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-teal-600 dark:text-teal-400" data-testid="text-page-title">Bilingual Track</h1>
         </div>
       </motion.div>
 

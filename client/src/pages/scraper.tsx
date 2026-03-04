@@ -115,8 +115,7 @@ export default function Scraper() {
             <Newspaper className="w-5 h-5 text-white relative z-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight" data-testid="text-page-title">Web Scraper</h1>
-            <p className="text-sm text-muted-foreground/70">Scrape articles from the web, clean and edit them, then analyze as a corpus</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-amber-600 dark:text-amber-400" data-testid="text-page-title">Web Scraper</h1>
           </div>
         </div>
       </motion.div>
