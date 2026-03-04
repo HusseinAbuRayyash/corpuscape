@@ -192,9 +192,14 @@ export default function Bilingual() {
                     description="Alternating source/target lines"
                   />
                 </div>
-                <p className="text-[11px] text-muted-foreground/60 mt-2.5 ml-1">
-                  File should have alternating lines: source sentence, then target sentence, repeating.
-                </p>
+                <div className="text-[11px] text-muted-foreground/60 mt-2.5 ml-1 space-y-1">
+                  <p>Supported formats:</p>
+                  <ul className="list-disc ml-4 space-y-0.5">
+                    <li>Alternating lines: source sentence, then target sentence, repeating (works for all language pairs including French, Spanish, German, etc.)</li>
+                    <li>Tab-separated: source{"\t"}target on each line</li>
+                    <li>Mixed-script lines: English text followed by Arabic/Chinese/Cyrillic text on the same line</li>
+                  </ul>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
