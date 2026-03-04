@@ -300,19 +300,26 @@ export async function alignSentences(source: string, target: string): Promise<an
   const srcTrimmed = source.slice(0, 15000);
   const tgtTrimmed = target.slice(0, 15000);
 
-  const prompt = `You are a professional bilingual alignment expert. You must:
+  const prompt = `You are a professional bilingual sentence alignment expert for translation studies.
 
-1. First, SEGMENT both texts into individual sentences or meaningful segments.
-2. Then, ALIGN each source sentence with its corresponding target translation.
-3. If a source sentence has NO equivalent in the target, set target to empty string "".
-4. If a target sentence has NO equivalent in the source, set source to empty string "".
-5. Score similarity from 0.0 to 1.0 based on how closely they match.
+TASK: Align the source text with the target text at the SENTENCE level.
 
-IMPORTANT RULES:
-- Split the text properly at sentence boundaries (periods, question marks, exclamation marks, Arabic ؟, newlines).
-- Remove metadata, headers, URLs, timestamps, and agency codes (like SPA, SPR, etc.) — focus on actual content sentences.
-- Each aligned pair should contain ONE sentence from source and ONE sentence from target. Do NOT lump multiple sentences together.
-- Preserve the original text exactly as-is in each field (do not translate or paraphrase).
+STEP 1 — CLEAN: Remove noise from both texts:
+- Strip URLs, page numbers, timestamps, dates, agency codes (SPA, SPR, SAAS, WAS, ESPRE, etc.)
+- Strip repeated headers/footers, navigation text, logos text
+- Keep ONLY actual content: headlines, subheadings, body sentences
+
+STEP 2 — SEGMENT: Split cleaned text into individual sentences:
+- Split at sentence-ending punctuation: . ! ? ؟ 。
+- Each headline or subheading is its own segment
+- Never merge multiple sentences into one segment
+
+STEP 3 — ALIGN: Match each source sentence to its target translation:
+- A source headline should match the target headline
+- A source body sentence should match the corresponding target body sentence
+- If a sentence has no equivalent, leave the other field as ""
+- Never duplicate — each sentence appears in exactly ONE pair
+- Similarity: 1.0 = exact translation, 0.7-0.9 = close, 0.3-0.6 = partial, 0.0 = no match
 
 SOURCE TEXT:
 ${srcTrimmed}
@@ -320,8 +327,8 @@ ${srcTrimmed}
 TARGET TEXT:
 ${tgtTrimmed}
 
-Return ONLY a valid JSON array. Each element: {"source": "...", "target": "...", "similarity": 0.85}
-Do not include any explanation or markdown formatting, just the JSON array.`;
+Return ONLY a valid JSON array. Each element: {"source": "exact source sentence", "target": "exact target sentence", "similarity": 0.85}
+No markdown, no explanation, just the JSON array.`;
 
   try {
     const response = await ai.models.generateContent({
