@@ -164,8 +164,10 @@ export async function extractTextFromFile(
     try {
       const pdfParse = (await import("pdf-parse")).default;
       const data = await pdfParse(buffer);
+      console.log(`[PDF] Extracted ${data.text.length} chars from ${filename}`);
       return data.text;
-    } catch {
+    } catch (err) {
+      console.error(`[PDF] Failed to extract text from ${filename}:`, err);
       return "";
     }
   }
