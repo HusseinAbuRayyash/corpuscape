@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useId } from "react";
 import { Upload, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +19,8 @@ export function FileUpload({
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const uniqueId = useId();
+  const inputId = `file-input-${uniqueId.replace(/:/g, "")}`;
 
   const handleFiles = useCallback(
     (newFiles: FileList | null) => {
@@ -48,11 +50,11 @@ export function FileUpload({
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
-        onClick={() => document.getElementById("file-input")?.click()}
+        onClick={() => document.getElementById(inputId)?.click()}
         data-testid="dropzone-upload"
       >
         <input
-          id="file-input"
+          id={inputId}
           type="file"
           accept={accept}
           multiple={multiple}
