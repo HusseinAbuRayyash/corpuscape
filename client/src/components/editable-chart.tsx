@@ -8,7 +8,7 @@ import {
   PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter, ZAxis,
 } from "recharts";
 import {
-  Download, Pencil, Plus, Trash2, Check, Palette, Type,
+  Download, Pencil, Plus, Trash2, Check, Palette, Type, Tag,
   BarChart3, BarChartHorizontal, LineChartIcon, AreaChartIcon, PieChartIcon,
   Radar as RadarIcon, ScatterChart as ScatterIcon, ChevronDown,
 } from "lucide-react";
@@ -63,6 +63,8 @@ const TOOLTIP_STYLE = { borderRadius: "8px", border: "none", boxShadow: "0 4px 1
 
 const hasAxes = (t: ChartType) => !["pie", "donut", "radar"].includes(t);
 
+type LabelMode = "none" | "values" | "percentages" | "both";
+
 export function EditableChart({
   data: initialData,
   defaultTitle = "",
@@ -77,11 +79,13 @@ export function EditableChart({
   const [yLabel, setYLabel] = useState(defaultYLabel);
   const [colors, setColors] = useState<string[]>(defaultColors);
   const [chartType, setChartType] = useState<ChartType>(layout === "vertical" ? "barHorizontal" : "bar");
+  const [labelMode, setLabelMode] = useState<LabelMode>("none");
   const [editing, setEditing] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingAxes, setEditingAxes] = useState(false);
   const [showPalettes, setShowPalettes] = useState(false);
   const [showChartTypes, setShowChartTypes] = useState(false);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newValue, setNewValue] = useState("");
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -114,18 +118,12 @@ export function EditableChart({
     setShowPalettes(false);
   }, []);
 
-  const closeAllPanels = useCallback(() => {
-    setShowPalettes(false);
-    setEditing(false);
-    setShowChartTypes(false);
-    setEditingAxes(false);
-  }, []);
-
-  const togglePanel = useCallback((panel: "types" | "palettes" | "edit" | "axes") => {
+  const togglePanel = useCallback((panel: "types" | "palettes" | "edit" | "axes" | "labels") => {
     setShowChartTypes(panel === "types" ? prev => !prev : false);
     setShowPalettes(panel === "palettes" ? prev => !prev : false);
     setEditing(panel === "edit" ? prev => !prev : false);
     setEditingAxes(panel === "axes" ? prev => !prev : false);
+    setShowLabelOptions(panel === "labels" ? prev => !prev : false);
   }, []);
 
   const downloadPNG = useCallback(async () => {
@@ -158,6 +156,32 @@ export function EditableChart({
     <Label value={yLabel} angle={-90} position="insideLeft" offset={10} style={{ fontSize: 11, fontWeight: 600, fill: "#6b7280", textAnchor: "middle" }} />
   ) : undefined;
 
+  const totalValue = chartData.reduce((sum, d) => sum + d.value, 0);
+
+  const formatBarLabel = (val: number) => {
+    if (labelMode === "none") return "";
+    const pct = totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
+    if (labelMode === "values") return String(val);
+    if (labelMode === "percentages") return pct;
+    return `${val} (${pct})`;
+  };
+
+  const renderCustomBarLabel = (props: any) => {
+    if (labelMode === "none") return null;
+    const { x, y, width, height, value } = props;
+    const text = formatBarLabel(value);
+    if (chartType === "barHorizontal") {
+      return <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={9} fill="#6b7280" fontWeight={500}>{text}</text>;
+    }
+    return <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{text}</text>;
+  };
+
+  const pieLabel = labelMode === "none" ? false : ({ label, value, percent }: any) => {
+    if (labelMode === "values") return `${label}: ${value}`;
+    if (labelMode === "percentages") return `${label} (${(percent * 100).toFixed(1)}%)`;
+    return `${label}: ${value} (${(percent * 100).toFixed(1)}%)`;
+  };
+
   const renderChart = () => {
     if (chartData.length === 0) {
       return (
@@ -189,7 +213,7 @@ export function EditableChart({
                     </XAxis>
                     <YAxis tick={{ fontSize: 11 }}>{yAxisLabel}</YAxis>
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]} label={labelMode !== "none" ? renderCustomBarLabel : false}>
                       {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Bar>
                   </BarChart>
@@ -197,12 +221,12 @@ export function EditableChart({
 
               case "barHorizontal":
                 return (
-                  <BarChart data={chartData} layout="vertical" margin={{ bottom: xLabel ? 20 : 5 }}>
+                  <BarChart data={chartData} layout="vertical" margin={{ bottom: xLabel ? 20 : 5, right: labelMode !== "none" ? 60 : 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
                     <XAxis type="number" tick={{ fontSize: 11 }}>{yLabel ? <Label value={yLabel} position="insideBottom" offset={-5} style={{ fontSize: 11, fontWeight: 600, fill: "#6b7280" }} /> : undefined}</XAxis>
                     <YAxis dataKey="label" type="category" width={140} tick={{ fontSize: 10 }}>{xLabel ? <Label value={xLabel} angle={-90} position="insideLeft" offset={15} style={{ fontSize: 11, fontWeight: 600, fill: "#6b7280", textAnchor: "middle" }} /> : undefined}</YAxis>
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} label={labelMode !== "none" ? renderCustomBarLabel : false}>
                       {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Bar>
                   </BarChart>
@@ -217,7 +241,15 @@ export function EditableChart({
                     </XAxis>
                     <YAxis tick={{ fontSize: 11 }}>{yAxisLabel}</YAxis>
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Line type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={2.5} dot={{ fill: colors[0], r: 4 }} activeDot={{ r: 6, fill: colors[1] || colors[0] }} />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke={colors[0]}
+                      strokeWidth={2.5}
+                      dot={{ fill: colors[0], r: 4 }}
+                      activeDot={{ r: 6, fill: colors[1] || colors[0] }}
+                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{formatBarLabel(value)}</text> : false}
+                    />
                   </LineChart>
                 );
 
@@ -236,7 +268,14 @@ export function EditableChart({
                     </XAxis>
                     <YAxis tick={{ fontSize: 11 }}>{yAxisLabel}</YAxis>
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Area type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={2} fill="url(#areaGrad)" />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke={colors[0]}
+                      strokeWidth={2}
+                      fill="url(#areaGrad)"
+                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={9} fill="#6b7280" fontWeight={500}>{formatBarLabel(value)}</text> : false}
+                    />
                   </AreaChart>
                 );
 
@@ -253,8 +292,8 @@ export function EditableChart({
                       outerRadius={chartType === "donut" ? 100 : 110}
                       innerRadius={chartType === "donut" ? 55 : 0}
                       paddingAngle={2}
-                      label={({ label, percent }) => `${label} (${(percent * 100).toFixed(0)}%)`}
-                      labelLine={{ strokeWidth: 1 }}
+                      label={pieLabel}
+                      labelLine={labelMode !== "none" ? { strokeWidth: 1 } : false}
                     >
                       {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Pie>
@@ -374,6 +413,15 @@ export function EditableChart({
           )}
           <Button
             size="sm"
+            variant={showLabelOptions ? "default" : "outline"}
+            className="h-6 text-[11px] px-2 gap-1"
+            onClick={() => togglePanel("labels")}
+            data-testid="button-toggle-labels"
+          >
+            <Tag className="w-3 h-3" />Labels
+          </Button>
+          <Button
+            size="sm"
             variant={editing ? "default" : "outline"}
             className="h-6 text-[11px] px-2 gap-1"
             onClick={() => togglePanel("edit")}
@@ -432,6 +480,28 @@ export function EditableChart({
                     ))}
                   </div>
                   {palette.name}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLabelOptions && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="flex items-center gap-1 p-2 rounded-lg border bg-muted/20">
+              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Show:</span>
+              {(["none", "values", "percentages", "both"] as LabelMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => { setLabelMode(mode); setShowLabelOptions(false); }}
+                  className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all capitalize ${
+                    labelMode === mode ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"
+                  }`}
+                  data-testid={`button-label-mode-${mode}`}
+                >
+                  {mode === "both" ? "Values + %" : mode === "none" ? "None" : mode === "values" ? "Values" : "Percentages"}
                 </button>
               ))}
             </div>
