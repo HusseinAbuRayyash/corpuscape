@@ -427,24 +427,6 @@ export default function Scraper() {
         </motion.div>
       )}
 
-      {articles.length === 0 && !scrapeMutation.isPending && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="empty-state">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center mb-4">
-              <Newspaper className="w-8 h-8 text-amber-500/40" />
-            </div>
-            <h3 className="font-semibold text-sm mb-1.5">No articles scraped yet</h3>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              Add one or more URLs above and click "Scrape" to extract text content from web pages.
-              You can then edit, clean, and send the scraped data to the analysis pipeline.
-            </p>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }
