@@ -7,18 +7,18 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 - **Frontend:** React + TypeScript, Vite, shadcn/ui, Tailwind CSS, wouter routing, TanStack Query, Recharts, Framer Motion
 - **Backend:** Express + TypeScript, multer for file uploads, cheerio for web scraping, in-memory corpus storage
 - **AI:** Google Gemini via Replit AI Integration (`@google/genai`), hardcoded — no user API key needed
-- **Theme:** Teal primary (168 76%) with gradient mesh background, dark sidebar, indigo/teal/purple/amber track accents
+- **Theme:** Teal primary (168 76%) with gradient mesh background, dark sidebar, indigo/teal/amber track accents
 
 ## Key Directories
 
 ```
-client/src/pages/       - Home, Monolingual, Bilingual, AI Insights, Scraper pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo
+client/src/pages/       - Home, Monolingual, Bilingual, Scraper pages
+client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo, AIAnalysisPanel
 server/                 - Express routes, corpus processing, AI integration, scraper, storage
 shared/schema.ts        - Shared types and analysis category definitions
 ```
 
-## Features (4 Tracks)
+## Features (3 Tracks)
 
 ### Monolingual Track
 - File upload (TXT, DOCX, PDF, Excel) + sample corpus
@@ -28,28 +28,39 @@ shared/schema.ts        - Shared types and analysis category definitions
 - KWIC concordance search
 - N-gram extraction (bigrams, trigrams, 4-grams)
 - AI corpus summary & terminology extraction
+- **AI Insights tab** — 31 specialized analyses, domain classification, comparative metrics, term clusters
 - Export: Research report (MD), Keywords CSV
 
 ### Bilingual Track
 - Source/target file upload with AI sentence alignment
+- Pre-aligned file mode (alternating source/target lines)
 - Translation strategy labeling (domestication, foreignization, etc.)
 - Translation universals analysis
 - Strategy analysis
+- **AI Insights section** — appears after alignment, full AI analysis panel
 - Export: CSV, TMX (CAT tool format)
-
-### AI Insights Lab
-- 31 specialized analysis types across 6 categories
-- Domain classification (topic extraction)
-- Comparative metrics
-- Term cluster extraction
-- Custom analysis with user-defined prompts
 
 ### Web Scraper
 - Add multiple URLs to scrape
 - Extract article text with cheerio
 - View, edit, and clean scraped content
 - Remove individual articles or clear all
-- Send cleaned text directly to Monolingual analysis pipeline
+- **Analyze Here** — create corpus and run AI analysis directly in scraper
+- Send cleaned text to Monolingual analysis pipeline
+
+## Reusable Components
+
+### AIAnalysisPanel (`client/src/components/ai-analysis-panel.tsx`)
+- Embeddable AI analysis component used by all 3 tracks
+- Accepts `corpusId` and `theme` (gradient, accent, text color) props
+- 4 tabs: Specialized Analysis (31 types), Domain Classification, Comparative Metrics, Term Clusters
+- Category/type selectors, custom instructions, markdown result rendering
+
+### Corpus Registry (`server/corpusStorage.ts`)
+- In-memory corpus storage with metadata registry
+- Tracks corpus source (monolingual, bilingual, scraper), name, word count
+- `resolveCorpusText()` helper resolves text for both monolingual and bilingual corpora
+- `GET /api/corpora` lists all registered corpora
 
 ## Design System
 
@@ -66,6 +77,7 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Real layered shadows
 - Inter font family
 - Consistent page headers with gradient icon badges per track
+- Track colors: Monolingual=indigo/blue, Bilingual=teal/emerald, Web Scraper=amber/orange
 
 ## Environment
 

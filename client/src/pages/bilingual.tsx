@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack } from "lucide-react";
@@ -381,6 +382,23 @@ export default function Bilingual() {
               )}
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {corpusId && metrics && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <AIAnalysisPanel 
+            corpusId={corpusId} 
+            theme={{ 
+              gradient: "from-teal-500 to-emerald-600", 
+              accent: "text-teal-500", 
+              text: "text-teal-600 dark:text-teal-400" 
+            }} 
+          />
         </motion.div>
       )}
 

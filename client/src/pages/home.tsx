@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, Brain, ArrowRight, Newspaper } from "lucide-react";
+import { BookOpen, Globe, ArrowRight, Newspaper } from "lucide-react";
 import { motion } from "framer-motion";
 import { TraduxaLogo } from "@/components/traduxa-logo";
 
@@ -29,19 +29,6 @@ const tracks = [
     glowColor: "rgba(20, 184, 166, 0.35)",
     lightBg: "from-teal-50 via-white to-emerald-50",
     darkBg: "dark:from-teal-950/60 dark:via-slate-900/80 dark:to-emerald-950/40",
-  },
-  {
-    title: "AI Insights",
-    description: "31 specialized analyses — industry, feminist, quality & more",
-    icon: Brain,
-    href: "/ai-insights",
-    color: "#a855f7",
-    colorEnd: "#c084fc",
-    bgFrom: "from-purple-500",
-    bgTo: "to-violet-500",
-    glowColor: "rgba(168, 85, 247, 0.35)",
-    lightBg: "from-purple-50 via-white to-violet-50",
-    darkBg: "dark:from-purple-950/60 dark:via-slate-900/80 dark:to-violet-950/40",
   },
   {
     title: "Web Scraper",

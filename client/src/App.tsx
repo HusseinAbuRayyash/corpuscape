@@ -10,7 +10,6 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Monolingual from "@/pages/monolingual";
 import Bilingual from "@/pages/bilingual";
-import AIInsights from "@/pages/ai-insights";
 import Scraper from "@/pages/scraper";
 
 function Router() {
@@ -19,7 +18,6 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/monolingual" component={Monolingual} />
       <Route path="/bilingual" component={Bilingual} />
-      <Route path="/ai-insights" component={AIInsights} />
       <Route path="/scraper" component={Scraper} />
       <Route component={NotFound} />
     </Switch>

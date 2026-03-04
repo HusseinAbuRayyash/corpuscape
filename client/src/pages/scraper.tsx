@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import {
   Loader2, Newspaper, Globe, Plus, X, Trash2, Edit3, Check, Send,
-  FileText, ExternalLink, ChevronDown, ChevronUp,
+  FileText, ExternalLink, ChevronDown, ChevronUp, Brain,
 } from "lucide-react";
 
 interface ScrapedArticle {
@@ -30,6 +31,7 @@ export default function Scraper() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [scraperCorpusId, setScraperCorpusId] = useState<string | null>(null);
 
   const addUrl = useCallback(() => {
     const trimmed = urlInput.trim();
@@ -72,6 +74,28 @@ export default function Scraper() {
     },
     onError: () => toast({ title: "Failed to create corpus", variant: "destructive" }),
   });
+
+  const analyzeHereMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const res = await apiRequest("POST", "/api/scrape/to-corpus", { text });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setScraperCorpusId(data.corpusId);
+      toast({ title: "Corpus created", description: data.stats.words.toLocaleString() + " words ready for AI analysis" });
+    },
+    onError: () => toast({ title: "Failed to create corpus", variant: "destructive" }),
+  });
+
+  const analyzeHere = () => {
+    const validArticles = articles.filter((a) => a.wordCount > 0);
+    if (validArticles.length === 0) {
+      toast({ title: "No content", description: "No valid articles to analyze", variant: "destructive" });
+      return;
+    }
+    const merged = validArticles.map((a) => `## ${a.title}\n\n${a.content}`).join("\n\n---\n\n");
+    analyzeHereMutation.mutate(merged);
+  };
 
   const startEditing = (index: number) => {
     setEditingIndex(index);
@@ -255,6 +279,20 @@ export default function Scraper() {
               </Button>
               <Button
                 size="sm"
+                variant="secondary"
+                onClick={analyzeHere}
+                disabled={validCount === 0 || analyzeHereMutation.isPending}
+                data-testid="button-analyze-here"
+              >
+                {analyzeHereMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Brain className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                Analyze Here
+              </Button>
+              <Button
+                size="sm"
                 onClick={mergeAndSend}
                 disabled={validCount === 0 || corpusMutation.isPending}
                 data-testid="button-send-to-analysis"
@@ -369,6 +407,23 @@ export default function Scraper() {
               </div>
             </motion.div>
           ))}
+        </motion.div>
+      )}
+
+      {scraperCorpusId && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <AIAnalysisPanel
+            corpusId={scraperCorpusId}
+            theme={{
+              gradient: "from-amber-500 to-orange-600",
+              accent: "text-amber-500",
+              text: "text-amber-600 dark:text-amber-400"
+            }}
+          />
         </motion.div>
       )}
 
