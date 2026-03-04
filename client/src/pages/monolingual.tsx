@@ -155,15 +155,15 @@ export default function Monolingual() {
       </motion.div>
 
       <Tabs defaultValue="upload" className="space-y-5">
-        <TabsList className="w-full justify-start" data-testid="tabs-monolingual">
-          <TabsTrigger value="upload" data-testid="tab-upload"><Upload className="w-3.5 h-3.5 mr-1.5" />Upload</TabsTrigger>
-          <TabsTrigger value="stats" disabled={!corpusId} data-testid="tab-stats"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Stats</TabsTrigger>
-          <TabsTrigger value="collocations" disabled={!corpusId} data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
-          <TabsTrigger value="concordance" disabled={!corpusId} data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
-          <TabsTrigger value="ngrams" disabled={!corpusId} data-testid="tab-ngrams"><Hash className="w-3.5 h-3.5 mr-1.5" />N-grams</TabsTrigger>
-          <TabsTrigger value="ai" disabled={!corpusId} data-testid="tab-ai"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
-          <TabsTrigger value="terms" disabled={!corpusId} data-testid="tab-terms"><BookText className="w-3.5 h-3.5 mr-1.5" />Terminology</TabsTrigger>
-          <TabsTrigger value="export" disabled={!corpusId} data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-monolingual">
+          <TabsTrigger value="upload" className="shrink-0" data-testid="tab-upload"><Upload className="w-3.5 h-3.5 mr-1.5" />Upload</TabsTrigger>
+          <TabsTrigger value="stats" disabled={!corpusId} className="shrink-0" data-testid="tab-stats"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Stats</TabsTrigger>
+          <TabsTrigger value="collocations" disabled={!corpusId} className="shrink-0" data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
+          <TabsTrigger value="concordance" disabled={!corpusId} className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
+          <TabsTrigger value="ngrams" disabled={!corpusId} className="shrink-0" data-testid="tab-ngrams"><Hash className="w-3.5 h-3.5 mr-1.5" />N-grams</TabsTrigger>
+          <TabsTrigger value="ai" disabled={!corpusId} className="shrink-0" data-testid="tab-ai"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
+          <TabsTrigger value="terms" disabled={!corpusId} className="shrink-0" data-testid="tab-terms"><BookText className="w-3.5 h-3.5 mr-1.5" />Terminology</TabsTrigger>
+          <TabsTrigger value="export" disabled={!corpusId} className="shrink-0" data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="space-y-5">
