@@ -284,48 +284,74 @@ Format as a markdown table:
   return generateContent(prompt, text, 8000);
 }
 
-export async function alignSentences(source: string, target: string): Promise<any[]> {
-  const srcSents = source.split(/[.!?]+/).map((s) => s.trim()).filter((s) => s.length > 15);
-  const tgtSents = target.split(/[.!?]+/).map((s) => s.trim()).filter((s) => s.length > 15);
+function segmentSentences(text: string): string[] {
+  const sentenceEnders = /(?<=[.!?؟。！？\n])\s+/;
+  const raw = text.split(sentenceEnders).map(s => s.trim()).filter(s => s.length > 5);
 
-  if (!srcSents.length || !tgtSents.length) {
-    return [{ source: source.slice(0, 200), target: target.slice(0, 200), similarity: 0 }];
+  if (raw.length <= 2 && text.length > 100) {
+    const byNewline = text.split(/\n+/).map(s => s.trim()).filter(s => s.length > 5);
+    if (byNewline.length > raw.length) return byNewline;
   }
 
-  const maxPairs = Math.min(srcSents.length, 30);
-  const pairsText = srcSents.slice(0, maxPairs).map((s, i) => `${i + 1}. ${s}`).join("\n");
-  const targetsText = tgtSents.slice(0, 50).map((s, i) => `${i + 1}. ${s}`).join("\n");
+  return raw;
+}
 
-  const prompt = `You are aligning source and target sentences. For each source sentence, find the best matching target sentence.
+export async function alignSentences(source: string, target: string): Promise<any[]> {
+  const srcTrimmed = source.slice(0, 15000);
+  const tgtTrimmed = target.slice(0, 15000);
 
-SOURCE SENTENCES:
-${pairsText}
+  const prompt = `You are a professional bilingual alignment expert. You must:
 
-TARGET SENTENCES:
-${targetsText}
+1. First, SEGMENT both texts into individual sentences or meaningful segments.
+2. Then, ALIGN each source sentence with its corresponding target translation.
+3. If a source sentence has NO equivalent in the target, set target to empty string "".
+4. If a target sentence has NO equivalent in the source, set source to empty string "".
+5. Score similarity from 0.0 to 1.0 based on how closely they match.
 
-Return ONLY a JSON array of objects with "source", "target", and "similarity" (0-1 score) fields. Example:
-[{"source": "...", "target": "...", "similarity": 0.85}]`;
+IMPORTANT RULES:
+- Split the text properly at sentence boundaries (periods, question marks, exclamation marks, Arabic ؟, newlines).
+- Remove metadata, headers, URLs, timestamps, and agency codes (like SPA, SPR, etc.) — focus on actual content sentences.
+- Each aligned pair should contain ONE sentence from source and ONE sentence from target. Do NOT lump multiple sentences together.
+- Preserve the original text exactly as-is in each field (do not translate or paraphrase).
+
+SOURCE TEXT:
+${srcTrimmed}
+
+TARGET TEXT:
+${tgtTrimmed}
+
+Return ONLY a valid JSON array. Each element: {"source": "...", "target": "...", "similarity": 0.85}
+Do not include any explanation or markdown formatting, just the JSON array.`;
 
   try {
-    const response = await generateContent(prompt, "", maxPairs * 500);
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt,
+    });
+    const raw = response.text || "";
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((p: any) => ({
+          source: (p.source || "").trim(),
+          target: (p.target || "").trim(),
+          similarity: typeof p.similarity === "number" ? p.similarity : 0.5,
+        }));
+      }
     }
-    const fallback = srcSents.slice(0, maxPairs).map((s, i) => ({
-      source: s,
-      target: tgtSents[Math.min(i, tgtSents.length - 1)] || "",
-      similarity: 0.5,
-    }));
-    return fallback;
-  } catch {
-    return srcSents.slice(0, maxPairs).map((s, i) => ({
-      source: s,
-      target: tgtSents[Math.min(i, tgtSents.length - 1)] || "",
-      similarity: 0.5,
-    }));
+  } catch (err) {
+    console.error("AI alignment error:", err);
   }
+
+  const srcSents = segmentSentences(source);
+  const tgtSents = segmentSentences(target);
+  const maxPairs = Math.max(srcSents.length, tgtSents.length);
+  return Array.from({ length: maxPairs }, (_, i) => ({
+    source: srcSents[i] || "",
+    target: tgtSents[i] || "",
+    similarity: 0.5,
+  }));
 }
 
 export async function labelStrategies(pairs: any[]): Promise<string[]> {
