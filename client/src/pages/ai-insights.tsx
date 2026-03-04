@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 import { Brain, Loader2, FlaskConical, BarChart3, Layers, AlertCircle } from "lucide-react";
 import { AI_ANALYSIS_CATEGORIES, AI_ANALYSIS_PRESETS } from "@shared/schema";
 
@@ -88,11 +89,21 @@ export default function AIInsights() {
 
   if (needsCorpus) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
-          <p className="text-sm text-muted-foreground mt-1">31 specialized analysis types for translation studies</p>
-        </div>
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-3 mb-2"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center shadow-lg">
+            <Brain className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
+            <p className="text-sm text-muted-foreground">31 specialized analysis types for translation studies</p>
+          </div>
+        </motion.div>
         <Card className="p-8 text-center">
           <AlertCircle className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground mb-4">
@@ -112,11 +123,21 @@ export default function AIInsights() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
-        <p className="text-sm text-muted-foreground mt-1">31 specialized analysis types - industry, criticism, visibility, gender, and more</p>
-      </div>
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex items-center gap-3 mb-2"
+      >
+        <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center shadow-lg">
+          <Brain className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">AI Insights Lab</h1>
+          <p className="text-sm text-muted-foreground">31 specialized analysis types - industry, criticism, visibility, gender, and more</p>
+        </div>
+      </motion.div>
 
       <Tabs defaultValue="analysis" className="space-y-4">
         <TabsList data-testid="tabs-ai-insights">

@@ -27,6 +27,7 @@ import {
   getCorpus,
   generateCorpusId,
 } from "./corpusStorage";
+import { scrapeUrl, scrapeMultipleUrls } from "./scraper";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -240,6 +241,36 @@ export async function registerRoutes(
     res.setHeader("Content-Type", "text/markdown");
     res.setHeader("Content-Disposition", "attachment; filename=transcorpus_report.md");
     res.send(report);
+  });
+
+  app.post("/api/scrape", async (req, res) => {
+    try {
+      const { urls } = req.body;
+      if (!urls || !Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ error: "Provide an array of URLs" });
+      }
+      const articles = await scrapeMultipleUrls(urls);
+      res.json({ articles });
+    } catch (error: any) {
+      console.error("Scrape error:", error);
+      res.status(500).json({ error: error.message || "Scraping failed" });
+    }
+  });
+
+  app.post("/api/scrape/to-corpus", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== "string" || text.trim().length < 10) {
+        return res.status(400).json({ error: "Text too short to create a corpus" });
+      }
+      const cleaned = cleanText(text);
+      const corpusId = generateCorpusId();
+      storeCorpus(corpusId, cleaned);
+      const stats = getStats(cleaned);
+      res.json({ corpusId, stats, wordCount: stats.words });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create corpus" });
+    }
   });
 
   return httpServer;

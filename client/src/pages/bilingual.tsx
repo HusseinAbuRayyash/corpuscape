@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 import { Loader2, Download, Globe, FileText } from "lucide-react";
 import type { AlignedPair } from "@shared/schema";
 
@@ -65,11 +66,21 @@ export default function Bilingual() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Bilingual Track</h1>
-        <p className="text-sm text-muted-foreground mt-1">Parallel corpus alignment, translation strategies, universals, TMX export</p>
-      </div>
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex items-center gap-3 mb-2"
+      >
+        <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center shadow-lg">
+          <Globe className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Bilingual Track</h1>
+          <p className="text-sm text-muted-foreground">Parallel corpus alignment, translation strategies, universals, TMX export</p>
+        </div>
+      </motion.div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="p-5">

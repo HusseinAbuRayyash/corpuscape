@@ -4,21 +4,21 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 
 ## Architecture
 
-- **Frontend:** React + TypeScript, Vite, shadcn/ui, Tailwind CSS, wouter routing, TanStack Query, Recharts
-- **Backend:** Express + TypeScript, multer for file uploads, in-memory corpus storage
+- **Frontend:** React + TypeScript, Vite, shadcn/ui, Tailwind CSS, wouter routing, TanStack Query, Recharts, Framer Motion
+- **Backend:** Express + TypeScript, multer for file uploads, cheerio for web scraping, in-memory corpus storage
 - **AI:** Google Gemini via Replit AI Integration (`@google/genai`), hardcoded — no user API key needed
-- **Theme:** Teal primary (168 76%) with indigo/purple accents per track
+- **Theme:** Teal primary (168 76%) with gradient mesh background, dark sidebar, indigo/teal/purple/amber track accents
 
 ## Key Directories
 
 ```
-client/src/pages/       - Home, Monolingual, Bilingual, AI Insights pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider
-server/                 - Express routes, corpus processing, AI integration, storage
+client/src/pages/       - Home, Monolingual, Bilingual, AI Insights, Scraper pages
+client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo
+server/                 - Express routes, corpus processing, AI integration, scraper, storage
 shared/schema.ts        - Shared types and analysis category definitions
 ```
 
-## Features (3 Tracks)
+## Features (4 Tracks)
 
 ### Monolingual Track
 - File upload (TXT, DOCX, PDF, Excel) + sample corpus
@@ -44,6 +44,25 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Term cluster extraction
 - Custom analysis with user-defined prompts
 
+### Web Scraper
+- Add multiple URLs to scrape
+- Extract article text with cheerio
+- View, edit, and clean scraped content
+- Remove individual articles or clear all
+- Send cleaned text directly to Monolingual analysis pipeline
+
+## Design System
+
+- Gradient mesh background (teal/indigo/purple radials)
+- Dark sidebar (slate-900)
+- Glass-morphism cards
+- CSS + Framer Motion animations (fade-in, slide-up, stagger)
+- Custom SVG logo with gradient
+- Text gradient for brand name
+- Real shadows (not flat)
+- Inter font family
+- Consistent page headers with colored icon badges per track
+
 ## Environment
 
 - `AI_INTEGRATIONS_GEMINI_API_KEY` and `AI_INTEGRATIONS_GEMINI_BASE_URL` provided by Replit integration
@@ -53,5 +72,6 @@ shared/schema.ts        - Shared types and analysis category definitions
 ## Dependencies
 
 - `@google/genai`, `multer`, `mammoth`, `pdf-parse`, `xlsx`
-- `react-markdown`, `remark-gfm`, `recharts`
+- `react-markdown`, `remark-gfm`, `recharts`, `framer-motion`
+- `cheerio` (web scraping)
 - `p-limit`, `p-retry`

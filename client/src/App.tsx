@@ -11,6 +11,7 @@ import Home from "@/pages/home";
 import Monolingual from "@/pages/monolingual";
 import Bilingual from "@/pages/bilingual";
 import AIInsights from "@/pages/ai-insights";
+import Scraper from "@/pages/scraper";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/monolingual" component={Monolingual} />
       <Route path="/bilingual" component={Bilingual} />
       <Route path="/ai-insights" component={AIInsights} />
+      <Route path="/scraper" component={Scraper} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -38,10 +40,10 @@ function App() {
             <div className="flex h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1 min-w-0">
-                <header className="flex items-center h-12 px-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+                <header className="flex items-center h-12 px-4 border-b border-border/60 bg-background/60 backdrop-blur-xl sticky top-0 z-50">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
                 </header>
-                <main className="flex-1 overflow-auto bg-background">
+                <main className="flex-1 overflow-auto gradient-mesh">
                   <Router />
                 </main>
               </div>
