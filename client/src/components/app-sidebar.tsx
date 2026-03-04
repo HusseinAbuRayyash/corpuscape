@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
-import { LogoMark } from "@/components/logo";
+import traduxaLogo from "@assets/image_1772608193211.png";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
@@ -32,12 +32,8 @@ export function AppSidebar() {
       <SidebarContent>
         <div className="px-4 py-5">
           <Link href="/">
-            <div className="flex items-center gap-3 cursor-pointer group" data-testid="link-home-logo">
-              <LogoMark size={32} className="transition-transform duration-300 group-hover:scale-110" />
-              <div>
-                <h1 className="text-sm font-extrabold tracking-tighter text-gradient">Traduxa</h1>
-                <p className="text-[10px] text-sidebar-foreground/40 leading-none mt-0.5 font-medium">Corpus Compilation & Analysis Lab</p>
-              </div>
+            <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
+              <img src={traduxaLogo} alt="Traduxa" className="w-[110px] h-auto transition-transform duration-300 group-hover:scale-105 dark:brightness-[1.8] dark:contrast-[1.1]" />
             </div>
           </Link>
         </div>
