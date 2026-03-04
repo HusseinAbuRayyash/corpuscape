@@ -169,32 +169,56 @@ export default function Monolingual() {
         </TabsList>
 
         <TabsContent value="upload" className="space-y-5">
-          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <div className="section-header">
-              <Upload className="w-4 h-4 text-primary" />
-              <h3>Add your corpus</h3>
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">Upload one or more files — they will be merged into a single corpus for analysis.</p>
-            <FileUpload onFilesSelected={setSelectedFiles} />
-            <div className="mt-5 flex items-center gap-3 flex-wrap">
-              <Button
-                onClick={handleUpload}
-                disabled={selectedFiles.length === 0 || uploadMutation.isPending}
-                data-testid="button-upload"
+          <motion.div
+            className="polished-card overflow-hidden"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-400" />
+            <div className="p-6 md:p-7">
+              <motion.div
+                className="flex items-center gap-3 mb-1"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1, duration: 0.4 }}
               >
-                {uploadMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Upload & Process
-              </Button>
-              <span className="text-xs text-muted-foreground/50">or</span>
-              <Button
-                variant="secondary"
-                onClick={() => sampleMutation.mutate()}
-                disabled={sampleMutation.isPending}
-                data-testid="button-sample"
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(99,102,241,0.3)" }}>
+                  <Upload className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }}>Add Your Corpus</h3>
+              </motion.div>
+              <motion.p
+                className="text-xs text-muted-foreground/70 mb-5 ml-[52px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
               >
-                {sampleMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Use Sample Corpus
-              </Button>
+                Upload one or more files — they will be merged into a single corpus for analysis.
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.4 }}
+              >
+                <FileUpload onFilesSelected={setSelectedFiles} />
+              </motion.div>
+              <motion.div
+                className="mt-5"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.4 }}
+              >
+                <Button
+                  onClick={handleUpload}
+                  disabled={selectedFiles.length === 0 || uploadMutation.isPending}
+                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                  data-testid="button-upload"
+                >
+                  {uploadMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Upload & Process
+                </Button>
+              </motion.div>
             </div>
           </motion.div>
           {stats && (
