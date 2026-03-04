@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,9 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 import {
   Upload, BarChart3, Link2, Search, Hash, Brain, BookText, Download,
-  Loader2, FileText, TrendingUp,
+  Loader2, FileText, TrendingUp, BookOpen,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -35,6 +36,18 @@ export default function Monolingual() {
   const [concordanceQuery, setConcordanceQuery] = useState("");
   const [ngramN, setNgramN] = useState("2");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  useEffect(() => {
+    const scrapedId = sessionStorage.getItem("scraped_corpus_id");
+    const scrapedStats = sessionStorage.getItem("scraped_corpus_stats");
+    if (scrapedId && scrapedStats) {
+      setCorpusId(scrapedId);
+      setStats(JSON.parse(scrapedStats));
+      sessionStorage.removeItem("scraped_corpus_id");
+      sessionStorage.removeItem("scraped_corpus_stats");
+      toast({ title: "Scraped corpus loaded", description: "Ready for analysis" });
+    }
+  }, []);
 
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
@@ -124,11 +137,21 @@ export default function Monolingual() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Monolingual Track</h1>
-        <p className="text-sm text-muted-foreground mt-1">Corpus statistics, keywords, collocations, concordance, and AI-powered analysis</p>
-      </div>
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex items-center gap-3 mb-2"
+      >
+        <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg">
+          <BookOpen className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Monolingual Track</h1>
+          <p className="text-sm text-muted-foreground">Corpus statistics, keywords, collocations, concordance, and AI-powered analysis</p>
+        </div>
+      </motion.div>
 
       <Tabs defaultValue="upload" className="space-y-4">
         <TabsList className="flex-wrap" data-testid="tabs-monolingual">
