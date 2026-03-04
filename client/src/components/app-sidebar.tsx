@@ -36,7 +36,7 @@ export function AppSidebar() {
               <LogoMark size={32} className="transition-transform duration-300 group-hover:scale-110" />
               <div>
                 <h1 className="text-sm font-extrabold tracking-tighter text-gradient">Traduxa</h1>
-                <p className="text-[10px] text-sidebar-foreground/40 leading-none mt-0.5 font-medium">Corpus Linguistics Lab</p>
+                <p className="text-[10px] text-sidebar-foreground/40 leading-none mt-0.5 font-medium">Corpus Compilation & Analysis Lab</p>
               </div>
             </div>
           </Link>

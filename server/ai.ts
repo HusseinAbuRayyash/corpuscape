@@ -438,7 +438,7 @@ export function generateResearchReport(
     }
   }
 
-  lines.push("## References", "", "Traduxa. (2026). Corpus Linguistics Lab for Translation Studies. ATISA Pre-Workshop.", "");
+  lines.push("## References", "", "Traduxa. (2026). Corpus Compilation & Analysis Lab.", "");
   return lines.join("\n");
 }
 

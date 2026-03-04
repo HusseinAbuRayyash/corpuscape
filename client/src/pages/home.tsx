@@ -111,7 +111,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.7 }}
           >
-            Corpus linguistics lab for translation studies
+            Corpus compilation & analysis lab for translation studies
           </motion.p>
 
           <motion.div
