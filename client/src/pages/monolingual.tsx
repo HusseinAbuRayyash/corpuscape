@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import {
@@ -163,7 +164,7 @@ export default function Monolingual() {
           <TabsTrigger value="collocations" disabled={!corpusId} data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
           <TabsTrigger value="concordance" disabled={!corpusId} data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
           <TabsTrigger value="ngrams" disabled={!corpusId} data-testid="tab-ngrams"><Hash className="w-3.5 h-3.5 mr-1.5" />N-grams</TabsTrigger>
-          <TabsTrigger value="ai" disabled={!corpusId} data-testid="tab-ai"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Analysis</TabsTrigger>
+          <TabsTrigger value="ai" disabled={!corpusId} data-testid="tab-ai"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
           <TabsTrigger value="terms" disabled={!corpusId} data-testid="tab-terms"><BookText className="w-3.5 h-3.5 mr-1.5" />Terminology</TabsTrigger>
           <TabsTrigger value="export" disabled={!corpusId} data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
         </TabsList>
@@ -494,33 +495,7 @@ export default function Monolingual() {
         </TabsContent>
 
         <TabsContent value="ai" className="space-y-4">
-          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="section-header">
-              <Brain className="w-4 h-4 text-purple-500" />
-              <h3>AI Corpus Summary</h3>
-            </div>
-            <Button
-              onClick={() => aiMutation.mutate("summary")}
-              disabled={aiMutation.isPending}
-              data-testid="button-ai-summarize"
-            >
-              {aiMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
-              Generate Summary
-            </Button>
-            {aiMutation.isPending && (
-              <div className="mt-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>
-            )}
-            {aiResult && (
-              <motion.div
-                className="mt-5 p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent"
-                data-testid="text-ai-result"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <MarkdownRender content={aiResult} />
-              </motion.div>
-            )}
-          </motion.div>
+          <AIAnalysisPanel corpusId={corpusId!} theme={{ gradient: "from-indigo-500 to-blue-600", accent: "text-indigo-500", text: "text-indigo-600 dark:text-indigo-400" }} />
         </TabsContent>
 
         <TabsContent value="terms" className="space-y-4">
