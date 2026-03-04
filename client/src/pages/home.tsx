@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { BookOpen, Globe, Brain, ArrowRight, Newspaper } from "lucide-react";
 import { motion } from "framer-motion";
-import traduxaLogo from "@assets/image_1772608193211.png";
+import { TraduxaLogo } from "@/components/traduxa-logo";
 
 const tracks = [
   {
@@ -94,14 +94,10 @@ export default function Home() {
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >
               <div className="absolute inset-0 blur-3xl opacity-30 bg-gradient-to-br from-teal-400 via-indigo-400 to-purple-400 rounded-full scale-[2]" />
-              <motion.img
-                src={traduxaLogo}
-                alt="Traduxa"
-                className="relative z-10 w-[280px] md:w-[380px] h-auto drop-shadow-xl mix-blend-multiply dark:mix-blend-screen dark:invert"
-                data-testid="img-hero-logo"
-                whileHover={{ scale: 1.05, rotate: [0, -1, 1, 0] }}
-                transition={{ duration: 0.4 }}
-              />
+              <div className="relative z-10" data-testid="img-hero-logo">
+                <TraduxaLogo width={380} animated className="hidden md:block" />
+                <TraduxaLogo width={260} animated className="block md:hidden" />
+              </div>
             </motion.div>
           </motion.div>
 
