@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, Brain, ArrowRight, Newspaper, Sparkles } from "lucide-react";
+import { BookOpen, Globe, Brain, ArrowRight, Newspaper } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { motion } from "framer-motion";
 
@@ -114,15 +114,6 @@ export default function Home() {
             Corpus compilation & analysis lab for translation studies
           </motion.p>
 
-          <motion.div
-            className="flex items-center justify-center gap-1.5 mt-4"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.55, duration: 0.5 }}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-xs text-muted-foreground/50 font-medium">4 tracks · 31 analysis types · web scraping</span>
-          </motion.div>
         </motion.div>
 
         <motion.div
