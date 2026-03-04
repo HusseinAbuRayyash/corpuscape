@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { BookOpen, Globe, Brain, ArrowRight, Newspaper } from "lucide-react";
-import { Logo } from "@/components/logo";
 import { motion } from "framer-motion";
+import traduxaLogo from "@assets/image_1772608193211.png";
 
 const tracks = [
   {
@@ -83,26 +83,27 @@ export default function Home() {
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
           <motion.div
-            className="flex justify-center mb-6"
-            initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
+            className="flex justify-center mb-8"
+            initial={{ scale: 0.6, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="relative">
-              <div className="absolute inset-0 blur-2xl opacity-40 bg-gradient-to-br from-teal-400 via-indigo-400 to-purple-400 rounded-full scale-150" />
-              <Logo size={88} className="relative z-10 drop-shadow-lg" />
-            </div>
+            <motion.div
+              className="relative"
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <div className="absolute inset-0 blur-3xl opacity-30 bg-gradient-to-br from-teal-400 via-indigo-400 to-purple-400 rounded-full scale-[2]" />
+              <motion.img
+                src={traduxaLogo}
+                alt="Traduxa"
+                className="relative z-10 w-[280px] md:w-[380px] h-auto drop-shadow-xl dark:brightness-[1.8] dark:contrast-[1.1]"
+                data-testid="img-hero-logo"
+                whileHover={{ scale: 1.05, rotate: [0, -1, 1, 0] }}
+                transition={{ duration: 0.4 }}
+              />
+            </motion.div>
           </motion.div>
-
-          <motion.h1
-            className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-4"
-            data-testid="text-hero-title"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.6 }}
-          >
-            <span className="text-gradient">Traduxa</span>
-          </motion.h1>
 
           <motion.p
             className="text-lg md:text-xl max-w-lg mx-auto leading-relaxed font-semibold tracking-tight"
