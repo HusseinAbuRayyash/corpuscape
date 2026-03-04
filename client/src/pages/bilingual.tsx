@@ -384,20 +384,6 @@ export default function Bilingual() {
         </motion.div>
       )}
 
-      {!metrics && !uploadMutation.isPending && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="empty-state">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/10 to-emerald-500/10 flex items-center justify-center mb-4">
-              <Globe className="w-8 h-8 text-teal-500/40" />
-            </div>
-            <p className="text-sm text-muted-foreground">Upload source and target files to begin bilingual analysis.</p>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }
