@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Palette, ChevronDown } from "lucide-react";
+import { Download, RefreshCw, Palette, ChevronDown, X, Undo2, Edit3 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PRESET_PALETTES = [
@@ -28,6 +28,7 @@ interface WordCloudProps {
   width?: number;
   height?: number;
   defaultColors?: string[];
+  onWordsChange?: (words: WordCloudWord[]) => void;
 }
 
 interface PlacedWord {
@@ -177,6 +178,7 @@ export function WordCloud({
   width = 700,
   height = 420,
   defaultColors = PRESET_PALETTES[0].colors,
+  onWordsChange,
 }: WordCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -186,6 +188,8 @@ export function WordCloud({
   const [hoveredWord, setHoveredWord] = useState<PlacedWord | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const placedWordsRef = useRef<PlacedWord[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [removedWords, setRemovedWords] = useState<WordCloudWord[]>([]);
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -237,6 +241,40 @@ export function WordCloud({
     setHoveredWord(null);
   }, []);
 
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!editMode) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    for (const pw of placedWordsRef.current) {
+      if (mx >= pw.x && mx <= pw.x + pw.width && my >= pw.y && my <= pw.y + pw.height) {
+        const removedWord = { text: pw.text, value: pw.value };
+        setRemovedWords(prev => [...prev, removedWord]);
+        const newWords = words.filter(w => w.text !== pw.text);
+        if (onWordsChange) onWordsChange(newWords);
+        break;
+      }
+    }
+  }, [editMode, words, onWordsChange]);
+
+  const undoLastRemoval = useCallback(() => {
+    if (removedWords.length === 0) return;
+    const lastRemoved = removedWords[removedWords.length - 1];
+    setRemovedWords(prev => prev.slice(0, -1));
+    const restored = [...words, lastRemoved].sort((a, b) => b.value - a.value);
+    if (onWordsChange) onWordsChange(restored);
+  }, [removedWords, words, onWordsChange]);
+
+  const undoAllRemovals = useCallback(() => {
+    if (removedWords.length === 0) return;
+    const restored = [...words, ...removedWords].sort((a, b) => b.value - a.value);
+    setRemovedWords([]);
+    if (onWordsChange) onWordsChange(restored);
+  }, [removedWords, words, onWordsChange]);
+
   const downloadPNG = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -273,6 +311,40 @@ export function WordCloud({
     <div className="space-y-2" ref={containerRef}>
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex items-center gap-1.5 min-w-max">
+          <Button
+            size="sm"
+            variant={editMode ? "default" : "outline"}
+            className={`h-6 text-[11px] px-2 gap-1 flex-shrink-0 ${editMode ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
+            onClick={() => setEditMode(!editMode)}
+            data-testid="button-edit-cloud"
+          >
+            {editMode ? <X className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+            {editMode ? "Done" : "Edit"}
+          </Button>
+          {editMode && removedWords.length > 0 && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[11px] px-2 gap-1 flex-shrink-0"
+                onClick={undoLastRemoval}
+                data-testid="button-undo-cloud"
+              >
+                <Undo2 className="w-3 h-3" />
+                Undo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[11px] px-2 gap-1 flex-shrink-0"
+                onClick={undoAllRemovals}
+                data-testid="button-undo-all-cloud"
+              >
+                <Undo2 className="w-3 h-3" />
+                Restore All ({removedWords.length})
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -340,26 +412,48 @@ export function WordCloud({
         )}
       </AnimatePresence>
 
-      <div className="relative rounded-lg border overflow-hidden bg-card" data-testid="word-cloud-canvas-container">
+      {editMode && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-400 text-xs font-medium"
+        >
+          <Edit3 className="w-3.5 h-3.5 shrink-0" />
+          Click any word to remove it from the cloud.
+          {removedWords.length > 0 && (
+            <span className="ml-auto text-muted-foreground">{removedWords.length} removed</span>
+          )}
+        </motion.div>
+      )}
+
+      <div className={`relative rounded-lg border overflow-hidden bg-card ${editMode ? "ring-2 ring-red-400/50" : ""}`} data-testid="word-cloud-canvas-container">
         <canvas
           ref={canvasRef}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          className="block w-full cursor-default"
+          onClick={handleCanvasClick}
+          className={`block w-full ${editMode ? "cursor-crosshair" : "cursor-default"}`}
           style={{ maxWidth: width, maxHeight: height }}
           data-testid="word-cloud-canvas"
         />
         {hoveredWord && (
           <div
-            className="absolute pointer-events-none z-50 px-2.5 py-1.5 rounded-md border bg-popover text-popover-foreground text-xs font-medium shadow-md"
+            className={`absolute pointer-events-none z-50 px-2.5 py-1.5 rounded-md border text-xs font-medium shadow-md ${
+              editMode
+                ? "bg-red-500 text-white border-red-600"
+                : "bg-popover text-popover-foreground"
+            }`}
             style={{
               left: Math.min(tooltipPos.x + 12, width - 120),
               top: tooltipPos.y - 30,
             }}
             data-testid="word-cloud-tooltip"
           >
+            {editMode && <X className="w-3 h-3 inline mr-1" />}
             <span className="font-bold">{hoveredWord.text}</span>
-            <span className="text-muted-foreground ml-1.5">({hoveredWord.value})</span>
+            <span className={`ml-1.5 ${editMode ? "text-red-100" : "text-muted-foreground"}`}>
+              {editMode ? "click to remove" : `(${hoveredWord.value})`}
+            </span>
           </div>
         )}
       </div>

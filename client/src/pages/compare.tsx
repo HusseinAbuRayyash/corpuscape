@@ -35,6 +35,8 @@ export default function Compare() {
   const [statsB, setStatsB] = useState<CorpusStats | null>(null);
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [aiComparison, setAiComparison] = useState("");
+  const [cloudWordsA, setCloudWordsA] = useState<{text: string; value: number}[]>([]);
+  const [cloudWordsB, setCloudWordsB] = useState<{text: string; value: number}[]>([]);
 
   const uploadA = useMutation({
     mutationFn: async (files: File[]) => {
@@ -73,7 +75,11 @@ export default function Compare() {
       const res = await apiRequest("POST", "/api/corpus/compare", { corpusIdA, corpusIdB });
       return res.json();
     },
-    onSuccess: (data) => setCompareResult(data),
+    onSuccess: (data) => {
+      setCompareResult(data);
+      setCloudWordsA(data.keywordsA.map((k: any) => ({ text: k.term, value: k.frequency })));
+      setCloudWordsB(data.keywordsB.map((k: any) => ({ text: k.term, value: k.frequency })));
+    },
     onError: () => toast({ title: "Comparison failed", variant: "destructive" }),
   });
 
@@ -265,8 +271,9 @@ export default function Compare() {
                 <h3>Corpus A — Word Cloud</h3>
               </div>
               <WordCloud
-                words={compareResult.keywordsA.map(k => ({ text: k.term, value: k.frequency }))}
+                words={cloudWordsA.length > 0 ? cloudWordsA : compareResult.keywordsA.map(k => ({ text: k.term, value: k.frequency }))}
                 defaultColors={["#312e81", "#3730a3", "#4338ca", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc"]}
+                onWordsChange={setCloudWordsA}
               />
             </div>
             <div className="polished-card p-5">
@@ -275,8 +282,9 @@ export default function Compare() {
                 <h3>Corpus B — Word Cloud</h3>
               </div>
               <WordCloud
-                words={compareResult.keywordsB.map(k => ({ text: k.term, value: k.frequency }))}
+                words={cloudWordsB.length > 0 ? cloudWordsB : compareResult.keywordsB.map(k => ({ text: k.term, value: k.frequency }))}
                 defaultColors={["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]}
+                onWordsChange={setCloudWordsB}
               />
             </div>
           </div>

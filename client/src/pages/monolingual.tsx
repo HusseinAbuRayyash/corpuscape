@@ -46,6 +46,7 @@ export default function Monolingual() {
   const [originalColumns, setOriginalColumns] = useState<ColumnMeta | null>(null);
   const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
   const [stopWords, setStopWords] = useState<string[]>([]);
+  const [cloudWords, setCloudWords] = useState<{text: string; value: number}[]>([]);
   const [kwChartExpanded, setKwChartExpanded] = useState(false);
   const [kwTableExpanded, setKwTableExpanded] = useState(false);
   const [ngChartExpanded, setNgChartExpanded] = useState(false);
@@ -103,7 +104,10 @@ export default function Monolingual() {
       const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId, topN: 100, stopWords });
       return res.json();
     },
-    onSuccess: setKeywords,
+    onSuccess: (data) => {
+      setKeywords(data);
+      setCloudWords(data.map((kw: any) => ({ text: kw.term, value: kw.frequency })));
+    },
   });
 
   const ngramsMutation = useMutation({
@@ -734,9 +738,10 @@ export default function Monolingual() {
             {keywords.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                 <WordCloud
-                  words={keywords.map(kw => ({ text: kw.term, value: kw.frequency }))}
+                  words={cloudWords.length > 0 ? cloudWords : keywords.map(kw => ({ text: kw.term, value: kw.frequency }))}
                   width={700}
                   height={420}
+                  onWordsChange={setCloudWords}
                 />
               </motion.div>
             )}
