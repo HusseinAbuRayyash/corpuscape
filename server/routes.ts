@@ -26,6 +26,7 @@ import {
   chatWithCorpus,
   backTranslate,
   generateGlossary,
+  generateContent,
 } from "./ai";
 import {
   storeCorpus,

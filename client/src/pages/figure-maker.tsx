@@ -17,7 +17,7 @@ import {
   BarChart3, BarChartHorizontal, LineChart as LineChartIcon, AreaChart as AreaChartIcon,
   PieChart as PieChartIcon, Radar as RadarIcon, ScatterChart as ScatterIcon,
   ChevronDown, Upload, ClipboardPaste, Image, FileText, Settings2,
-  Loader2, LayoutGrid,
+  Loader2, LayoutGrid, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -198,6 +198,8 @@ export default function FigureMaker() {
       if (data.data && data.data.length > 0) {
         setChartData(data.data);
         toast({ title: "AI parsed your data", description: `${data.data.length} data points extracted` });
+      } else {
+        toast({ title: "No data found", description: "AI could not extract any numeric data from the text", variant: "destructive" });
       }
     },
     onError: (error: any) => {
@@ -221,6 +223,8 @@ export default function FigureMaker() {
     }
     aiParseMutation.mutate(pasteData);
   }, [pasteData, toast, tryLocalParse]);
+
+  const isAIParsing = aiParseMutation.isPending;
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -645,6 +649,9 @@ export default function FigureMaker() {
               <LayoutGrid className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-lg font-bold tracking-tight text-rose-600 dark:text-rose-400" style={{ fontFamily: "'Playfair Display', serif" }}>Input Your Data</h3>
+            <span className="flex items-center gap-1 ml-auto text-[10px] font-semibold text-rose-500/70 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded-full">
+              <Sparkles className="w-3 h-3" />AI-Powered
+            </span>
           </motion.div>
 
           <Tabs value={dataInputMode} onValueChange={(v) => setDataInputMode(v as "paste" | "upload")} className="space-y-4">
@@ -655,34 +662,41 @@ export default function FigureMaker() {
 
             <TabsContent value="paste" className="space-y-3">
               <Textarea
-                placeholder={"Enter your data (one item per line):\nLabel, Value\n\nExample:\nExplicitation, 42\nSimplification, 35\nNormalization, 28"}
+                placeholder={"Paste your data in any format — AI will extract it automatically.\n\nExamples:\n• Arabic, 28\n• Source Language: Arabic, Value: 28\n• The study found 45% explicitation and 30% simplification\n• English has 5000 words, French has 3200\n• Any table, paragraph, or list with numbers"}
                 value={pasteData}
                 onChange={(e) => setPasteData(e.target.value)}
                 className="min-h-[140px] font-mono text-xs resize-y border-rose-200 dark:border-rose-800/30 focus-visible:ring-rose-400/40"
                 data-testid="textarea-paste-data"
               />
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
                 <Button
                   size="sm"
                   onClick={parsePastedData}
-                  disabled={!pasteData.trim()}
+                  disabled={!pasteData.trim() || isAIParsing}
                   className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white"
                   data-testid="button-parse-data"
                 >
-                  <Check className="w-3.5 h-3.5 mr-1.5" />
-                  Load Data
+                  {isAIParsing ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {isAIParsing ? "AI Parsing..." : "Load Data"}
                 </Button>
                 <Button size="sm" variant="outline" onClick={loadSample} data-testid="button-load-sample">
                   Load Sample
                 </Button>
+                {isAIParsing && (
+                  <span className="text-[11px] text-muted-foreground animate-pulse">AI is extracting your data...</span>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="upload" className="space-y-3">
               <div className="relative rounded-xl border-2 border-dashed border-rose-200 dark:border-rose-800/40 bg-rose-50/30 dark:bg-rose-950/10 p-6 text-center">
                 <Upload className="w-8 h-8 text-rose-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Upload a CSV or text file</p>
-                <p className="text-[11px] text-muted-foreground mb-3">Supports CSV, TSV, or tab-separated files with Label and Value columns</p>
+                <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Upload a data file</p>
+                <p className="text-[11px] text-muted-foreground mb-3">CSV, TSV, or text files — AI will extract the data automatically</p>
                 <input
                   type="file"
                   accept=".csv,.tsv,.txt"
@@ -972,9 +986,12 @@ export default function FigureMaker() {
         >
           <Image className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
           <h3 className="text-lg font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Create Your Figure</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-            Paste your data or upload a CSV file above to generate publication-ready charts.
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-2">
+            Paste your data in any format — AI will extract it automatically.
             Supports bar, line, area, pie, radar, and scatter charts with full customization.
+          </p>
+          <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto mb-4">
+            Works with paragraphs, tables, key-value pairs, CSV, or any text containing numbers.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button variant="outline" onClick={loadSample} data-testid="button-load-sample-empty">
