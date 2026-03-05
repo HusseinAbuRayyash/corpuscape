@@ -6,10 +6,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
+import { WordCloud } from "@/components/word-cloud";
+import { ReportGenerator } from "@/components/report-generator";
 import { MarkdownRender } from "@/components/markdown-render";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight } from "lucide-react";
+import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight, Cloud } from "lucide-react";
 import type { CorpusStats, KeywordResult } from "@shared/schema";
 
 interface CompareResult {
@@ -255,6 +257,29 @@ export default function Compare() {
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="polished-card p-5">
+              <div className="section-header">
+                <Cloud className="w-4 h-4 text-indigo-500" />
+                <h3>Corpus A — Word Cloud</h3>
+              </div>
+              <WordCloud
+                words={compareResult.keywordsA.map(k => ({ text: k.term, value: k.frequency }))}
+                defaultColors={["#312e81", "#3730a3", "#4338ca", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc"]}
+              />
+            </div>
+            <div className="polished-card p-5">
+              <div className="section-header">
+                <Cloud className="w-4 h-4 text-amber-500" />
+                <h3>Corpus B — Word Cloud</h3>
+              </div>
+              <WordCloud
+                words={compareResult.keywordsB.map(k => ({ text: k.term, value: k.frequency }))}
+                defaultColors={["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]}
+              />
+            </div>
+          </div>
+
           {compareResult.shared.length > 0 && (
             <div className="polished-card p-6">
               <div className="section-header">
@@ -322,6 +347,42 @@ export default function Compare() {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="polished-card p-6">
+            <div className="section-header">
+              <Scale className="w-4 h-4 text-violet-500" />
+              <h3>Generate Report</h3>
+            </div>
+            <ReportGenerator
+              title="Corpus Comparison Report"
+              extraSections={[
+                {
+                  heading: "Corpus A Statistics",
+                  content: `| Metric | Value |\n| --- | --- |\n| Characters | ${compareResult.statsA.characters.toLocaleString()} |\n| Words | ${compareResult.statsA.words.toLocaleString()} |\n| Unique Words | ${compareResult.statsA.uniqueWords.toLocaleString()} |\n| Sentences | ${compareResult.statsA.sentences.toLocaleString()} |\n| Type-Token Ratio | ${compareResult.statsA.typeTokenRatio.toFixed(4)} |\n| Avg Words/Sentence | ${compareResult.statsA.avgWordsPerSentence} |`,
+                },
+                {
+                  heading: "Corpus B Statistics",
+                  content: `| Metric | Value |\n| --- | --- |\n| Characters | ${compareResult.statsB.characters.toLocaleString()} |\n| Words | ${compareResult.statsB.words.toLocaleString()} |\n| Unique Words | ${compareResult.statsB.uniqueWords.toLocaleString()} |\n| Sentences | ${compareResult.statsB.sentences.toLocaleString()} |\n| Type-Token Ratio | ${compareResult.statsB.typeTokenRatio.toFixed(4)} |\n| Avg Words/Sentence | ${compareResult.statsB.avgWordsPerSentence} |`,
+                },
+                {
+                  heading: "Corpus A Keywords",
+                  content: `| Rank | Term | Frequency |\n| --- | --- | --- |\n${compareResult.keywordsA.map((k, i) => `| ${i + 1} | ${k.term} | ${k.frequency.toLocaleString()} |`).join("\n")}`,
+                },
+                {
+                  heading: "Corpus B Keywords",
+                  content: `| Rank | Term | Frequency |\n| --- | --- | --- |\n${compareResult.keywordsB.map((k, i) => `| ${i + 1} | ${k.term} | ${k.frequency.toLocaleString()} |`).join("\n")}`,
+                },
+                ...(compareResult.shared.length > 0 ? [{
+                  heading: "Shared Keywords",
+                  content: `| Term | Freq (A) | Freq (B) |\n| --- | --- | --- |\n${compareResult.shared.map(s => `| ${s.term} | ${s.freqA} | ${s.freqB} |`).join("\n")}`,
+                }] : []),
+                ...(aiComparison ? [{
+                  heading: "AI Comparative Analysis",
+                  content: aiComparison,
+                }] : []),
+              ]}
+            />
           </div>
 
           <div className="polished-card p-6">
