@@ -13,6 +13,7 @@ import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { CorpusFilter, type ColumnMeta } from "@/components/corpus-filter";
 import { DatasetViewer } from "@/components/dataset-viewer";
+import { StopListManager } from "@/components/stop-list-manager";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { WordCloud } from "@/components/word-cloud";
