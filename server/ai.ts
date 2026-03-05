@@ -341,7 +341,6 @@ export async function runAnalysis(
 export async function generateChartData(
   text: string,
   prompt: string,
-  maxChars: number = 80000
 ): Promise<{ title: string; data: { label: string; value: number }[] }> {
   const systemPrompt = `You are a corpus analysis assistant. The user wants to visualize specific data from a corpus as a chart.
 Based on their request, analyze the corpus text and produce chart-ready data.
@@ -362,7 +361,7 @@ Rules:
 - When COLUMN data is provided with exact frequencies, use those exact numbers — do not recount from raw text
 - Be exhaustive and precise: include every matching item from the data`;
 
-  const raw = await generateContent(systemPrompt, text, maxChars);
+  const raw = await generateContent(systemPrompt, text, 200000);
   try {
     const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
