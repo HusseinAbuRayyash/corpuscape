@@ -6,16 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, X, Loader2, ArrowRight, Search } from "lucide-react";
+import { Filter, X, Loader2, ArrowRight, Search, Calendar, Columns3 } from "lucide-react";
 import type { CorpusStats } from "@shared/schema";
+
+export interface ColumnMeta {
+  headers: string[];
+  dateColumns: string[];
+  totalRows: number;
+}
 
 interface CorpusFilterProps {
   corpusId: string;
   originalStats: CorpusStats;
-  onFilterApplied: (filteredCorpusId: string, filteredStats: CorpusStats) => void;
+  onFilterApplied: (filteredCorpusId: string, filteredStats: CorpusStats, columns?: ColumnMeta | null) => void;
   onFilterCleared: () => void;
   isFiltered: boolean;
   filteredStats?: CorpusStats | null;
+  columns?: ColumnMeta | null;
   theme?: { gradient: string; accent: string; text: string };
 }
 
@@ -32,27 +39,37 @@ export function CorpusFilter({
   onFilterCleared,
   isFiltered,
   filteredStats,
+  columns,
   theme = defaultTheme,
 }: CorpusFilterProps) {
   const { toast } = useToast();
   const [filterText, setFilterText] = useState("");
   const [filterMode, setFilterMode] = useState<"include" | "exclude">("include");
+  const [filterColumn, setFilterColumn] = useState("_all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const hasColumns = columns && columns.headers.length > 0;
+  const hasDateColumns = columns && columns.dateColumns.length > 0;
+
+  const canApply = filterText.trim() || (hasDateColumns && (dateFrom || dateTo));
 
   const filterMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/filter", {
-        corpusId,
-        filterText: filterText.trim(),
-        filterMode,
-      });
+      const body: any = { corpusId, filterMode };
+      if (filterText.trim()) body.filterText = filterText.trim();
+      if (hasColumns && filterColumn !== "_all") body.filterColumn = filterColumn;
+      if (dateFrom) body.dateFrom = dateFrom;
+      if (dateTo) body.dateTo = dateTo;
+      const res = await apiRequest("POST", "/api/corpus/filter", body);
       return res.json();
     },
     onSuccess: (data) => {
-      onFilterApplied(data.corpusId, data.stats);
-      toast({
-        title: "Filter applied",
-        description: `${data.matchedParagraphs} of ${data.totalParagraphs} paragraphs matched — ${data.stats.words.toLocaleString()} words`,
-      });
+      onFilterApplied(data.corpusId, data.stats, data.columns || null);
+      const desc = data.matchedParagraphs !== undefined
+        ? `${data.matchedParagraphs} of ${data.totalParagraphs} ${hasColumns ? "rows" : "paragraphs"} matched — ${data.stats.words.toLocaleString()} words`
+        : `${data.stats.words.toLocaleString()} words in filtered corpus`;
+      toast({ title: "Filter applied", description: desc });
     },
     onError: (error: any) => {
       const msg = error?.message || "Filter returned no results";
@@ -61,12 +78,15 @@ export function CorpusFilter({
   });
 
   const handleApply = () => {
-    if (!filterText.trim()) return;
+    if (!canApply) return;
     filterMutation.mutate();
   };
 
   const handleClear = () => {
     setFilterText("");
+    setFilterColumn("_all");
+    setDateFrom("");
+    setDateTo("");
     onFilterCleared();
   };
 
@@ -83,7 +103,13 @@ export function CorpusFilter({
           <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
             <Filter className="w-3.5 h-3.5 text-white" />
           </div>
-          <h4 className={`text-sm font-bold ${theme.text}`}>Filter Corpus</h4>
+          <h4 className={`text-sm font-bold ${theme.text}`}>Filter Dataset</h4>
+          {hasColumns && (
+            <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-medium flex items-center gap-1" data-testid="badge-columns">
+              <Columns3 className="w-2.5 h-2.5" />
+              {columns!.headers.length} columns
+            </span>
+          )}
           {isFiltered && (
             <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider" data-testid="badge-filtered">
               Filtered
@@ -101,13 +127,26 @@ export function CorpusFilter({
               <SelectItem value="exclude">Exclude</SelectItem>
             </SelectContent>
           </Select>
-          <div className="relative flex-1 min-w-[180px]">
+          {hasColumns && (
+            <Select value={filterColumn} onValueChange={setFilterColumn}>
+              <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-filter-column">
+                <SelectValue placeholder="All columns" />
+              </SelectTrigger>
+              <SelectContent className="max-h-64">
+                <SelectItem value="_all">All columns</SelectItem>
+                {columns!.headers.map((h) => (
+                  <SelectItem key={h} value={h}>{h.length > 25 ? h.slice(0, 25) + "..." : h}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="relative flex-1 min-w-[150px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
             <Input
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && filterText.trim() && handleApply()}
-              placeholder="Keyword or phrase to filter by..."
+              onKeyDown={(e) => e.key === "Enter" && canApply && handleApply()}
+              placeholder={hasColumns ? "Search in rows..." : "Keyword or phrase to filter by..."}
               className="h-8 text-xs pl-8"
               data-testid="input-filter-text"
             />
@@ -115,7 +154,7 @@ export function CorpusFilter({
           <Button
             size="sm"
             onClick={handleApply}
-            disabled={!filterText.trim() || filterMutation.isPending}
+            disabled={!canApply || filterMutation.isPending}
             className={`h-8 bg-gradient-to-r ${theme.gradient} text-white text-xs`}
             data-testid="button-apply-filter"
           >
@@ -136,6 +175,31 @@ export function CorpusFilter({
           )}
         </div>
 
+        {hasDateColumns && (
+          <div className="flex gap-2 items-center mt-2 flex-wrap">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground/60" />
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mr-1">Date/Year:</span>
+            <Input
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              placeholder="From (e.g. 2020)"
+              className="h-7 text-xs w-32"
+              data-testid="input-date-from"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              placeholder="To (e.g. 2025)"
+              className="h-7 text-xs w-32"
+              data-testid="input-date-to"
+            />
+            <span className="text-[10px] text-muted-foreground">
+              ({columns!.dateColumns.join(", ")})
+            </span>
+          </div>
+        )}
+
         <AnimatePresence>
           {isFiltered && filteredStats && (
             <motion.div
@@ -150,11 +214,11 @@ export function CorpusFilter({
                 <span className="font-bold tabular-nums">{originalStats.words.toLocaleString()} words</span>
               </div>
               <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50" />
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r ${theme.gradient.replace("from-", "from-").replace("to-", "to-")}/10 border border-border/40`}>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r ${theme.gradient}/10 border border-border/40`}>
                 <span className={`${theme.text} font-medium`}>Filtered:</span>
                 <span className={`font-bold tabular-nums ${theme.text}`}>{filteredStats.words.toLocaleString()} words</span>
                 <span className="text-muted-foreground">
-                  ({Math.round((filteredStats.words / originalStats.words) * 100)}%)
+                  ({originalStats.words > 0 ? Math.round((filteredStats.words / originalStats.words) * 100) : 0}%)
                 </span>
               </div>
             </motion.div>
