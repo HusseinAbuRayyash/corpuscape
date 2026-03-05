@@ -357,23 +357,51 @@ export async function registerRoutes(
             columnSummaries.push(`DATASET STRUCTURE: ${colData.headers.length} columns, ${colData.rows.length} rows`);
             columnSummaries.push(`COLUMN HEADERS: ${colData.headers.join(" | ")}`);
 
+            interface ColSummary { header: string; uniqueCount: number; totalCount: number; sorted: [string, number][]; ratio: number; }
+            const colInfos: ColSummary[] = [];
+
             for (let col = 0; col < colData.headers.length; col++) {
               const header = colData.headers[col];
               const values = colData.rows.map((r: string[]) => r[col]).filter((v: string) => v && v.trim());
               const freq: Record<string, number> = {};
               for (const v of values) {
-                const key = v.trim();
+                const key = v.trim().slice(0, 200);
                 freq[key] = (freq[key] || 0) + 1;
               }
               const uniqueCount = Object.keys(freq).length;
-              if (uniqueCount > 0 && uniqueCount <= values.length) {
+              if (uniqueCount > 0) {
                 const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-                const allValues = sorted.map(([k, v]) => `${k}: ${v}`).join(", ");
-                columnSummaries.push(`\nCOLUMN "${header}" (${uniqueCount} unique values, ${values.length} total):\n${allValues}`);
+                const ratio = uniqueCount / Math.max(values.length, 1);
+                colInfos.push({ header, uniqueCount, totalCount: values.length, sorted, ratio });
               }
             }
+
+            colInfos.sort((a, b) => a.ratio - b.ratio);
+
+            const MAX_SUMMARY_CHARS = 180000;
+            let currentSize = columnSummaries.join("\n").length;
+
+            for (const col of colInfos) {
+              if (col.ratio > 0.8 && col.uniqueCount > 500) {
+                const topN = col.sorted.slice(0, 50);
+                const topValues = topN.map(([k, v]) => `${k}: ${v}`).join(", ");
+                const entry = `\nCOLUMN "${col.header}" (${col.uniqueCount} unique values, ${col.totalCount} total, showing top 50):\n${topValues}`;
+                if (currentSize + entry.length < MAX_SUMMARY_CHARS) {
+                  columnSummaries.push(entry);
+                  currentSize += entry.length;
+                }
+              } else {
+                const allValues = col.sorted.map(([k, v]) => `${k}: ${v}`).join(", ");
+                const entry = `\nCOLUMN "${col.header}" (${col.uniqueCount} unique values, ${col.totalCount} total):\n${allValues}`;
+                if (currentSize + entry.length < MAX_SUMMARY_CHARS) {
+                  columnSummaries.push(entry);
+                  currentSize += entry.length;
+                }
+              }
+            }
+
             const summaryBlock = columnSummaries.join("\n");
-            const remainingBudget = 190000 - summaryBlock.length;
+            const remainingBudget = 195000 - summaryBlock.length;
             const rawSample = remainingBudget > 1000 ? text.slice(0, remainingBudget) : "";
             enrichedText = summaryBlock + (rawSample ? "\n\n---RAW TEXT SAMPLE---\n" + rawSample : "");
           }
