@@ -166,25 +166,72 @@ export default function FigureMaker() {
     }
   }, []);
 
+  const extractNumber = (str: string): number | null => {
+    const cleaned = str.replace(/^[^0-9.-]*/, "").trim();
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  };
+
+  const extractLabel = (str: string): string => {
+    return str.replace(/^["']|["']$/g, "")
+      .replace(/^\s*(label|name|category|item|key)\s*[:=]\s*/i, "")
+      .trim();
+  };
+
   const parsePastedData = useCallback(() => {
     if (!pasteData.trim()) return;
     const lines = pasteData.trim().split("\n").filter(l => l.trim());
     const parsed: ChartDataItem[] = [];
-    for (const line of lines) {
+
+    const isHeaderLine = (l: string) => /^["']?(label|name|category|item|key)\b/i.test(l.trim());
+    const startIdx = lines.length > 1 && isHeaderLine(lines[0]) ? 1 : 0;
+
+    for (let li = startIdx; li < lines.length; li++) {
+      const line = lines[li];
+
+      const kvMatch = line.match(/^(.+?)\s*[:=]\s*(\d+[\d,.]*)\s*$/);
+      if (kvMatch) {
+        const label = extractLabel(kvMatch[1]);
+        const value = extractNumber(kvMatch[2]);
+        if (label && value !== null) { parsed.push({ label, value }); continue; }
+      }
+
+      const multiKvMatch = line.match(/^(.+?)\s*,\s*(?:value|count|freq|frequency|score|number|num|qty|amount)\s*[:=]?\s*(\d+[\d,.]*)\s*$/i);
+      if (multiKvMatch) {
+        const label = extractLabel(multiKvMatch[1]);
+        const value = extractNumber(multiKvMatch[2]);
+        if (label && value !== null) { parsed.push({ label, value }); continue; }
+      }
+
+      const labelKvMatch = line.match(/^(?:label|name|category|item|key)\s*[:=]?\s*(.+?)\s*,\s*(?:value|count|freq|frequency|score|number|num|qty|amount)\s*[:=]?\s*(\d+[\d,.]*)\s*$/i);
+      if (labelKvMatch) {
+        const label = extractLabel(labelKvMatch[1]);
+        const value = extractNumber(labelKvMatch[2]);
+        if (label && value !== null) { parsed.push({ label, value }); continue; }
+      }
+
       const parts = line.split(/[\t,;|]/).map(p => p.trim());
       if (parts.length >= 2) {
-        const label = parts[0].replace(/^["']|["']$/g, "");
-        const value = parseFloat(parts[parts.length - 1]);
-        if (label && !isNaN(value)) {
-          parsed.push({ label, value });
+        const lastVal = extractNumber(parts[parts.length - 1]);
+        if (lastVal !== null) {
+          const labelParts = parts.slice(0, -1).join(", ");
+          const label = extractLabel(labelParts);
+          if (label) { parsed.push({ label, value: lastVal }); continue; }
+        }
+
+        const firstVal = extractNumber(parts[0]);
+        if (firstVal !== null && parts.length >= 2) {
+          const label = extractLabel(parts.slice(1).join(", "));
+          if (label) { parsed.push({ label, value: firstVal }); continue; }
         }
       }
     }
+
     if (parsed.length > 0) {
       setChartData(parsed);
       toast({ title: "Data loaded", description: `${parsed.length} data points parsed` });
     } else {
-      toast({ title: "Parse error", description: "Could not parse data. Use format: Label, Value (one per line)", variant: "destructive" });
+      toast({ title: "Parse error", description: "Could not parse data. Try formats like:\n• Label, Value\n• Label: Value\n• Label = Value", variant: "destructive" });
     }
   }, [pasteData, toast]);
 
@@ -197,14 +244,28 @@ export default function FigureMaker() {
       if (!text) return;
       const lines = text.trim().split("\n").filter(l => l.trim());
       const parsed: ChartDataItem[] = [];
-      const startIndex = lines[0]?.match(/^["']?(label|name|category|item)/i) ? 1 : 0;
+      const isHeaderLine = (l: string) => /^["']?(label|name|category|item|key)\b/i.test(l.trim());
+      const startIndex = lines.length > 1 && isHeaderLine(lines[0]) ? 1 : 0;
       for (let i = startIndex; i < lines.length; i++) {
-        const parts = lines[i].split(/[\t,;|]/).map(p => p.trim());
+        const line = lines[i];
+        const kvMatch = line.match(/^(.+?)\s*[:=]\s*(\d+[\d,.]*)\s*$/);
+        if (kvMatch) {
+          const label = extractLabel(kvMatch[1]);
+          const value = extractNumber(kvMatch[2]);
+          if (label && value !== null) { parsed.push({ label, value }); continue; }
+        }
+        const multiKvMatch = line.match(/^(.+?)\s*,\s*(?:value|count|freq|frequency|score|number|num|qty|amount)\s*[:=]?\s*(\d+[\d,.]*)\s*$/i);
+        if (multiKvMatch) {
+          const label = extractLabel(multiKvMatch[1]);
+          const value = extractNumber(multiKvMatch[2]);
+          if (label && value !== null) { parsed.push({ label, value }); continue; }
+        }
+        const parts = line.split(/[\t,;|]/).map(p => p.trim());
         if (parts.length >= 2) {
-          const label = parts[0].replace(/^["']|["']$/g, "");
-          const value = parseFloat(parts[parts.length - 1]);
-          if (label && !isNaN(value)) {
-            parsed.push({ label, value });
+          const lastVal = extractNumber(parts[parts.length - 1]);
+          if (lastVal !== null) {
+            const label = extractLabel(parts.slice(0, -1).join(", "));
+            if (label) { parsed.push({ label, value: lastVal }); continue; }
           }
         }
       }
