@@ -1,5 +1,5 @@
 import { useCallback, useState, useId } from "react";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, FileSpreadsheet, FileType } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface FileUploadProps {
@@ -43,6 +43,13 @@ export function FileUpload({
     });
   };
 
+  const getFileIcon = (name: string) => {
+    const ext = name.split(".").pop()?.toLowerCase();
+    if (ext === "xlsx" || ext === "xls") return FileSpreadsheet;
+    if (ext === "pdf" || ext === "docx") return FileType;
+    return FileText;
+  };
+
   return (
     <div className="space-y-3">
       <div
@@ -62,37 +69,42 @@ export function FileUpload({
           onChange={(e) => handleFiles(e.target.files)}
           data-testid="input-file"
         />
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-3">
-          <Upload className="w-5 h-5 text-primary/60" />
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/12 to-primary/6 flex items-center justify-center mx-auto mb-4 border border-primary/10">
+          <Upload className="w-6 h-6 text-primary/50" />
         </div>
-        <p className="text-sm font-semibold">{label}</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">{description}</p>
+        <p className="text-sm font-semibold tracking-tight">{label}</p>
+        <p className="text-[11px] text-muted-foreground/50 mt-1.5">{description}</p>
       </div>
 
       {files.length > 0 && (
         <div className="space-y-2">
-          {files.map((file, i) => (
-            <div
-              key={`${file.name}-${i}`}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-muted/50 to-muted/30 text-sm border border-border/30 group"
-              data-testid={`file-item-${i}`}
-            >
-              <FileText className="w-4 h-4 text-primary/50 flex-shrink-0" />
-              <span className="flex-1 truncate font-medium text-sm">{file.name}</span>
-              <span className="text-xs text-muted-foreground/60 font-mono">
-                {(file.size / 1024).toFixed(0)}KB
-              </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                data-testid={`button-remove-file-${i}`}
+          {files.map((file, i) => {
+            const FileIcon = getFileIcon(file.name);
+            return (
+              <div
+                key={`${file.name}-${i}`}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-muted/40 to-muted/20 text-sm border border-border/30 group hover:border-primary/20 transition-all duration-200"
+                data-testid={`file-item-${i}`}
               >
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-          ))}
+                <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0">
+                  <FileIcon className="w-4 h-4 text-primary/50" />
+                </div>
+                <span className="flex-1 truncate font-medium text-[13px]">{file.name}</span>
+                <span className="text-[11px] text-muted-foreground/50 font-mono tabular-nums">
+                  {(file.size / 1024).toFixed(0)} KB
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="w-7 h-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                  data-testid={`button-remove-file-${i}`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
