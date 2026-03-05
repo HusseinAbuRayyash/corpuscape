@@ -26,12 +26,13 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open]);
 
   const filtered = search
     ? headers.filter(h => h.toLowerCase().includes(search.toLowerCase()))
@@ -64,21 +65,23 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
         <ChevronDown className={`w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-64 bg-background border border-border rounded-lg shadow-lg overflow-hidden" data-testid="column-picker-dropdown">
-          <div className="p-2 border-b border-border/50">
+        <>
+        <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+        <div className="absolute z-[70] top-full left-0 mt-1 w-72 bg-background border border-border rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden" data-testid="column-picker-dropdown">
+          <div className="p-2.5 border-b border-border/50 bg-muted/30">
             <Input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search columns..."
-              className="h-7 text-xs"
+              className="h-8 text-xs"
               data-testid="input-column-search"
               autoFocus
             />
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-muted/20">
             <button
               type="button"
-              className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
               onClick={() => onChange([])}
               data-testid="button-select-all-columns"
             >
@@ -87,7 +90,7 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
             <span className="text-muted-foreground/30">|</span>
             <button
               type="button"
-              className="text-[10px] text-muted-foreground hover:text-foreground hover:underline font-medium"
+              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline font-medium"
               onClick={() => onChange([...headers])}
               data-testid="button-select-every-column"
             >
@@ -98,7 +101,7 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
                 <span className="text-muted-foreground/30">|</span>
                 <button
                   type="button"
-                  className="text-[10px] text-destructive hover:underline font-medium"
+                  className="text-[11px] text-destructive hover:underline font-medium"
                   onClick={() => onChange([])}
                   data-testid="button-clear-columns"
                 >
@@ -107,25 +110,25 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
               </>
             )}
           </div>
-          <div className="max-h-52 overflow-y-auto p-1">
+          <div className="max-h-60 overflow-y-auto p-1.5">
             {filtered.map(h => (
               <button
                 key={h}
                 type="button"
                 onClick={() => toggle(h)}
-                className={`flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded-md transition-colors text-left ${
+                className={`flex items-center gap-2.5 w-full px-3 py-2 text-[13px] rounded-lg transition-colors text-left ${
                   selected.includes(h)
-                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-                    : "hover:bg-muted/50 text-foreground/80"
+                    ? "bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300 font-medium"
+                    : "hover:bg-muted/60 text-foreground/80"
                 }`}
                 data-testid={`column-option-${h.replace(/\s+/g, "-").toLowerCase()}`}
               >
-                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                   selected.includes(h)
                     ? "bg-blue-500 border-blue-500"
-                    : "border-muted-foreground/30"
+                    : "border-muted-foreground/40"
                 }`}>
-                  {selected.includes(h) && <Check className="w-2.5 h-2.5 text-white" />}
+                  {selected.includes(h) && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <span className="truncate">{h}</span>
               </button>
@@ -134,7 +137,13 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
               <div className="px-3 py-4 text-xs text-muted-foreground text-center">No columns match</div>
             )}
           </div>
+          {selected.length > 0 && (
+            <div className="px-3 py-2 border-t border-border/30 bg-muted/20">
+              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{selected.length} column{selected.length !== 1 ? "s" : ""} selected</span>
+            </div>
+          )}
         </div>
+        </>
       )}
     </div>
   );
@@ -217,13 +226,13 @@ export function CorpusFilter({
 
   return (
     <motion.div
-      className="polished-card overflow-hidden"
+      className="polished-card overflow-visible"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
       <div className={`h-0.5 bg-gradient-to-r ${theme.gradient}`} />
-      <div className="p-4">
+      <div className="p-4 overflow-visible">
         <div className="flex items-center gap-2 mb-3">
           <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
             <Filter className="w-3.5 h-3.5 text-white" />
@@ -296,20 +305,22 @@ export function CorpusFilter({
         </div>
 
         {hasColumns && selectedColumns.length > 0 && (
-          <div className="flex gap-1 mt-2 flex-wrap">
+          <div className="flex gap-1.5 mt-3 flex-wrap items-center">
+            <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mr-0.5">Filtering:</span>
             {selectedColumns.map(col => (
               <span
                 key={col}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-[10px] font-medium"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[11px] font-semibold border border-blue-200 dark:border-blue-800/50 shadow-sm"
                 data-testid={`tag-column-${col.replace(/\s+/g, "-").toLowerCase()}`}
               >
-                {col.length > 20 ? col.slice(0, 20) + "..." : col}
+                <Columns3 className="w-3 h-3 opacity-60" />
+                {col.length > 22 ? col.slice(0, 22) + "…" : col}
                 <button
                   type="button"
                   onClick={() => setSelectedColumns(selectedColumns.filter(c => c !== col))}
-                  className="hover:text-blue-900 dark:hover:text-blue-100"
+                  className="ml-0.5 hover:text-blue-900 dark:hover:text-blue-100 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800/50 p-0.5 transition-colors"
                 >
-                  <X className="w-2.5 h-2.5" />
+                  <X className="w-3 h-3" />
                 </button>
               </span>
             ))}
@@ -317,25 +328,25 @@ export function CorpusFilter({
         )}
 
         {hasDateColumns && (
-          <div className="flex gap-2 items-center mt-2 flex-wrap">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground/60" />
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mr-1">Date/Year:</span>
+          <div className="flex gap-2 items-center mt-3 flex-wrap px-1 py-2 rounded-lg bg-muted/30 border border-border/30">
+            <Calendar className="w-4 h-4 text-muted-foreground/70 ml-1" />
+            <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mr-1">Date/Year:</span>
             <Input
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               placeholder="From (e.g. 2020)"
-              className="h-7 text-xs w-32"
+              className="h-8 text-xs w-36"
               data-testid="input-date-from"
             />
-            <span className="text-xs text-muted-foreground">to</span>
+            <span className="text-xs text-muted-foreground font-medium">to</span>
             <Input
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               placeholder="To (e.g. 2025)"
-              className="h-7 text-xs w-32"
+              className="h-8 text-xs w-36"
               data-testid="input-date-to"
             />
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[11px] text-muted-foreground/70 italic">
               ({columns!.dateColumns.join(", ")})
             </span>
           </div>
