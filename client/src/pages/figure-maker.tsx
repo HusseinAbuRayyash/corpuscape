@@ -986,12 +986,9 @@ export default function FigureMaker() {
         >
           <Image className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
           <h3 className="text-lg font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Create Your Figure</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-2">
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
             Paste your data in any format — AI will extract it automatically.
             Supports bar, line, area, pie, radar, and scatter charts with full customization.
-          </p>
-          <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto mb-4">
-            Works with paragraphs, tables, key-value pairs, CSV, or any text containing numbers.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button variant="outline" onClick={loadSample} data-testid="button-load-sample-empty">
