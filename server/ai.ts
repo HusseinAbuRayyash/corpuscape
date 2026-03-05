@@ -23,6 +23,91 @@ export async function generateContent(prompt: string, text: string, maxChars: nu
   }
 }
 
+const CHUNK_SIZE = 180000;
+
+async function generateContentChunked(prompt: string, text: string): Promise<string> {
+  if (text.length <= CHUNK_SIZE) {
+    return generateContent(prompt, text, CHUNK_SIZE);
+  }
+
+  const chunks: string[] = [];
+  let pos = 0;
+  while (pos < text.length) {
+    let end = Math.min(pos + CHUNK_SIZE, text.length);
+    if (end < text.length) {
+      const newline = text.lastIndexOf("\n", end);
+      if (newline > pos + CHUNK_SIZE * 0.5) end = newline + 1;
+    }
+    chunks.push(text.slice(pos, end));
+    pos = end;
+  }
+
+  console.log(`[AI] Chunked processing: ${chunks.length} chunks of ~${Math.round(CHUNK_SIZE/1000)}K chars each`);
+
+  const chunkResults: string[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkPrompt = `${prompt}\n\n[This is chunk ${i + 1} of ${chunks.length}. Analyze this portion thoroughly.]`;
+    const result = await generateContent(chunkPrompt, chunks[i], CHUNK_SIZE);
+    if (!result.startsWith("Error:")) {
+      chunkResults.push(`--- Chunk ${i + 1}/${chunks.length} ---\n${result}`);
+    }
+  }
+
+  if (chunkResults.length === 0) return "Error: All chunks failed to process.";
+  if (chunkResults.length === 1) return chunkResults[0].replace(/^--- Chunk \d+\/\d+ ---\n/, "");
+
+  const synthesisPrompt = `You received analysis results from ${chunkResults.length} separate chunks of a large corpus. Synthesize these into ONE comprehensive, unified report. Merge duplicate findings, combine examples, resolve contradictions, and present a coherent final analysis. Do NOT mention chunks or parts — present as a single seamless analysis.\n\nChunk results:\n${chunkResults.join("\n\n")}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: synthesisPrompt,
+    });
+    return response.text || chunkResults.join("\n\n");
+  } catch {
+    return chunkResults.join("\n\n");
+  }
+}
+
+async function analyzeChunkedPairs(pairs: any[], prompt: string, batchSize: number = 60): Promise<string> {
+  if (pairs.length <= batchSize) {
+    const pairsText = pairs.map((p: any, i: number) =>
+      `${i + 1}. SRC: ${p.source} | TGT: ${p.target}${p.strategy ? ` | Strategy: ${p.strategy}` : ""}`
+    ).join("\n");
+    return generateContent(prompt, pairsText);
+  }
+
+  const batchResults: string[] = [];
+  for (let start = 0; start < pairs.length; start += batchSize) {
+    const batch = pairs.slice(start, start + batchSize);
+    const batchNum = Math.floor(start / batchSize) + 1;
+    const totalBatches = Math.ceil(pairs.length / batchSize);
+    const pairsText = batch.map((p: any, i: number) =>
+      `${start + i + 1}. SRC: ${p.source} | TGT: ${p.target}${p.strategy ? ` | Strategy: ${p.strategy}` : ""}`
+    ).join("\n");
+    const batchPrompt = `${prompt}\n\n[Batch ${batchNum} of ${totalBatches}, pairs ${start + 1}-${start + batch.length} of ${pairs.length}]`;
+    const result = await generateContent(batchPrompt, pairsText);
+    if (!result.startsWith("Error:")) {
+      batchResults.push(result);
+    }
+  }
+
+  if (batchResults.length === 0) return "Error: All batches failed.";
+  if (batchResults.length === 1) return batchResults[0];
+
+  const synthesisPrompt = `You received analysis results from ${batchResults.length} separate batches of translation pairs (${pairs.length} pairs total). Synthesize into ONE unified, comprehensive report. Merge findings, combine examples, present a single coherent analysis. Do NOT mention batches.\n\n${batchResults.map((r, i) => `--- Batch ${i + 1} ---\n${r}`).join("\n\n")}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: synthesisPrompt,
+    });
+    return response.text || batchResults.join("\n\n");
+  } catch {
+    return batchResults.join("\n\n");
+  }
+}
+
 const ANALYSIS_PROMPTS: Record<string, string> = {
   "Translation Strategies": `Analyze the translation strategies found in this corpus. Identify patterns of:
 - Domestication vs. Foreignization
@@ -245,13 +330,12 @@ export async function runAnalysis(
   text: string,
   analysisType: string,
   customInstructions?: string,
-  maxChars: number = 200000
 ): Promise<string> {
   let prompt = ANALYSIS_PROMPTS[analysisType] || ANALYSIS_PROMPTS["Custom"];
   if (customInstructions && customInstructions.trim()) {
     prompt += `\n\nAdditional instructions: ${customInstructions}`;
   }
-  return generateContent(prompt, text, maxChars);
+  return generateContentChunked(prompt, text);
 }
 
 export async function generateChartData(
@@ -302,9 +386,9 @@ Rules:
   }
 }
 
-export async function summarizeCorpus(text: string, maxChars: number = 200000): Promise<string> {
+export async function summarizeCorpus(text: string): Promise<string> {
   const prompt = `Summarize this corpus in 3-5 concise paragraphs for a translation studies researcher. Cover: main themes, register/style, key terminology domains, and any notable patterns. Be specific and use examples from the text.`;
-  return generateContent(prompt, text, maxChars);
+  return generateContentChunked(prompt, text);
 }
 
 export async function extractTopics(text: string, nTopics: number = 8): Promise<string> {
@@ -316,7 +400,7 @@ export async function extractTopics(text: string, nTopics: number = 8): Promise<
 Format as a markdown table:
 | Topic | Description | Keywords |
 |-------|-------------|----------|`;
-  return generateContent(prompt, text);
+  return generateContentChunked(prompt, text);
 }
 
 export async function extractTerminology(text: string): Promise<string> {
@@ -329,7 +413,7 @@ export async function extractTerminology(text: string): Promise<string> {
 Format as a markdown table:
 | Term | Frequency | Example | Domain |
 |------|-----------|---------|--------|`;
-  return generateContent(prompt, text);
+  return generateContentChunked(prompt, text);
 }
 
 function segmentSentences(text: string): string[] {
@@ -438,10 +522,6 @@ Return ONLY a numbered list: one strategy per line, e.g. "1. Domestication"`;
 }
 
 export async function analyzeUniversals(pairs: any[]): Promise<string> {
-  const pairsText = pairs.map((p: any, i: number) => 
-    `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`
-  ).join("\n");
-
   const prompt = `Analyze these aligned translation pairs for translation universals.
 For each universal, indicate if present (YES/NO) and give 1-2 brief examples:
 1. EXPLICITATION
@@ -451,30 +531,25 @@ For each universal, indicate if present (YES/NO) and give 1-2 brief examples:
 5. UNIQUE ITEMS
 Format as a clear bullet-point report suitable for a research paper.`;
 
-  return generateContent(prompt, pairsText);
+  return analyzeChunkedPairs(pairs, prompt, 60);
 }
 
 export async function analyzeStrategies(pairs: any[]): Promise<string> {
-  const pairsText = pairs.map((p: any, i: number) => 
-    `${i + 1}. SRC: ${p.source} | TGT: ${p.target} | Strategy: ${p.strategy || "N/A"}`
-  ).join("\n");
-
   const prompt = `Analyze the translation strategies in these aligned pairs. Identify dominant strategies (domestication, explicitation, etc.), discuss patterns, and provide a summary analysis suitable for academic writing.`;
 
-  return generateContent(prompt, pairsText);
+  return analyzeChunkedPairs(pairs, prompt, 60);
 }
 
 export async function chatWithCorpus(
   text: string,
   message: string,
   history: { role: string; content: string }[] = [],
-  maxChars: number = 200000
 ): Promise<string> {
   const historyText = history.length > 0
     ? "\n\nConversation so far:\n" + history.map(h => `${h.role === "user" ? "User" : "Assistant"}: ${h.content}`).join("\n")
     : "";
   const prompt = `You are an expert corpus linguistics assistant analyzing a specific corpus of text. Answer questions about the corpus with precision, citing specific examples from the text when possible. Be concise but thorough. Format your response with markdown.${historyText}\n\nUser's question: ${message}`;
-  return generateContent(prompt, text, maxChars);
+  return generateContentChunked(prompt, text);
 }
 
 export async function backTranslate(

@@ -13,7 +13,7 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 
 ```
 client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter
+client/src/components/  - AppSidebar, FileUpload, MarkdownRender, AIResultDisplay, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter
 server/                 - Express routes, corpus processing, AI integration, scraper, storage
 shared/schema.ts        - Shared types and analysis category definitions
 ```
@@ -179,10 +179,11 @@ shared/schema.ts        - Shared types and analysis category definitions
 ## AI Processing
 
 - **No truncation policy**: All AI functions process full corpus data without artificial limits
-- Default `maxChars` for text-based AI functions: 200,000 characters (fits within Gemini 2.5 Flash 1M token context)
-- Pair-based functions use batching for large datasets: `labelStrategies` (50 per batch), `backTranslate` (30 per batch), `generateGlossary` (40 per batch with deduplication)
+- **Smart chunking** (`generateContentChunked`): texts >180K chars are split at newline boundaries into overlapping chunks, each processed independently, then synthesized into one unified report via a second AI call
+- **Pair batching** (`analyzeChunkedPairs`): >60 translation pairs are split into batches, each analyzed independently, then synthesized into a unified analysis
+- Pair-based structured functions use batching: `labelStrategies` (50/batch), `backTranslate` (30/batch), `generateGlossary` (40/batch with dedup)
 - `alignSentences`: 100K char limit per side
-- Analysis functions (`analyzeUniversals`, `analyzeStrategies`) process all pairs in a single prompt
+- **AIResultDisplay component**: wraps all AI text results with show-less/show-full toggle (fade gradient), edit mode (textarea), copy-to-clipboard, and download via MarkdownRender
 
 ## Environment
 

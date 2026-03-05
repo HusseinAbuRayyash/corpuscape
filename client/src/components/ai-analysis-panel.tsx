@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIResultDisplay } from "@/components/ai-result-display";
 import { EditableChart } from "@/components/editable-chart";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -245,7 +246,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 <h3>{analysisType} — Results</h3>
               </div>
               <div className="p-5 rounded-lg border bg-gradient-to-br from-muted/30 to-transparent">
-                <MarkdownRender content={analysisResult} downloadFilename={`AI_${analysisType.replace(/\s/g, "_")}`} />
+                <AIResultDisplay content={analysisResult} onContentChange={setAnalysisResult} downloadFilename={`AI_${analysisType.replace(/\s/g, "_")}`} />
               </div>
             </motion.div>
           )}
@@ -389,7 +390,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={topicsResult} downloadFilename="AI_Domain_Classification" />
+                <AIResultDisplay content={topicsResult} onContentChange={setTopicsResult} downloadFilename="AI_Domain_Classification" />
               </motion.div>
             )}
           </motion.div>
@@ -417,7 +418,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={metricsResult} downloadFilename="AI_Comparative_Metrics" />
+                <AIResultDisplay content={metricsResult} onContentChange={setMetricsResult} downloadFilename="AI_Comparative_Metrics" />
               </motion.div>
             )}
           </motion.div>
@@ -445,7 +446,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={clustersResult} downloadFilename="AI_Term_Clusters" />
+                <AIResultDisplay content={clustersResult} onContentChange={setClustersResult} downloadFilename="AI_Term_Clusters" />
               </motion.div>
             )}
           </motion.div>

@@ -14,6 +14,7 @@ import { CorpusFilter } from "@/components/corpus-filter";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIResultDisplay } from "@/components/ai-result-display";
 import { WordCloud } from "@/components/word-cloud";
 import { ReportGenerator } from "@/components/report-generator";
 import {
@@ -981,7 +982,7 @@ export default function Scraper() {
                       </div>
                     </div>
                     {aiMutation.isPending && <Skeleton className="h-32 w-full" />}
-                    {aiResult && <MarkdownRender content={aiResult} downloadFilename="scraper_ai_summary" />}
+                    {aiResult && <AIResultDisplay content={aiResult} onContentChange={setAiResult} downloadFilename="Scraper_AI_Summary" />}
                     {!aiResult && !aiMutation.isPending && (
                       <div className="empty-state">
                         <Brain className="w-10 h-10 text-muted-foreground/30 mb-3" />
@@ -1009,7 +1010,7 @@ export default function Scraper() {
                       </div>
                     </div>
                     {termsMutation.isPending && <Skeleton className="h-32 w-full" />}
-                    {termsResult && <MarkdownRender content={termsResult} downloadFilename="scraper_terminology" />}
+                    {termsResult && <AIResultDisplay content={termsResult} onContentChange={setTermsResult} downloadFilename="Scraper_Terminology" />}
                     {!termsResult && !termsMutation.isPending && (
                       <div className="empty-state">
                         <BookText className="w-10 h-10 text-muted-foreground/30 mb-3" />
