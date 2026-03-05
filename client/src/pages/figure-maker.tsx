@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -166,74 +168,59 @@ export default function FigureMaker() {
     }
   }, []);
 
-  const extractNumber = (str: string): number | null => {
-    const cleaned = str.replace(/^[^0-9.-]*/, "").trim();
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? null : num;
-  };
-
-  const extractLabel = (str: string): string => {
-    return str.replace(/^["']|["']$/g, "")
-      .replace(/^\s*(label|name|category|item|key)\s*[:=]\s*/i, "")
-      .trim();
-  };
-
-  const parsePastedData = useCallback(() => {
-    if (!pasteData.trim()) return;
-    const lines = pasteData.trim().split("\n").filter(l => l.trim());
+  const tryLocalParse = useCallback((input: string): ChartDataItem[] => {
+    const lines = input.trim().split("\n").filter(l => l.trim());
     const parsed: ChartDataItem[] = [];
-
     const isHeaderLine = (l: string) => /^["']?(label|name|category|item|key)\b/i.test(l.trim());
     const startIdx = lines.length > 1 && isHeaderLine(lines[0]) ? 1 : 0;
 
     for (let li = startIdx; li < lines.length; li++) {
       const line = lines[li];
-
-      const kvMatch = line.match(/^(.+?)\s*[:=]\s*(\d+[\d,.]*)\s*$/);
-      if (kvMatch) {
-        const label = extractLabel(kvMatch[1]);
-        const value = extractNumber(kvMatch[2]);
-        if (label && value !== null) { parsed.push({ label, value }); continue; }
-      }
-
-      const multiKvMatch = line.match(/^(.+?)\s*,\s*(?:value|count|freq|frequency|score|number|num|qty|amount)\s*[:=]?\s*(\d+[\d,.]*)\s*$/i);
-      if (multiKvMatch) {
-        const label = extractLabel(multiKvMatch[1]);
-        const value = extractNumber(multiKvMatch[2]);
-        if (label && value !== null) { parsed.push({ label, value }); continue; }
-      }
-
-      const labelKvMatch = line.match(/^(?:label|name|category|item|key)\s*[:=]?\s*(.+?)\s*,\s*(?:value|count|freq|frequency|score|number|num|qty|amount)\s*[:=]?\s*(\d+[\d,.]*)\s*$/i);
-      if (labelKvMatch) {
-        const label = extractLabel(labelKvMatch[1]);
-        const value = extractNumber(labelKvMatch[2]);
-        if (label && value !== null) { parsed.push({ label, value }); continue; }
-      }
-
       const parts = line.split(/[\t,;|]/).map(p => p.trim());
       if (parts.length >= 2) {
-        const lastVal = extractNumber(parts[parts.length - 1]);
-        if (lastVal !== null) {
-          const labelParts = parts.slice(0, -1).join(", ");
-          const label = extractLabel(labelParts);
-          if (label) { parsed.push({ label, value: lastVal }); continue; }
-        }
-
-        const firstVal = extractNumber(parts[0]);
-        if (firstVal !== null && parts.length >= 2) {
-          const label = extractLabel(parts.slice(1).join(", "));
-          if (label) { parsed.push({ label, value: firstVal }); continue; }
+        const label = parts[0].replace(/^["']|["']$/g, "").trim();
+        const rawLast = parts[parts.length - 1];
+        const value = parseFloat(rawLast);
+        if (label && !isNaN(value) && /^\d+(\.\d+)?$/.test(rawLast)) {
+          parsed.push({ label, value });
         }
       }
     }
+    return parsed;
+  }, []);
 
-    if (parsed.length > 0) {
-      setChartData(parsed);
-      toast({ title: "Data loaded", description: `${parsed.length} data points parsed` });
-    } else {
-      toast({ title: "Parse error", description: "Could not parse data. Try formats like:\n• Label, Value\n• Label: Value\n• Label = Value", variant: "destructive" });
+  const aiParseMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const res = await apiRequest("POST", "/api/ai/parse-chart-data", { text });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.data && data.data.length > 0) {
+        setChartData(data.data);
+        toast({ title: "AI parsed your data", description: `${data.data.length} data points extracted` });
+      }
+    },
+    onError: (error: any) => {
+      const local = tryLocalParse(pasteData);
+      if (local.length > 0) {
+        setChartData(local);
+        toast({ title: "Data loaded", description: `${local.length} data points parsed` });
+      } else {
+        toast({ title: "Could not parse data", description: "Try a clearer format or include numbers", variant: "destructive" });
+      }
+    },
+  });
+
+  const parsePastedData = useCallback(() => {
+    if (!pasteData.trim()) return;
+    const local = tryLocalParse(pasteData);
+    if (local.length > 0) {
+      setChartData(local);
+      toast({ title: "Data loaded", description: `${local.length} data points parsed` });
+      return;
     }
-  }, [pasteData, toast]);
+    aiParseMutation.mutate(pasteData);
+  }, [pasteData, toast, tryLocalParse]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -242,38 +229,12 @@ export default function FigureMaker() {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       if (!text) return;
-      const lines = text.trim().split("\n").filter(l => l.trim());
-      const parsed: ChartDataItem[] = [];
-      const isHeaderLine = (l: string) => /^["']?(label|name|category|item|key)\b/i.test(l.trim());
-      const startIndex = lines.length > 1 && isHeaderLine(lines[0]) ? 1 : 0;
-      for (let i = startIndex; i < lines.length; i++) {
-        const line = lines[i];
-        const kvMatch = line.match(/^(.+?)\s*[:=]\s*(\d+[\d,.]*)\s*$/);
-        if (kvMatch) {
-          const label = extractLabel(kvMatch[1]);
-          const value = extractNumber(kvMatch[2]);
-          if (label && value !== null) { parsed.push({ label, value }); continue; }
-        }
-        const multiKvMatch = line.match(/^(.+?)\s*,\s*(?:value|count|freq|frequency|score|number|num|qty|amount)\s*[:=]?\s*(\d+[\d,.]*)\s*$/i);
-        if (multiKvMatch) {
-          const label = extractLabel(multiKvMatch[1]);
-          const value = extractNumber(multiKvMatch[2]);
-          if (label && value !== null) { parsed.push({ label, value }); continue; }
-        }
-        const parts = line.split(/[\t,;|]/).map(p => p.trim());
-        if (parts.length >= 2) {
-          const lastVal = extractNumber(parts[parts.length - 1]);
-          if (lastVal !== null) {
-            const label = extractLabel(parts.slice(0, -1).join(", "));
-            if (label) { parsed.push({ label, value: lastVal }); continue; }
-          }
-        }
-      }
-      if (parsed.length > 0) {
-        setChartData(parsed);
-        toast({ title: "File loaded", description: `${parsed.length} data points from ${file.name}` });
+      const local = tryLocalParse(text);
+      if (local.length > 0) {
+        setChartData(local);
+        toast({ title: "File loaded", description: `${local.length} data points from ${file.name}` });
       } else {
-        toast({ title: "Parse error", description: "Could not extract data from file", variant: "destructive" });
+        aiParseMutation.mutate(text);
       }
     };
     reader.readAsText(file);
