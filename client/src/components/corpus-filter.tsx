@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -15,28 +15,20 @@ export interface ColumnMeta {
   totalRows: number;
 }
 
-function MultiColumnSelect({ headers, selected, onChange, testId }: {
+function InlineColumnPicker({ headers, selected, onChange, expanded, onToggleExpanded, testId }: {
   headers: string[];
   selected: string[];
   onChange: (cols: string[]) => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   testId?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open]);
-
-  const filtered = search
-    ? headers.filter(h => h.toLowerCase().includes(search.toLowerCase()))
-    : headers;
+  const allSelected = selected.length === 0;
+  const label = allSelected
+    ? "All columns"
+    : selected.length === 1
+      ? (selected[0].length > 18 ? selected[0].slice(0, 18) + "..." : selected[0])
+      : `${selected.length} columns`;
 
   const toggle = (col: string) => {
     if (selected.includes(col)) {
@@ -46,39 +38,23 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
     }
   };
 
-  const label = selected.length === 0
-    ? "All columns"
-    : selected.length === 1
-      ? (selected[0].length > 18 ? selected[0].slice(0, 18) + "..." : selected[0])
-      : `${selected.length} columns`;
-
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={onToggleExpanded}
         className="flex items-center gap-1.5 h-8 px-3 text-xs border border-input rounded-md bg-background hover:bg-accent/50 transition-colors min-w-[140px] max-w-[200px]"
         data-testid={testId}
       >
         <Columns3 className="w-3 h-3 text-muted-foreground/60 shrink-0" />
         <span className="truncate flex-1 text-left">{label}</span>
-        <ChevronDown className={`w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
       </button>
-      {open && (
-        <>
-        <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
-        <div className="absolute z-[70] top-full left-0 mt-1 w-72 bg-background border border-border rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden" data-testid="column-picker-dropdown">
-          <div className="p-2.5 border-b border-border/50 bg-muted/30">
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search columns..."
-              className="h-8 text-xs"
-              data-testid="input-column-search"
-              autoFocus
-            />
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-muted/20">
+
+      {expanded && (
+        <div className="w-full mt-3 rounded-xl border border-border/60 bg-muted/20 p-3" data-testid="column-picker-panel">
+          <div className="flex items-center gap-3 mb-2.5">
+            <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Select columns to search in:</span>
             <button
               type="button"
               className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
@@ -110,42 +86,38 @@ function MultiColumnSelect({ headers, selected, onChange, testId }: {
               </>
             )}
           </div>
-          <div className="max-h-60 overflow-y-auto p-1.5">
-            {filtered.map(h => (
+          <div className="flex flex-wrap gap-1.5">
+            {headers.map(h => (
               <button
                 key={h}
                 type="button"
                 onClick={() => toggle(h)}
-                className={`flex items-center gap-2.5 w-full px-3 py-2 text-[13px] rounded-lg transition-colors text-left ${
-                  selected.includes(h)
-                    ? "bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300 font-medium"
-                    : "hover:bg-muted/60 text-foreground/80"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-all border ${
+                  selected.length === 0 || selected.includes(h)
+                    ? "bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/50 shadow-sm"
+                    : "bg-background hover:bg-muted/60 text-foreground/60 border-border/40 hover:border-border"
                 }`}
                 data-testid={`column-option-${h.replace(/\s+/g, "-").toLowerCase()}`}
               >
-                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                  selected.includes(h)
+                <div className={`w-3.5 h-3.5 rounded border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+                  selected.length === 0 || selected.includes(h)
                     ? "bg-blue-500 border-blue-500"
                     : "border-muted-foreground/40"
                 }`}>
-                  {selected.includes(h) && <Check className="w-3 h-3 text-white" />}
+                  {(selected.length === 0 || selected.includes(h)) && <Check className="w-2.5 h-2.5 text-white" />}
                 </div>
-                <span className="truncate">{h}</span>
+                {h}
               </button>
             ))}
-            {filtered.length === 0 && (
-              <div className="px-3 py-4 text-xs text-muted-foreground text-center">No columns match</div>
-            )}
           </div>
           {selected.length > 0 && (
-            <div className="px-3 py-2 border-t border-border/30 bg-muted/20">
-              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{selected.length} column{selected.length !== 1 ? "s" : ""} selected</span>
+            <div className="mt-2.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
+              {selected.length} of {headers.length} column{selected.length !== 1 ? "s" : ""} selected
             </div>
           )}
         </div>
-        </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -182,6 +154,7 @@ export function CorpusFilter({
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [columnPickerExpanded, setColumnPickerExpanded] = useState(false);
 
   const hasColumns = columns && columns.headers.length > 0;
   const hasDateColumns = columns && columns.dateColumns.length > 0;
@@ -262,10 +235,12 @@ export function CorpusFilter({
             </SelectContent>
           </Select>
           {hasColumns && (
-            <MultiColumnSelect
+            <InlineColumnPicker
               headers={columns!.headers}
               selected={selectedColumns}
               onChange={setSelectedColumns}
+              expanded={columnPickerExpanded}
+              onToggleExpanded={() => setColumnPickerExpanded(!columnPickerExpanded)}
               testId="select-filter-columns"
             />
           )}
