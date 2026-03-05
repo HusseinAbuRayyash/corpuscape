@@ -95,6 +95,30 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/corpus/dataset", async (req, res) => {
+    try {
+      const { corpusId, page = 1, pageSize = 50 } = req.body;
+      if (!corpusId) return res.status(400).json({ error: "corpusId required" });
+      const columnsStr = getCorpus(`${corpusId}_columns`);
+      if (!columnsStr) return res.json({ headers: [], rows: [], totalRows: 0, page: 1, totalPages: 0 });
+      const colData = JSON.parse(columnsStr);
+      const totalRows = colData.rows.length;
+      const totalPages = Math.ceil(totalRows / pageSize);
+      const start = (page - 1) * pageSize;
+      const paginatedRows = colData.rows.slice(start, start + pageSize);
+      res.json({
+        headers: colData.headers,
+        rows: paginatedRows,
+        totalRows,
+        page,
+        totalPages,
+        dateColumns: colData.dateColumns || [],
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch dataset" });
+    }
+  });
+
   app.post("/api/corpus/sample", async (req, res) => {
     try {
       const fs = await import("fs");

@@ -13,7 +13,7 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 
 ```
 client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator
+client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter
 server/                 - Express routes, corpus processing, AI integration, scraper, storage
 shared/schema.ts        - Shared types and analysis category definitions
 ```
@@ -22,6 +22,7 @@ shared/schema.ts        - Shared types and analysis category definitions
 
 ### Monolingual Track
 - File upload (TXT, DOCX, PDF, Excel) + sample corpus
+- **Dataset Viewer** — paginated table view of uploaded Excel data with column headers, row numbers, text highlighting, column click-to-highlight, pagination, and export
 - Corpus statistics (words, unique, sentences, TTR)
 - Keyword extraction with bar chart visualization
 - Collocation analysis (frequency, MI, Dice)
@@ -131,6 +132,7 @@ shared/schema.ts        - Shared types and analysis category definitions
 - `POST /api/corpus/compare` — compare two corpora stats + keywords
 - `POST /api/corpus/segment` — split corpus into paragraph segments
 - `POST /api/corpus/filter` — filter corpus paragraphs by keyword (include/exclude), returns new filtered corpusId + stats
+- `POST /api/corpus/dataset` — fetch paginated Excel dataset rows for display (page, pageSize)
 
 ### Bilingual
 - `POST /api/bilingual/upload` — upload source/target for alignment
