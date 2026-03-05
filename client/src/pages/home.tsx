@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, Newspaper, Scale } from "lucide-react";
+import { BookOpen, Globe, Newspaper, Scale, Image } from "lucide-react";
 import { motion } from "framer-motion";
 import { TraduxaLogo } from "@/components/traduxa-logo";
 
@@ -55,6 +55,19 @@ const tracks = [
     glowColor: "rgba(124, 58, 237, 0.35)",
     lightBg: "from-violet-50/80 via-white to-purple-50/60",
     darkBg: "dark:from-violet-950/60 dark:via-slate-900/80 dark:to-purple-950/40",
+  },
+  {
+    title: "Figure Maker",
+    description: "Create publication-ready charts & figures with academic formatting & multi-format export",
+    icon: Image,
+    href: "/figures",
+    color: "#e11d48",
+    colorEnd: "#fb7185",
+    bgFrom: "from-rose-500",
+    bgTo: "to-pink-500",
+    glowColor: "rgba(225, 29, 72, 0.35)",
+    lightBg: "from-rose-50/80 via-white to-pink-50/60",
+    darkBg: "dark:from-rose-950/60 dark:via-slate-900/80 dark:to-pink-950/40",
   },
 ];
 

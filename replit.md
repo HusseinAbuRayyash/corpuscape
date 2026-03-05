@@ -12,13 +12,13 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 ## Key Directories
 
 ```
-client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare pages
+client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare, FigureMaker pages
 client/src/components/  - AppSidebar, FileUpload, MarkdownRender, AIResultDisplay, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter
 server/                 - Express routes, corpus processing, AI integration, scraper, storage
 shared/schema.ts        - Shared types and analysis category definitions
 ```
 
-## Features (4 Tracks)
+## Features (5 Tracks + Figure Maker)
 
 ### Monolingual Track
 - File upload (TXT, DOCX, PDF, Excel) + sample corpus
@@ -66,6 +66,19 @@ shared/schema.ts        - Shared types and analysis category definitions
 - **Word Cloud Comparison** — side-by-side word clouds for both corpora
 - **ReportGenerator** — downloadable comparison report with stats, keywords, shared terms
 - AI comparative analysis via Gemini
+
+### Figure Maker
+- Standalone chart/figure creation tool — users bring their own data
+- **Data input**: Paste/type CSV-style data OR upload CSV/TSV file, with sample data option
+- **8 chart types**: Bar, Horizontal Bar, Line, Area, Pie, Donut, Radar, Scatter
+- **24 color palettes**: Academic, APA Blue, Nature, Science, Lancet, JAMA + standard palettes (Teal, Blue, Indigo, etc.) + Viridis, Warm
+- **7 font families**: System, Playfair Display, Times New Roman, Arial/Helvetica, Georgia, Roboto, Lato
+- **6 academic format presets**: Default, APA 7th, IEEE, Chicago/MLA, Presentation, Poster — auto-configures font, labels, legend
+- **Export resolution**: 1x (72 DPI), 2x (144 DPI), 3x (216 DPI), 4x (288 DPI)
+- **Multi-format export**: PNG (via html2canvas), PDF (via jsPDF), Word/DOCX (via docx library)
+- Full editable features: title, caption, figure number, axis labels, data labels (values/percentages/both), legend toggle
+- Inline data editing: modify labels/values, add/remove data points
+- Track color: rose/pink
 
 ## Reusable Components
 
@@ -172,7 +185,7 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Gradient mesh background (teal/indigo/purple radials)
 - Dark sidebar (slate-900) with text-gradient brand name
 - Custom CSS classes: `.metric-card`, `.polished-card`, `.polished-table`, `.section-header`, `.empty-state`, `.page-header-icon`, `.upload-zone`
-- Track colors: Monolingual=indigo/blue, Bilingual=teal/emerald, Web Scraper=amber/orange, Compare=violet/purple
+- Track colors: Monolingual=indigo/blue, Bilingual=teal/emerald, Web Scraper=amber/orange, Compare=violet/purple, Figure Maker=rose/pink
 - Font: Playfair Display (italic, bold) for page/card titles, Inter for body
 - CSS + Framer Motion animations
 
