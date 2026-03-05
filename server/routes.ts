@@ -99,6 +99,67 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/corpus/filter", (req, res) => {
+    try {
+      const { corpusId, filterText, filterMode = "include" } = req.body;
+      if (!filterText || !filterText.trim()) return res.status(400).json({ error: "Filter text required" });
+      const text = resolveCorpusText(corpusId);
+      if (!text) return res.status(404).json({ error: "Corpus not found" });
+      const query = filterText.trim().toLowerCase();
+      const paragraphs = text.split(/\n/).filter(p => p.trim().length > 0);
+      let filtered: string[];
+      if (filterMode === "include") {
+        filtered = paragraphs.filter(p => p.toLowerCase().includes(query));
+      } else {
+        filtered = paragraphs.filter(p => !p.toLowerCase().includes(query));
+      }
+      if (filtered.length === 0) return res.status(400).json({ error: "Filter returned no results. Try a different term." });
+      const filteredText = filtered.join("\n\n");
+      const filteredId = generateCorpusId();
+      storeCorpus(filteredId, filteredText);
+      const stats = getStats(filteredText);
+      const originalStats = getStats(text);
+      registerCorpus({ id: filteredId, name: `Filtered (${filterText})`, source: "monolingual", words: stats.words, createdAt: Date.now() });
+      res.json({ corpusId: filteredId, stats, originalStats, matchedParagraphs: filtered.length, totalParagraphs: paragraphs.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Filter failed" });
+    }
+  });
+
+  app.post("/api/bilingual/filter", (req, res) => {
+    try {
+      const { corpusId, filterText, filterField = "both", filterStrategy } = req.body;
+      const pairsStr = getCorpus(`${corpusId}_pairs`);
+      if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+      const pairs = JSON.parse(pairsStr);
+      let filtered = pairs;
+      if (filterText && filterText.trim()) {
+        const query = filterText.trim().toLowerCase();
+        filtered = filtered.filter((p: any) => {
+          const src = (p.source || "").toLowerCase();
+          const tgt = (p.target || "").toLowerCase();
+          if (filterField === "source") return src.includes(query);
+          if (filterField === "target") return tgt.includes(query);
+          return src.includes(query) || tgt.includes(query);
+        });
+      }
+      if (filterStrategy && filterStrategy !== "all") {
+        filtered = filtered.filter((p: any) => p.strategy === filterStrategy);
+      }
+      if (filtered.length === 0) return res.status(400).json({ error: "Filter returned no results. Try a different term." });
+      const filteredId = generateCorpusId();
+      const srcText = filtered.map((p: any) => p.source).join("\n");
+      const tgtText = filtered.map((p: any) => p.target).join("\n");
+      storeCorpus(`${filteredId}_src`, srcText);
+      storeCorpus(`${filteredId}_tgt`, tgtText);
+      storeCorpus(`${filteredId}_pairs`, JSON.stringify(filtered));
+      registerCorpus({ id: filteredId, name: `Filtered bilingual`, source: "bilingual", words: srcText.split(/\s+/).length, createdAt: Date.now() });
+      res.json({ corpusId: filteredId, pairs: filtered, totalPairs: pairs.length, filteredPairs: filtered.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Filter failed" });
+    }
+  });
+
   app.post("/api/corpus/stats", (req, res) => {
     const { corpusId } = req.body;
     const text = getCorpus(corpusId);
