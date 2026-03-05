@@ -20,8 +20,9 @@ export function getStats(text: string): CorpusStats {
   };
 }
 
-export function extractKeywords(text: string, topN: number = 30): KeywordResult[] {
-  const words = text.split(/\s+/).filter((w) => w.length > 3).map((w) => w.toLowerCase().replace(/[^a-zA-Z\u0600-\u06FF]/g, "")).filter((w) => w.length > 3);
+export function extractKeywords(text: string, topN: number = 30, stopWords?: string[]): KeywordResult[] {
+  const stopSet = stopWords ? new Set(stopWords.map(w => w.toLowerCase().trim()).filter(Boolean)) : null;
+  const words = text.split(/\s+/).filter((w) => w.length > 3).map((w) => w.toLowerCase().replace(/[^a-zA-Z\u0600-\u06FF]/g, "")).filter((w) => w.length > 3).filter(w => !stopSet || !stopSet.has(w));
   const freq = new Map<string, number>();
   for (const w of words) {
     freq.set(w, (freq.get(w) || 0) + 1);
@@ -32,8 +33,9 @@ export function extractKeywords(text: string, topN: number = 30): KeywordResult[
     .map(([term, frequency]) => ({ term, frequency }));
 }
 
-export function extractNgrams(text: string, n: number = 2, topN: number = 25): NgramResult[] {
-  const words = text.split(/\s+/).filter((w) => w.length > 2).map((w) => w.toLowerCase());
+export function extractNgrams(text: string, n: number = 2, topN: number = 25, stopWords?: string[]): NgramResult[] {
+  const stopSet = stopWords ? new Set(stopWords.map(w => w.toLowerCase().trim()).filter(Boolean)) : null;
+  const words = text.split(/\s+/).filter((w) => w.length > 2).map((w) => w.toLowerCase()).filter(w => !stopSet || !stopSet.has(w));
   const freq = new Map<string, number>();
   for (let i = 0; i <= words.length - n; i++) {
     const ngram = words.slice(i, i + n).join(" ");
@@ -49,9 +51,11 @@ export function extractCollocations(
   text: string,
   nodeWord?: string,
   topN: number = 20,
-  minFreq: number = 2
+  minFreq: number = 2,
+  stopWords?: string[]
 ): CollocationResult[] {
-  const words = text.split(/\s+/).filter((w) => w.length > 2).map((w) => w.toLowerCase());
+  const stopSet = stopWords ? new Set(stopWords.map(w => w.toLowerCase().trim()).filter(Boolean)) : null;
+  const words = text.split(/\s+/).filter((w) => w.length > 2).map((w) => w.toLowerCase()).filter(w => !stopSet || !stopSet.has(w));
   const nTotal = words.length;
   if (nTotal < 10) return [];
 

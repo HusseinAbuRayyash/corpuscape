@@ -277,24 +277,24 @@ export async function registerRoutes(
   });
 
   app.post("/api/corpus/keywords", (req, res) => {
-    const { corpusId, topN = 30 } = req.body;
+    const { corpusId, topN = 30, stopWords } = req.body;
     const text = getCorpus(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
-    res.json(extractKeywords(text, topN));
+    res.json(extractKeywords(text, topN, stopWords));
   });
 
   app.post("/api/corpus/ngrams", (req, res) => {
-    const { corpusId, n = 2, topN = 25 } = req.body;
+    const { corpusId, n = 2, topN = 25, stopWords } = req.body;
     const text = getCorpus(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
-    res.json(extractNgrams(text, n, topN));
+    res.json(extractNgrams(text, n, topN, stopWords));
   });
 
   app.post("/api/corpus/collocations", (req, res) => {
-    const { corpusId, nodeWord, topN = 20, minFreq = 2 } = req.body;
+    const { corpusId, nodeWord, topN = 20, minFreq = 2, stopWords } = req.body;
     const text = getCorpus(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
-    res.json(extractCollocations(text, nodeWord, topN, minFreq));
+    res.json(extractCollocations(text, nodeWord, topN, minFreq, stopWords));
   });
 
   app.post("/api/corpus/concordance", (req, res) => {
