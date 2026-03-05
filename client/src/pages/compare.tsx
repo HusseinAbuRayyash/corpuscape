@@ -9,6 +9,7 @@ import { TableDownload } from "@/components/table-download";
 import { WordCloud } from "@/components/word-cloud";
 import { ReportGenerator } from "@/components/report-generator";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIResultDisplay } from "@/components/ai-result-display";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight, Cloud } from "lucide-react";
@@ -406,7 +407,7 @@ export default function Compare() {
                 animate={{ opacity: 1, y: 0 }}
                 data-testid="text-ai-comparison"
               >
-                <MarkdownRender content={aiComparison} downloadFilename="AI_Corpus_Comparison" />
+                <AIResultDisplay content={aiComparison} onContentChange={setAiComparison} downloadFilename="AI_Corpus_Comparison" />
               </motion.div>
             )}
           </div>

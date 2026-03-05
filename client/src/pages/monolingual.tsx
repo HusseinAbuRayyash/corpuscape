@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIResultDisplay } from "@/components/ai-result-display";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
@@ -832,7 +833,7 @@ export default function Monolingual() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <MarkdownRender content={termsResult} downloadFilename="AI_Terminology" />
+                <AIResultDisplay content={termsResult} onContentChange={setTermsResult} downloadFilename="AI_Terminology" />
               </motion.div>
             )}
           </motion.div>

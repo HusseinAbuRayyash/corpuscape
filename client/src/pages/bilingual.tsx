@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
+import { AIResultDisplay } from "@/components/ai-result-display";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { TableDownload } from "@/components/table-download";
 import { ReportGenerator } from "@/components/report-generator";
@@ -673,7 +674,7 @@ export default function Bilingual() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      <MarkdownRender content={universalsResult} downloadFilename="Translation_Universals" />
+                      <AIResultDisplay content={universalsResult} onContentChange={setUniversalsResult} downloadFilename="Translation_Universals" />
                     </motion.div>
                   )}
                 </motion.div>
@@ -700,7 +701,7 @@ export default function Bilingual() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      <MarkdownRender content={strategiesResult} downloadFilename="Strategy_Analysis" />
+                      <AIResultDisplay content={strategiesResult} onContentChange={setStrategiesResult} downloadFilename="Strategy_Analysis" />
                     </motion.div>
                   )}
                 </motion.div>
