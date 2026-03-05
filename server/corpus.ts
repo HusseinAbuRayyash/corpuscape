@@ -240,3 +240,68 @@ IMPORTANT RULES:
 
   return buffer.toString("utf-8");
 }
+
+export interface ColumnInfo {
+  headers: string[];
+  rows: Record<string, any>[];
+  dateColumns: string[];
+  totalRows: number;
+}
+
+export async function extractExcelStructure(buffer: Buffer): Promise<ColumnInfo | null> {
+  try {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) return null;
+    const sheet = workbook.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+    if (rawData.length < 2) return null;
+    const headerRow = rawData[0];
+    if (!headerRow || headerRow.length < 2) return null;
+    const rawHeaders = headerRow.map((h: any) => String(h || "").trim());
+    const headers: string[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < rawHeaders.length; i++) {
+      let name = rawHeaders[i] || `Column_${i + 1}`;
+      if (seen.has(name)) {
+        let suffix = 2;
+        while (seen.has(`${name}_${suffix}`)) suffix++;
+        name = `${name}_${suffix}`;
+      }
+      seen.add(name);
+      headers.push(name);
+    }
+    if (headers.length < 2) return null;
+
+    const rows: Record<string, any>[] = [];
+    for (let i = 1; i < rawData.length; i++) {
+      const row = rawData[i];
+      if (!row || row.every((c: any) => c == null || String(c).trim() === "")) continue;
+      const obj: Record<string, any> = {};
+      for (let j = 0; j < headers.length; j++) {
+        obj[headers[j]] = row[j] != null ? String(row[j]) : "";
+      }
+      rows.push(obj);
+    }
+
+    const dateColumns: string[] = [];
+    for (const h of headers) {
+      const hLower = h.toLowerCase();
+      if (hLower.includes("date") || hLower.includes("year") || hLower.includes("time")) {
+        dateColumns.push(h);
+        continue;
+      }
+      const sampleValues = rows.slice(0, Math.min(10, rows.length)).map(r => r[h]).filter(Boolean);
+      const datePattern = /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$|^\d{1,2}[-/]\d{1,2}[-/]\d{4}$|^\d{4}$/;
+      const dateMatches = sampleValues.filter(v => datePattern.test(String(v).trim()));
+      if (dateMatches.length >= sampleValues.length * 0.5 && sampleValues.length > 0) {
+        dateColumns.push(h);
+      }
+    }
+
+    return { headers, rows, dateColumns, totalRows: rows.length };
+  } catch {
+    return null;
+  }
+}

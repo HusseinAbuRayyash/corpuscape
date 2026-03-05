@@ -11,7 +11,7 @@ import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
-import { CorpusFilter } from "@/components/corpus-filter";
+import { CorpusFilter, type ColumnMeta } from "@/components/corpus-filter";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { WordCloud } from "@/components/word-cloud";
@@ -38,6 +38,8 @@ export default function Monolingual() {
   const [originalStats, setOriginalStats] = useState<CorpusStats | null>(null);
   const [isFiltered, setIsFiltered] = useState(false);
   const [filteredStats, setFilteredStats] = useState<CorpusStats | null>(null);
+  const [columns, setColumns] = useState<ColumnMeta | null>(null);
+  const [originalColumns, setOriginalColumns] = useState<ColumnMeta | null>(null);
   const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
 
   useEffect(() => {
@@ -63,7 +65,13 @@ export default function Monolingual() {
     onSuccess: (data) => {
       setCorpusId(data.corpusId);
       setStats(data.stats);
-      toast({ title: "Corpus loaded", description: `${data.stats.words.toLocaleString()} words ready for analysis` });
+      setColumns(data.columns || null);
+      setOriginalColumns(null);
+      setIsFiltered(false);
+      setFilteredStats(null);
+      setOriginalCorpusId(null);
+      setOriginalStats(null);
+      toast({ title: "Corpus loaded", description: `${data.stats.words.toLocaleString()} words ready for analysis${data.columns ? ` · ${data.columns.headers.length} columns detected` : ""}` });
     },
     onError: () => toast({ title: "Upload failed", variant: "destructive" }),
   });
@@ -173,14 +181,17 @@ export default function Monolingual() {
         <CorpusFilter
           corpusId={originalCorpusId || corpusId}
           originalStats={originalStats || stats}
-          onFilterApplied={(filteredId, fStats) => {
+          columns={originalColumns || columns}
+          onFilterApplied={(filteredId, fStats, filteredCols) => {
             if (!originalCorpusId) {
               setOriginalCorpusId(corpusId);
               setOriginalStats(stats);
+              setOriginalColumns(columns);
             }
             setCorpusId(filteredId);
             setStats(fStats);
             setFilteredStats(fStats);
+            if (filteredCols) setColumns(filteredCols);
             setIsFiltered(true);
             setKeywords([]);
             setNgrams([]);
@@ -195,10 +206,12 @@ export default function Monolingual() {
               setCorpusId(originalCorpusId);
               setStats(originalStats);
             }
+            if (originalColumns) setColumns(originalColumns);
             setIsFiltered(false);
             setFilteredStats(null);
             setOriginalCorpusId(null);
             setOriginalStats(null);
+            setOriginalColumns(null);
             setKeywords([]);
             setNgrams([]);
             setCollocations([]);

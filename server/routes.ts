@@ -9,6 +9,7 @@ import {
   concordance,
   cleanText,
   extractTextFromFile,
+  extractExcelStructure,
 } from "./corpus";
 import {
   runAnalysis,
@@ -58,19 +59,36 @@ export async function registerRoutes(
       }
 
       const texts: string[] = [];
+      let fullStructure: Awaited<ReturnType<typeof extractExcelStructure>> = null;
+
       for (const file of files) {
         const text = await extractTextFromFile(file.buffer, file.originalname);
         texts.push(text);
+
+        const ext = file.originalname.split(".").pop()?.toLowerCase();
+        if ((ext === "xlsx" || ext === "xls") && !fullStructure) {
+          fullStructure = await extractExcelStructure(file.buffer);
+        }
       }
 
       const combined = cleanText(texts.join("\n\n"));
       const corpusId = generateCorpusId();
       storeCorpus(corpusId, combined);
+
+      if (fullStructure) {
+        storeCorpus(`${corpusId}_columns`, JSON.stringify({
+          headers: fullStructure.headers,
+          dateColumns: fullStructure.dateColumns,
+          totalRows: fullStructure.totalRows,
+          rows: fullStructure.rows,
+        }));
+      }
+
       const stats = getStats(combined);
       const fileNames = files.map((f: Express.Multer.File) => f.originalname).join(", ");
       registerCorpus({ id: corpusId, name: fileNames, source: "monolingual", words: stats.words, createdAt: Date.now() });
 
-      res.json({ corpusId, stats, wordCount: stats.words });
+      res.json({ corpusId, stats, wordCount: stats.words, columns: fullStructure ? { headers: fullStructure.headers, dateColumns: fullStructure.dateColumns, totalRows: fullStructure.totalRows } : null });
     } catch (error: any) {
       console.error("Upload error:", error);
       res.status(500).json({ error: error.message || "Upload failed" });
@@ -101,26 +119,89 @@ export async function registerRoutes(
 
   app.post("/api/corpus/filter", (req, res) => {
     try {
-      const { corpusId, filterText, filterMode = "include" } = req.body;
-      if (!filterText || !filterText.trim()) return res.status(400).json({ error: "Filter text required" });
+      const { corpusId, filterText, filterMode = "include", filterColumn, dateFrom, dateTo } = req.body;
       const text = resolveCorpusText(corpusId);
       if (!text) return res.status(404).json({ error: "Corpus not found" });
-      const query = filterText.trim().toLowerCase();
-      const paragraphs = text.split(/\n/).filter(p => p.trim().length > 0);
-      let filtered: string[];
-      if (filterMode === "include") {
-        filtered = paragraphs.filter(p => p.toLowerCase().includes(query));
+
+      const columnsStr = getCorpus(`${corpusId}_columns`);
+      const hasColumns = !!columnsStr;
+
+      if (hasColumns) {
+        const colData = JSON.parse(columnsStr!);
+        let filteredRows: Record<string, any>[] = [...colData.rows];
+        const headers: string[] = colData.headers;
+
+        if (filterText && filterText.trim()) {
+          const query = filterText.trim().toLowerCase();
+          if (filterColumn && filterColumn !== "_all") {
+            if (filterMode === "include") {
+              filteredRows = filteredRows.filter(r => String(r[filterColumn] || "").toLowerCase().includes(query));
+            } else {
+              filteredRows = filteredRows.filter(r => !String(r[filterColumn] || "").toLowerCase().includes(query));
+            }
+          } else {
+            if (filterMode === "include") {
+              filteredRows = filteredRows.filter(r => headers.some(h => String(r[h] || "").toLowerCase().includes(query)));
+            } else {
+              filteredRows = filteredRows.filter(r => !headers.some(h => String(r[h] || "").toLowerCase().includes(query)));
+            }
+          }
+        }
+
+        if (dateFrom || dateTo) {
+          const dateCol = colData.dateColumns?.[0];
+          if (dateCol) {
+            filteredRows = filteredRows.filter(r => {
+              const val = String(r[dateCol] || "").trim();
+              if (!val) return false;
+              const yearMatch = val.match(/\d{4}/);
+              if (!yearMatch) return false;
+              const numVal = parseInt(yearMatch[0]);
+              if (dateFrom && numVal < parseInt(dateFrom)) return false;
+              if (dateTo && numVal > parseInt(dateTo)) return false;
+              return true;
+            });
+          }
+        }
+
+        if (filteredRows.length === 0) return res.status(400).json({ error: "Filter returned no results. Try different criteria." });
+
+        const filteredText = filteredRows.map(r => headers.map(h => String(r[h] || "")).join(" ")).join("\n");
+        const filteredId = generateCorpusId();
+        storeCorpus(filteredId, filteredText);
+        storeCorpus(`${filteredId}_columns`, JSON.stringify({
+          headers: colData.headers,
+          dateColumns: colData.dateColumns,
+          totalRows: filteredRows.length,
+          rows: filteredRows,
+        }));
+        const stats = getStats(filteredText);
+        const originalStats = getStats(text);
+        registerCorpus({ id: filteredId, name: `Filtered corpus`, source: "monolingual", words: stats.words, createdAt: Date.now() });
+        res.json({
+          corpusId: filteredId, stats, originalStats,
+          matchedParagraphs: filteredRows.length, totalParagraphs: colData.rows.length,
+          columns: { headers: colData.headers, dateColumns: colData.dateColumns, totalRows: filteredRows.length },
+        });
       } else {
-        filtered = paragraphs.filter(p => !p.toLowerCase().includes(query));
+        if (!filterText || !filterText.trim()) return res.status(400).json({ error: "Filter text required" });
+        const query = filterText.trim().toLowerCase();
+        const paragraphs = text.split(/\n/).filter(p => p.trim().length > 0);
+        let filtered: string[];
+        if (filterMode === "include") {
+          filtered = paragraphs.filter(p => p.toLowerCase().includes(query));
+        } else {
+          filtered = paragraphs.filter(p => !p.toLowerCase().includes(query));
+        }
+        if (filtered.length === 0) return res.status(400).json({ error: "Filter returned no results. Try a different term." });
+        const filteredText = filtered.join("\n\n");
+        const filteredId = generateCorpusId();
+        storeCorpus(filteredId, filteredText);
+        const stats = getStats(filteredText);
+        const originalStats = getStats(text);
+        registerCorpus({ id: filteredId, name: `Filtered (${filterText})`, source: "monolingual", words: stats.words, createdAt: Date.now() });
+        res.json({ corpusId: filteredId, stats, originalStats, matchedParagraphs: filtered.length, totalParagraphs: paragraphs.length });
       }
-      if (filtered.length === 0) return res.status(400).json({ error: "Filter returned no results. Try a different term." });
-      const filteredText = filtered.join("\n\n");
-      const filteredId = generateCorpusId();
-      storeCorpus(filteredId, filteredText);
-      const stats = getStats(filteredText);
-      const originalStats = getStats(text);
-      registerCorpus({ id: filteredId, name: `Filtered (${filterText})`, source: "monolingual", words: stats.words, createdAt: Date.now() });
-      res.json({ corpusId: filteredId, stats, originalStats, matchedParagraphs: filtered.length, totalParagraphs: paragraphs.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Filter failed" });
     }

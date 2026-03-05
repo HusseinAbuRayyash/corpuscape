@@ -94,10 +94,13 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Dataset filtering component — filter corpus to analyze only matching subset
 - Two variants: `CorpusFilter` (monolingual/scraper) and `BilingualFilter` (bilingual pairs)
 - CorpusFilter: include/exclude paragraphs by keyword, creates new server-side corpus via `/api/corpus/filter`
+- **Column-aware filtering**: when Excel files are uploaded, detects column headers and allows filtering by specific column
+- **Date range filtering**: auto-detects date/year columns and provides From/To range inputs
 - BilingualFilter: filter pairs by source/target text and/or strategy via `/api/bilingual/filter`
 - Shows original vs filtered stats comparison with percentage
 - Clear filter reverts to original corpus; all analysis results reset on filter change
 - Integrated into all 3 tracks: Monolingual (indigo), Bilingual (teal), Scraper (amber)
+- `extractExcelStructure()` in `server/corpus.ts` handles duplicate headers and date column detection
 
 ### MarkdownRender (`client/src/components/markdown-render.tsx`)
 - Enhanced markdown renderer with custom table styling
