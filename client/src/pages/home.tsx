@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, ArrowRight, Newspaper } from "lucide-react";
+import { BookOpen, Globe, ArrowRight, Newspaper, Scale } from "lucide-react";
 import { motion } from "framer-motion";
 import { TraduxaLogo } from "@/components/traduxa-logo";
 
@@ -42,6 +42,19 @@ const tracks = [
     glowColor: "rgba(245, 158, 11, 0.35)",
     lightBg: "from-amber-50 via-white to-orange-50",
     darkBg: "dark:from-amber-950/60 dark:via-slate-900/80 dark:to-orange-950/40",
+  },
+  {
+    title: "Compare",
+    description: "Side-by-side comparison of two corpora with stats, keywords & AI analysis",
+    icon: Scale,
+    href: "/compare",
+    color: "#7c3aed",
+    colorEnd: "#a78bfa",
+    bgFrom: "from-violet-500",
+    bgTo: "to-purple-500",
+    glowColor: "rgba(124, 58, 237, 0.35)",
+    lightBg: "from-violet-50 via-white to-purple-50",
+    darkBg: "dark:from-violet-950/60 dark:via-slate-900/80 dark:to-purple-950/40",
   },
 ];
 

@@ -22,6 +22,9 @@ import {
   generateResearchReport,
   generateTMX,
   generateChartData,
+  chatWithCorpus,
+  backTranslate,
+  generateGlossary,
 } from "./ai";
 import {
   storeCorpus,
@@ -373,6 +376,130 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Pre-aligned upload error:", error);
       res.status(500).json({ error: error.message || "Processing failed" });
+    }
+  });
+
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { corpusId, message, history = [] } = req.body;
+      if (!message) return res.status(400).json({ error: "Message required" });
+      const text = resolveCorpusText(corpusId);
+      if (!text) return res.status(404).json({ error: "Corpus not found" });
+      const result = await chatWithCorpus(text, message, history);
+      res.json({ result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Chat failed" });
+    }
+  });
+
+  app.post("/api/corpus/compare", async (req, res) => {
+    try {
+      const { corpusIdA, corpusIdB } = req.body;
+      const textA = resolveCorpusText(corpusIdA);
+      const textB = resolveCorpusText(corpusIdB);
+      if (!textA || !textB) return res.status(404).json({ error: "One or both corpora not found" });
+      const statsA = getStats(textA);
+      const statsB = getStats(textB);
+      const keywordsA = extractKeywords(textA, 30);
+      const keywordsB = extractKeywords(textB, 30);
+      const termsA = new Set(keywordsA.map(k => k.term));
+      const termsB = new Set(keywordsB.map(k => k.term));
+      const shared = keywordsA.filter(k => termsB.has(k.term)).map(k => ({
+        term: k.term,
+        freqA: k.frequency,
+        freqB: keywordsB.find(kb => kb.term === k.term)?.frequency || 0,
+      }));
+      const uniqueA = keywordsA.filter(k => !termsB.has(k.term));
+      const uniqueB = keywordsB.filter(k => !termsA.has(k.term));
+      res.json({ statsA, statsB, keywordsA, keywordsB, shared, uniqueA, uniqueB });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Comparison failed" });
+    }
+  });
+
+  app.post("/api/corpus/segment", (req, res) => {
+    const { corpusId } = req.body;
+    const text = resolveCorpusText(corpusId);
+    if (!text) return res.status(404).json({ error: "Corpus not found" });
+    const paragraphs = text.split(/\n{2,}/).map(p => p.trim()).filter(p => p.length > 0);
+    const segments = paragraphs.map((p, i) => ({
+      index: i,
+      preview: p.slice(0, 120) + (p.length > 120 ? "..." : ""),
+      text: p,
+      wordCount: p.split(/\s+/).filter(w => w.length > 0).length,
+      charCount: p.length,
+    }));
+    res.json({ segments, totalSegments: segments.length });
+  });
+
+  app.post("/api/bilingual/back-translate", async (req, res) => {
+    try {
+      const { corpusId, srcLang = "en", tgtLang = "ar" } = req.body;
+      const pairsStr = getCorpus(`${corpusId}_pairs`);
+      if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+      const pairs = JSON.parse(pairsStr);
+      const results = await backTranslate(pairs, srcLang, tgtLang);
+      res.json({ results });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Back-translation failed" });
+    }
+  });
+
+  app.post("/api/bilingual/concordance", (req, res) => {
+    const { corpusId, query } = req.body;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const pairsStr = getCorpus(`${corpusId}_pairs`);
+    if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+    const pairs = JSON.parse(pairsStr);
+    const queryLower = query.toLowerCase();
+    const results = pairs
+      .filter((p: any) => p.source && typeof p.source === "string" && p.source.toLowerCase().includes(queryLower))
+      .map((p: any) => {
+        const idx = p.source.toLowerCase().indexOf(queryLower);
+        const matchLen = query.length;
+        return {
+          left: p.source.slice(Math.max(0, idx - 60), idx),
+          match: p.source.slice(idx, idx + matchLen),
+          right: p.source.slice(idx + matchLen, idx + matchLen + 60),
+          target: p.target,
+        };
+      })
+      .slice(0, 50);
+    res.json({ results });
+  });
+
+  app.post("/api/bilingual/glossary", async (req, res) => {
+    try {
+      const { corpusId } = req.body;
+      const pairsStr = getCorpus(`${corpusId}_pairs`);
+      if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+      const pairs = JSON.parse(pairsStr);
+      const glossary = await generateGlossary(pairs);
+      res.json({ glossary });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Glossary generation failed" });
+    }
+  });
+
+  app.post("/api/corpus/compare-ai", async (req, res) => {
+    try {
+      const { corpusIdA, corpusIdB } = req.body;
+      const textA = resolveCorpusText(corpusIdA);
+      const textB = resolveCorpusText(corpusIdB);
+      if (!textA || !textB) return res.status(404).json({ error: "One or both corpora not found" });
+      const truncA = textA.slice(0, 6000);
+      const truncB = textB.slice(0, 6000);
+      const combinedText = `===CORPUS_A===\n${truncA}\n\n===CORPUS_B===\n${truncB}`;
+      const result = await runAnalysis(combinedText, "Custom", `You are given two corpora separated by markers ===CORPUS_A=== and ===CORPUS_B===. Provide a detailed comparative analysis covering:
+1. Lexical richness and diversity comparison
+2. Stylistic and register differences
+3. Thematic overlap and divergence
+4. Structural and syntactic patterns
+5. Overall assessment and research implications
+Format with clear headings and specific examples from each corpus.`);
+      res.json({ result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "AI comparison failed" });
     }
   });
 

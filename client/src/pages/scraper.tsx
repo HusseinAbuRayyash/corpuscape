@@ -13,10 +13,12 @@ import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { MarkdownRender } from "@/components/markdown-render";
+import { WordCloud } from "@/components/word-cloud";
+import { ReportGenerator } from "@/components/report-generator";
 import {
   Loader2, Newspaper, Globe, Plus, X, Trash2, Edit3, Check, Send,
   FileText, ExternalLink, ChevronDown, ChevronUp, Brain, Download,
-  BarChart3, Link2, Search, Hash, BookText, TrendingUp, BookOpen, Upload,
+  BarChart3, Link2, Search, Hash, BookText, TrendingUp, BookOpen, Upload, Cloud,
 } from "lucide-react";
 import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult } from "@shared/schema";
 
@@ -357,6 +359,19 @@ export default function Scraper() {
               >
                 <Download className="w-3.5 h-3.5 mr-1.5" />Download All
               </Button>
+              {corpusStats && (
+                <ReportGenerator
+                  title="Web Scraper Corpus Analysis Report"
+                  stats={corpusStats}
+                  keywords={keywords}
+                  collocations={collocations}
+                  ngrams={ngrams}
+                  aiResults={{
+                    ...(aiResult ? { "AI Summary": aiResult } : {}),
+                    ...(termsResult ? { "Terminology Extraction": termsResult } : {}),
+                  }}
+                />
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -537,6 +552,9 @@ export default function Scraper() {
                   <TabsTrigger value="terms" className="gap-1.5 text-xs" data-testid="tab-terms">
                     <BookText className="w-3.5 h-3.5" />Terminology
                   </TabsTrigger>
+                  <TabsTrigger value="wordcloud" className="gap-1.5 text-xs" data-testid="tab-wordcloud">
+                    <Cloud className="w-3.5 h-3.5" />Word Cloud
+                  </TabsTrigger>
                   <TabsTrigger value="insights" className="gap-1.5 text-xs" data-testid="tab-insights">
                     <BookOpen className="w-3.5 h-3.5" />AI Insights
                   </TabsTrigger>
@@ -711,6 +729,29 @@ export default function Scraper() {
                   </Button>
                   {termsMutation.isPending && <Skeleton className="h-32 w-full" />}
                   {termsResult && <MarkdownRender content={termsResult} downloadFilename="scraper_terminology" />}
+                </TabsContent>
+
+                <TabsContent value="wordcloud" className="mt-4 space-y-4">
+                  {keywords.length === 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">Extract keywords first to generate a word cloud.</p>
+                      <Button
+                        onClick={() => keywordsMutation.mutate()}
+                        disabled={keywordsMutation.isPending}
+                        size="sm"
+                        className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                        data-testid="button-wordcloud-extract-keywords"
+                      >
+                        {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                        Extract Keywords
+                      </Button>
+                    </div>
+                  ) : (
+                    <WordCloud
+                      words={keywords.map((k) => ({ text: k.term, value: k.frequency }))}
+                      defaultColors={["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]}
+                    />
+                  )}
                 </TabsContent>
 
                 <TabsContent value="insights" className="mt-4">

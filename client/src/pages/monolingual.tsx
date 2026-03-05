@@ -13,9 +13,10 @@ import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { WordCloud } from "@/components/word-cloud";
 import {
   Upload, BarChart3, Link2, Search, Hash, Brain, BookText, Download,
-  Loader2, TrendingUp, BookOpen,
+  Loader2, TrendingUp, BookOpen, Cloud, Layers,
 } from "lucide-react";
 import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult } from "@shared/schema";
 
@@ -32,6 +33,7 @@ export default function Monolingual() {
   const [concordanceQuery, setConcordanceQuery] = useState("");
   const [ngramN, setNgramN] = useState("2");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
 
   useEffect(() => {
     const scrapedId = sessionStorage.getItem("scraped_corpus_id");
@@ -121,6 +123,14 @@ export default function Monolingual() {
     onSuccess: (data) => setTermsResult(data.result),
   });
 
+  const segmentsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/corpus/segment", { corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setSegments(data.segments),
+  });
+
   const handleUpload = useCallback(() => {
     if (selectedFiles.length > 0) uploadMutation.mutate(selectedFiles);
   }, [selectedFiles]);
@@ -161,6 +171,8 @@ export default function Monolingual() {
           <TabsTrigger value="collocations" disabled={!corpusId} className="shrink-0" data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
           <TabsTrigger value="concordance" disabled={!corpusId} className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
           <TabsTrigger value="ngrams" disabled={!corpusId} className="shrink-0" data-testid="tab-ngrams"><Hash className="w-3.5 h-3.5 mr-1.5" />N-grams</TabsTrigger>
+          <TabsTrigger value="wordcloud" disabled={!corpusId} className="shrink-0" data-testid="tab-wordcloud"><Cloud className="w-3.5 h-3.5 mr-1.5" />Word Cloud</TabsTrigger>
+          <TabsTrigger value="segments" disabled={!corpusId} className="shrink-0" data-testid="tab-segments"><Layers className="w-3.5 h-3.5 mr-1.5" />Segments</TabsTrigger>
           <TabsTrigger value="ai" disabled={!corpusId} className="shrink-0" data-testid="tab-ai"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
           <TabsTrigger value="terms" disabled={!corpusId} className="shrink-0" data-testid="tab-terms"><BookText className="w-3.5 h-3.5 mr-1.5" />Terminology</TabsTrigger>
           <TabsTrigger value="export" disabled={!corpusId} className="shrink-0" data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
@@ -523,6 +535,102 @@ export default function Monolingual() {
               <div className="empty-state">
                 <Hash className="w-10 h-10 text-muted-foreground/30 mb-3" />
                 <p className="text-sm text-muted-foreground">Select n-gram size and click extract to analyze word sequences.</p>
+              </div>
+            )}
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="wordcloud" className="space-y-4">
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <Cloud className="w-4 h-4 text-primary" />
+              <h3>Word Cloud</h3>
+              {keywords.length === 0 && (
+                <div className="ml-auto">
+                  <Button
+                    size="sm"
+                    onClick={() => keywordsMutation.mutate()}
+                    disabled={keywordsMutation.isPending}
+                    data-testid="button-wordcloud-extract-keywords"
+                  >
+                    {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                    Extract Keywords First
+                  </Button>
+                </div>
+              )}
+            </div>
+            {keywordsMutation.isPending && (
+              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            )}
+            {keywords.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <WordCloud
+                  words={keywords.map(kw => ({ text: kw.term, value: kw.frequency }))}
+                  width={700}
+                  height={420}
+                />
+              </motion.div>
+            )}
+            {keywords.length === 0 && !keywordsMutation.isPending && (
+              <div className="empty-state">
+                <Cloud className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">Extract keywords first to generate a word cloud visualization.</p>
+              </div>
+            )}
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="segments" className="space-y-4">
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <Layers className="w-4 h-4 text-primary" />
+              <h3>Corpus Segments</h3>
+              <div className="ml-auto">
+                <Button
+                  size="sm"
+                  onClick={() => segmentsMutation.mutate()}
+                  disabled={segmentsMutation.isPending}
+                  data-testid="button-extract-segments"
+                >
+                  {segmentsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
+                  Segment Corpus
+                </Button>
+              </div>
+            </div>
+            {segmentsMutation.isPending && (
+              <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            )}
+            {segments.length > 0 && (
+              <motion.div className="space-y-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <p className="text-sm text-muted-foreground" data-testid="text-segment-count">{segments.length} segments found</p>
+                <div className="max-h-[500px] overflow-auto rounded-lg border">
+                  <table className="w-full text-sm polished-table" data-testid="table-segments">
+                    <thead className="sticky top-0">
+                      <tr>
+                        <th className="py-2.5 px-3 text-left w-16">#</th>
+                        <th className="py-2.5 px-3 text-left">Preview</th>
+                        <th className="py-2.5 px-3 text-right w-24">Words</th>
+                        <th className="py-2.5 px-3 text-right w-24">Chars</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {segments.map((seg) => (
+                        <tr key={seg.index} className="border-b border-border/30" data-testid={`row-segment-${seg.index}`}>
+                          <td className="py-2 px-3 text-muted-foreground text-xs">{seg.index + 1}</td>
+                          <td className="py-2 px-3 text-xs leading-relaxed">{seg.preview}</td>
+                          <td className="py-2 px-3 text-right tabular-nums font-medium">{seg.wordCount}</td>
+                          <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{seg.charCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+            {segments.length === 0 && !segmentsMutation.isPending && (
+              <div className="empty-state">
+                <Layers className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">Click "Segment Corpus" to split your corpus into paragraph-level segments.</p>
               </div>
             )}
           </motion.div>

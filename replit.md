@@ -12,13 +12,13 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 ## Key Directories
 
 ```
-client/src/pages/       - Home, Monolingual, Bilingual, Scraper pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo, AIAnalysisPanel
+client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare pages
+client/src/components/  - AppSidebar, FileUpload, MarkdownRender, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator
 server/                 - Express routes, corpus processing, AI integration, scraper, storage
 shared/schema.ts        - Shared types and analysis category definitions
 ```
 
-## Features (3 Tracks)
+## Features (4 Tracks)
 
 ### Monolingual Track
 - File upload (TXT, DOCX, PDF, Excel) + sample corpus
@@ -27,9 +27,11 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Collocation analysis (frequency, MI, Dice)
 - KWIC concordance search
 - N-gram extraction (bigrams, trigrams, 4-grams)
+- **Word Cloud** — canvas-based word cloud from keywords, 12 color palettes, PNG download, shuffle layout
+- **Sub-corpus Segments** — splits corpus by paragraphs, shows word/char counts per segment
 - AI corpus summary & terminology extraction
-- **AI Insights tab** — 31 specialized analyses, domain classification, comparative metrics, term clusters
-- Export: Research report (MD), Keywords CSV
+- **AI Insights tab** — 31 specialized analyses, domain classification, comparative metrics, term clusters, **Chart Generator**, **Corpus Chat**
+- Export: Research report (Word+PDF via ReportGenerator), Keywords CSV
 
 ### Bilingual Track
 - Source/target file upload with AI sentence alignment
@@ -37,53 +39,107 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Translation strategy labeling (domestication, foreignization, etc.)
 - Translation universals analysis
 - Strategy analysis
-- **AI Insights section** — appears after alignment, full AI analysis panel
-- Export: CSV, TMX (CAT tool format)
+- **Back-Translation Check** — AI back-translates target segments, shows semantic drift assessment
+- **Bilingual Concordance** — search source text, see aligned target in KWIC format
+- **AI Glossary Builder** — extracts bilingual glossary with definitions and examples
+- **Annotation Mode** — editable comment column on aligned pairs, exportable as annotated CSV
+- **AI Insights section** — full AI analysis panel with Chat tab
+- Export: CSV, TMX (CAT tool format), Annotated CSV
 
 ### Web Scraper
 - Add multiple URLs to scrape
-- Extract article text with cheerio
+- Extract article text with cheerio + Gemini AI fallback
 - View, edit, and clean scraped content
 - Remove individual articles or clear all
+- **Word Cloud** — visualize scraped corpus keywords
+- **Full Research Report** — Word and PDF export via ReportGenerator
 - **Analyze Here** — create corpus and run AI analysis directly in scraper
 - Send cleaned text to Monolingual analysis pipeline
+
+### Corpus Comparison (NEW)
+- Two side-by-side upload zones (Corpus A / Corpus B)
+- Statistics comparison table (characters, words, TTR, etc.)
+- Keyword overlap analysis (shared keywords, unique to A, unique to B)
+- Side-by-side keyword bar charts with distinct color schemes
+- AI comparative analysis via Gemini
 
 ## Reusable Components
 
 ### AIAnalysisPanel (`client/src/components/ai-analysis-panel.tsx`)
-- Embeddable AI analysis component used by all 3 tracks
+- Embeddable AI analysis component used by all tracks
 - Accepts `corpusId` and `theme` (gradient, accent, text color) props
-- 5 tabs: Specialized Analysis (31 types), **Chart Generator**, Domain Classification, Comparative Metrics, Term Clusters
+- 6 tabs: Specialized Analysis (31 types), **Chart Generator**, Domain Classification, Comparative Metrics, Term Clusters, **Corpus Chat**
 - Chart Generator: user types a prompt, AI returns JSON chart data, rendered as interactive EditableChart
 - Multiple charts can be generated and stacked; each is removable
-- Suggestion chips for quick prompts (word frequency, strategy distribution, etc.)
-- Category/type selectors, custom instructions, markdown result rendering
-- All results pass `downloadFilename` to MarkdownRender for automatic Excel/Word export
+- Corpus Chat: multi-turn conversational AI about the corpus content
+
+### CorpusChat (`client/src/components/corpus-chat.tsx`)
+- Chat-style UI with message bubbles (user right-aligned, assistant left-aligned)
+- Multi-turn conversation with history, calls `/api/ai/chat`
+- MarkdownRender for AI responses, loading indicators, clear chat button
+- Theme-aware styling via `theme` prop
+
+### WordCloud (`client/src/components/word-cloud.tsx`)
+- Canvas-based word cloud with proportional sizing, spiral layout, collision avoidance
+- 12 preset color palettes, palette picker, shuffle button
+- PNG download (3x scale), hover tooltips, dark mode aware
+- Props: `words: {text: string, value: number}[]`
+
+### ReportGenerator (`client/src/components/report-generator.tsx`)
+- Comprehensive Word (.docx) and PDF report generation
+- Accepts stats, keywords, collocations, ngrams, aiResults, pairs, extraSections
+- Branded Traduxa header/footer, styled tables, professional formatting
 
 ### MarkdownRender (`client/src/components/markdown-render.tsx`)
-- Enhanced markdown renderer with custom table styling (bordered, headers, hover rows)
-- Full-document Word download: converts entire markdown (headings, paragraphs, lists, bold/italic, tables) into structured .docx with branded header, styled tables, footer
-- PDF download: renders markdown to styled HTML, captures via html2canvas, outputs multi-page A4 PDF via jsPDF
-- Excel download: auto-detects markdown tables and exports table data to .xlsx
-- Tables rendered in scrollable containers to prevent overflow/cut-off
-- Custom heading, paragraph, list, and strong text styling
-- Markdown parser: `parseMarkdownToBlocks()` for full document structure, `parseMarkdownTables()` for table extraction
+- Enhanced markdown renderer with custom table styling
+- Word, PDF, and Excel downloads
+- `showDownload` prop to hide download buttons (used in chat context)
 
 ### EditableChart (`client/src/components/editable-chart.tsx`)
 - 8 chart types, 18 monochromatic color palettes (incl. B&W)
-- Toolbar: horizontally scrollable with `overflow-x-auto scrollbar-hide min-w-max` to prevent button overlap
 - Editable title, axes labels, data labels (None/Values/%/Both)
 - PNG download via html2canvas
 
 ### TableDownload (`client/src/components/table-download.tsx`)
 - Excel (.xlsx) and Word (.docx) download for structured table data
-- Styled Word documents with branded headers and alternating row shading
 
 ### Corpus Registry (`server/corpusStorage.ts`)
 - In-memory corpus storage with metadata registry
-- Tracks corpus source (monolingual, bilingual, scraper), name, word count
 - `resolveCorpusText()` helper resolves text for both monolingual and bilingual corpora
-- `GET /api/corpora` lists all registered corpora
+
+## API Endpoints
+
+### Core
+- `POST /api/corpus/upload` — upload and process corpus files
+- `POST /api/corpus/sample` — load sample corpus
+- `POST /api/corpus/keywords` — extract keywords
+- `POST /api/corpus/ngrams` — extract n-grams
+- `POST /api/corpus/collocations` — extract collocations
+- `POST /api/corpus/concordance` — KWIC concordance search
+- `POST /api/corpus/compare` — compare two corpora stats + keywords
+- `POST /api/corpus/segment` — split corpus into paragraph segments
+
+### Bilingual
+- `POST /api/bilingual/upload` — upload source/target for alignment
+- `POST /api/bilingual/upload-aligned` — upload pre-aligned files
+- `POST /api/bilingual/universals` — translation universals analysis
+- `POST /api/bilingual/strategies` — strategy analysis
+- `POST /api/bilingual/back-translate` — AI back-translation check
+- `POST /api/bilingual/concordance` — bilingual concordance search
+- `POST /api/bilingual/glossary` — AI bilingual glossary extraction
+- `POST /api/export/tmx` — export TMX
+
+### AI
+- `POST /api/ai/summarize` — corpus summary
+- `POST /api/ai/terminology` — terminology extraction
+- `POST /api/ai/analyze` — specialized analysis (31 types)
+- `POST /api/ai/topics` — domain classification
+- `POST /api/ai/chart` — AI chart data generation
+- `POST /api/ai/chat` — multi-turn corpus chat
+
+### Scraper
+- `POST /api/scrape` — scrape URLs
+- `POST /api/scrape/to-corpus` — convert scraped text to corpus
 
 ## Design System
 
@@ -91,16 +147,9 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Gradient mesh background (teal/indigo/purple radials)
 - Dark sidebar (slate-900) with text-gradient brand name
 - Custom CSS classes: `.metric-card`, `.polished-card`, `.polished-table`, `.section-header`, `.empty-state`, `.page-header-icon`, `.upload-zone`
-- Metric cards with gradient top-bar on hover, lift effect
-- Polished cards with subtle border glow on hover
-- Tables with gradient header backgrounds and uppercase headers
-- CSS + Framer Motion animations (fade-in, slide-up, stagger, scale)
-- Custom SVG logo with gradient
-- Text gradient for brand name
-- Real layered shadows
-- Inter font family
-- Consistent page headers with gradient icon badges per track
-- Track colors: Monolingual=indigo/blue, Bilingual=teal/emerald, Web Scraper=amber/orange
+- Track colors: Monolingual=indigo/blue, Bilingual=teal/emerald, Web Scraper=amber/orange, Compare=violet/purple
+- Font: Playfair Display (italic, bold) for page/card titles, Inter for body
+- CSS + Framer Motion animations
 
 ## Environment
 
@@ -114,3 +163,4 @@ shared/schema.ts        - Shared types and analysis category definitions
 - `react-markdown`, `remark-gfm`, `recharts`, `framer-motion`
 - `cheerio` (web scraping)
 - `p-limit`, `p-retry`
+- `docx`, `file-saver`, `jspdf`, `html2canvas` (report generation)
