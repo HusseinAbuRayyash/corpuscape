@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, ArrowRight, Newspaper, Scale } from "lucide-react";
+import { BookOpen, Globe, Newspaper, Scale } from "lucide-react";
 import { motion } from "framer-motion";
 import { TraduxaLogo } from "@/components/traduxa-logo";
 
@@ -14,7 +14,7 @@ const tracks = [
     bgFrom: "from-indigo-500",
     bgTo: "to-blue-500",
     glowColor: "rgba(99, 102, 241, 0.35)",
-    lightBg: "from-indigo-50 via-white to-blue-50",
+    lightBg: "from-indigo-50/80 via-white to-blue-50/60",
     darkBg: "dark:from-indigo-950/60 dark:via-slate-900/80 dark:to-blue-950/40",
   },
   {
@@ -27,7 +27,7 @@ const tracks = [
     bgFrom: "from-teal-500",
     bgTo: "to-emerald-500",
     glowColor: "rgba(20, 184, 166, 0.35)",
-    lightBg: "from-teal-50 via-white to-emerald-50",
+    lightBg: "from-teal-50/80 via-white to-emerald-50/60",
     darkBg: "dark:from-teal-950/60 dark:via-slate-900/80 dark:to-emerald-950/40",
   },
   {
@@ -40,7 +40,7 @@ const tracks = [
     bgFrom: "from-amber-500",
     bgTo: "to-orange-500",
     glowColor: "rgba(245, 158, 11, 0.35)",
-    lightBg: "from-amber-50 via-white to-orange-50",
+    lightBg: "from-amber-50/80 via-white to-orange-50/60",
     darkBg: "dark:from-amber-950/60 dark:via-slate-900/80 dark:to-orange-950/40",
   },
   {
@@ -53,7 +53,7 @@ const tracks = [
     bgFrom: "from-violet-500",
     bgTo: "to-purple-500",
     glowColor: "rgba(124, 58, 237, 0.35)",
-    lightBg: "from-violet-50 via-white to-purple-50",
+    lightBg: "from-violet-50/80 via-white to-purple-50/60",
     darkBg: "dark:from-violet-950/60 dark:via-slate-900/80 dark:to-purple-950/40",
   },
 ];
@@ -121,55 +121,62 @@ export default function Home() {
           initial="hidden"
           animate="show"
         >
-          {tracks.map((track, i) => (
-            <motion.div key={track.title} variants={cardVariants} className={tracks.length % 2 !== 0 && i === tracks.length - 1 ? "md:col-span-2 md:max-w-[calc(50%-0.625rem)] md:mx-auto" : ""}>
+          {tracks.map((track) => (
+            <motion.div key={track.title} variants={cardVariants}>
               <Link href={track.href}>
                 <motion.div
-                  className={`track-card group relative overflow-hidden rounded-2xl cursor-pointer bg-gradient-to-br ${track.lightBg} ${track.darkBg} border border-white/60 dark:border-white/[0.06]`}
+                  className={`track-card group relative overflow-hidden cursor-pointer bg-gradient-to-br ${track.lightBg} ${track.darkBg} border border-white/60 dark:border-white/[0.06]`}
                   data-testid={`card-track-${track.title.toLowerCase().replace(/\s/g, "-")}`}
                   whileHover={{ y: -6, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   style={{
+                    borderRadius: "2rem",
                     boxShadow: `0 4px 24px -4px ${track.glowColor.replace("0.35", "0.12")}, 0 1px 3px rgba(0,0,0,0.06)`,
                   }}
                 >
                   <div
-                    className="absolute top-0 left-0 right-0 h-1 opacity-80"
-                    style={{ background: `linear-gradient(90deg, ${track.color}, ${track.colorEnd})` }}
+                    className="absolute top-0 left-[10%] right-[10%] h-[3px] opacity-70"
+                    style={{
+                      background: `linear-gradient(90deg, transparent, ${track.color}, ${track.colorEnd}, transparent)`,
+                      borderRadius: "0 0 100% 100%",
+                    }}
                   />
 
-                  <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.07] dark:opacity-[0.04] pointer-events-none"
+                  <div className="absolute top-0 right-0 w-40 h-40 opacity-[0.06] dark:opacity-[0.04] pointer-events-none"
                     style={{
                       background: `radial-gradient(circle at 100% 0%, ${track.color}, transparent 70%)`,
                     }}
                   />
 
-                  <div className="relative p-6 md:p-7">
-                    <div className="flex items-center gap-4 mb-4">
-                      <motion.div
-                        className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${track.bgFrom} ${track.bgTo} flex items-center justify-center flex-shrink-0 shadow-lg`}
-                        style={{
-                          boxShadow: `0 8px 20px -4px ${track.glowColor}`,
-                        }}
-                        whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        <track.icon className="w-7 h-7 text-white drop-shadow-sm" />
-                      </motion.div>
-                      <h3 className="text-xl font-extrabold tracking-tight" style={{ color: track.color }}>
-                        {track.title}
-                      </h3>
-                    </div>
+                  <div className="absolute bottom-0 left-0 w-32 h-32 opacity-[0.04] dark:opacity-[0.03] pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle at 0% 100%, ${track.colorEnd}, transparent 70%)`,
+                    }}
+                  />
 
-                    <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
+                  <div className="relative p-7 md:p-8 flex flex-col items-center text-center min-h-[200px] justify-center">
+                    <motion.div
+                      className={`w-16 h-16 rounded-[1.25rem] bg-gradient-to-br ${track.bgFrom} ${track.bgTo} flex items-center justify-center mb-4 shadow-lg`}
+                      style={{
+                        boxShadow: `0 10px 24px -6px ${track.glowColor}`,
+                      }}
+                      whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <track.icon className="w-8 h-8 text-white drop-shadow-sm" />
+                    </motion.div>
+
+                    <h3
+                      className="text-xl font-extrabold tracking-tight mb-2"
+                      style={{ color: track.color, fontFamily: "'Playfair Display', serif" }}
+                    >
+                      {track.title}
+                    </h3>
+
+                    <p className="text-[13px] text-muted-foreground/80 leading-relaxed max-w-[240px]">
                       {track.description}
                     </p>
-
-                    <div className="flex items-center gap-1.5 text-xs font-bold opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" style={{ color: track.color }}>
-                      <span>Explore</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </div>
                   </div>
                 </motion.div>
               </Link>
