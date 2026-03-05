@@ -11,6 +11,7 @@ import Home from "@/pages/home";
 import Monolingual from "@/pages/monolingual";
 import Bilingual from "@/pages/bilingual";
 import Scraper from "@/pages/scraper";
+import Compare from "@/pages/compare";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/monolingual" component={Monolingual} />
       <Route path="/bilingual" component={Bilingual} />
       <Route path="/scraper" component={Scraper} />
+      <Route path="/compare" component={Compare} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -4,13 +4,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { TableDownload } from "@/components/table-download";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle } from "lucide-react";
+import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare } from "lucide-react";
 import type { AlignedPair } from "@shared/schema";
 
 export default function Bilingual() {
@@ -26,6 +27,11 @@ export default function Bilingual() {
   const [tgtLang, setTgtLang] = useState("ar");
   const [universalsResult, setUniversalsResult] = useState("");
   const [strategiesResult, setStrategiesResult] = useState("");
+  const [backTranslateResults, setBackTranslateResults] = useState<any[]>([]);
+  const [concordanceQuery, setConcordanceQuery] = useState("");
+  const [concordanceResults, setConcordanceResults] = useState<any[]>([]);
+  const [glossaryResults, setGlossaryResults] = useState<any[]>([]);
+  const [annotations, setAnnotations] = useState<Record<number, string>>({});
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -67,6 +73,52 @@ export default function Bilingual() {
     },
     onSuccess: (data) => setStrategiesResult(data.result),
   });
+
+  const backTranslateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bilingual/back-translate", { corpusId, srcLang, tgtLang });
+      return res.json();
+    },
+    onSuccess: (data) => setBackTranslateResults(data.results || []),
+    onError: () => toast({ title: "Back-translation failed", variant: "destructive" }),
+  });
+
+  const concordanceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bilingual/concordance", { corpusId, query: concordanceQuery });
+      return res.json();
+    },
+    onSuccess: (data) => setConcordanceResults(data.results || []),
+    onError: () => toast({ title: "Concordance search failed", variant: "destructive" }),
+  });
+
+  const glossaryMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bilingual/glossary", { corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setGlossaryResults(data.glossary || []),
+    onError: () => toast({ title: "Glossary generation failed", variant: "destructive" }),
+  });
+
+  const exportAnnotations = () => {
+    const annotatedPairs = pairs.map((p, i) => ({
+      index: i + 1,
+      source: p.source,
+      target: p.target,
+      similarity: p.similarity || 0,
+      strategy: p.strategy || "",
+      annotation: annotations[i] || "",
+    })).filter(p => p.annotation);
+    const csv = "Index,Source,Target,Similarity,Strategy,Annotation\n" + annotatedPairs.map((p) =>
+      `${p.index},"${(p.source || "").replace(/"/g, '""')}","${(p.target || "").replace(/"/g, '""')}",${p.similarity},"${p.strategy}","${(p.annotation).replace(/"/g, '""')}"`
+    ).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "annotated_pairs.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const MetricCard = ({ label, value, index = 0 }: { label: string; value: string | number; index?: number }) => (
     <motion.div
@@ -260,32 +312,47 @@ export default function Bilingual() {
           </div>
 
           <div className="polished-card p-6">
-            <div className="section-header">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              <h3>Aligned Pairs</h3>
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+              <div className="section-header mb-0">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <h3>Aligned Pairs</h3>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {Object.keys(annotations).length > 0 && (
+                  <Button variant="secondary" size="sm" onClick={exportAnnotations} data-testid="button-export-annotations">
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    Export Annotations ({Object.values(annotations).filter(Boolean).length})
+                  </Button>
+                )}
+                <TableDownload
+                  data={pairs.map((p, i) => ({ rank: i + 1, source: p.source, target: p.target, similarity: (p.similarity || 0).toFixed(3), strategy: p.strategy || "", annotation: annotations[i] || "" }))}
+                  columns={[
+                    { header: "#", key: "rank", align: "left" },
+                    { header: "Source", key: "source", align: "left" },
+                    { header: "Target", key: "target", align: "left" },
+                    { header: "Similarity", key: "similarity", align: "right" },
+                    { header: "Strategy", key: "strategy", align: "left" },
+                    { header: "Annotation", key: "annotation", align: "left" },
+                  ]}
+                  filename="Aligned_Pairs"
+                />
+              </div>
             </div>
-            <div className="flex justify-end mb-1">
-              <TableDownload
-                data={pairs.map((p, i) => ({ rank: i + 1, source: p.source, target: p.target, similarity: (p.similarity || 0).toFixed(3), strategy: p.strategy || "" }))}
-                columns={[
-                  { header: "#", key: "rank", align: "left" },
-                  { header: "Source", key: "source", align: "left" },
-                  { header: "Target", key: "target", align: "left" },
-                  { header: "Similarity", key: "similarity", align: "right" },
-                  { header: "Strategy", key: "strategy", align: "left" },
-                ]}
-                filename="Aligned_Pairs"
-              />
-            </div>
-            <div className="max-h-96 overflow-auto rounded-lg border">
+            <div className="max-h-[500px] overflow-auto rounded-lg border">
               <table className="w-full text-sm polished-table" data-testid="table-aligned-pairs">
-                <thead className="sticky top-0">
+                <thead className="sticky top-0 z-10">
                   <tr>
                     <th className="py-2.5 px-3 text-left">#</th>
                     <th className="py-2.5 px-3 text-left">Source</th>
                     <th className="py-2.5 px-3 text-left">Target</th>
                     <th className="py-2.5 px-3 text-right">Sim</th>
                     <th className="py-2.5 px-3 text-left">Strategy</th>
+                    <th className="py-2.5 px-3 text-left min-w-[160px]">
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" />
+                        Annotation
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -301,6 +368,16 @@ export default function Bilingual() {
                             {p.strategy}
                           </span>
                         )}
+                      </td>
+                      <td className="py-1 px-2">
+                        <input
+                          type="text"
+                          className="w-full text-xs px-2 py-1 rounded-md border border-border/50 bg-transparent focus:outline-none focus:ring-1 focus:ring-teal-500/50 placeholder:text-muted-foreground/40"
+                          placeholder="Add note..."
+                          value={annotations[i] || ""}
+                          onChange={(e) => setAnnotations(prev => ({ ...prev, [i]: e.target.value }))}
+                          data-testid={`input-annotation-${i}`}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -356,6 +433,185 @@ export default function Bilingual() {
               >
                 <FileText className="w-4 h-4 mr-2" />TMX (CAT)
               </Button>
+            </div>
+          </div>
+
+          <div className="polished-card p-6">
+            <div className="section-header">
+              <Search className="w-4 h-4 text-teal-500" />
+              <h3>Bilingual Concordance</h3>
+            </div>
+            <div className="flex gap-2 items-center mb-3 flex-wrap">
+              <Input
+                value={concordanceQuery}
+                onChange={(e) => setConcordanceQuery(e.target.value)}
+                placeholder="Search source text..."
+                className="max-w-xs"
+                onKeyDown={(e) => { if (e.key === "Enter" && concordanceQuery.trim()) concordanceMutation.mutate(); }}
+                data-testid="input-concordance-query"
+              />
+              <Button
+                size="sm"
+                onClick={() => concordanceMutation.mutate()}
+                disabled={!concordanceQuery.trim() || concordanceMutation.isPending}
+                data-testid="button-concordance-search"
+              >
+                {concordanceMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Search className="w-4 h-4 mr-1.5" />}
+                Search
+              </Button>
+            </div>
+            {concordanceMutation.isPending && <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
+            {concordanceResults.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <p className="text-xs text-muted-foreground mb-2">{concordanceResults.length} match{concordanceResults.length !== 1 ? "es" : ""} found</p>
+                <div className="max-h-80 overflow-auto rounded-lg border">
+                  <table className="w-full text-sm polished-table" data-testid="table-concordance-results">
+                    <thead className="sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2.5 px-3 text-right">Left Context</th>
+                        <th className="py-2.5 px-3 text-center">Match</th>
+                        <th className="py-2.5 px-3 text-left">Right Context</th>
+                        <th className="py-2.5 px-3 text-left">Target</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {concordanceResults.map((r: any, i: number) => (
+                        <tr key={i} className="border-b border-border/30">
+                          <td className="py-2 px-3 text-xs text-right text-muted-foreground">{r.left}</td>
+                          <td className="py-2 px-3 text-xs text-center font-bold text-teal-600 dark:text-teal-400">{r.match}</td>
+                          <td className="py-2 px-3 text-xs text-muted-foreground">{r.right}</td>
+                          <td className="py-2 px-3 text-xs max-w-[250px] truncate">{r.target}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="polished-card p-5">
+              <div className="section-header">
+                <ArrowLeftRight className="w-4 h-4 text-amber-500" />
+                <h3>Back-Translation Check</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">AI back-translates target text to source language and flags semantic drift.</p>
+              <Button
+                size="sm"
+                onClick={() => backTranslateMutation.mutate()}
+                disabled={backTranslateMutation.isPending}
+                data-testid="button-back-translate"
+              >
+                {backTranslateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowLeftRight className="w-4 h-4 mr-2" />}
+                Run Back-Translation
+              </Button>
+              {backTranslateMutation.isPending && <div className="mt-3 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
+              {backTranslateResults.length > 0 && (
+                <motion.div className="mt-4" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                  <div className="flex justify-end mb-1">
+                    <TableDownload
+                      data={backTranslateResults.map((r: any, i: number) => ({ rank: i + 1, source: r.source, backTranslation: r.backTranslation, drift: r.driftNotes || "" }))}
+                      columns={[
+                        { header: "#", key: "rank", align: "left" },
+                        { header: "Original Source", key: "source", align: "left" },
+                        { header: "Back-Translation", key: "backTranslation", align: "left" },
+                        { header: "Semantic Drift", key: "drift", align: "left" },
+                      ]}
+                      filename="Back_Translation"
+                    />
+                  </div>
+                  <div className="max-h-72 overflow-auto rounded-lg border">
+                    <table className="w-full text-sm polished-table" data-testid="table-back-translate">
+                      <thead className="sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2 px-3 text-left">#</th>
+                          <th className="py-2 px-3 text-left">Source</th>
+                          <th className="py-2 px-3 text-left">Back-Translation</th>
+                          <th className="py-2 px-3 text-left">Drift</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {backTranslateResults.map((r: any, i: number) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
+                            <td className="py-2 px-3 text-xs max-w-[180px] truncate">{r.source}</td>
+                            <td className="py-2 px-3 text-xs max-w-[180px] truncate">{r.backTranslation}</td>
+                            <td className="py-2 px-3 text-xs max-w-[160px]">
+                              {r.driftNotes && (
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  r.driftNotes.toLowerCase().includes("none") || r.driftNotes.toLowerCase().includes("minimal")
+                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                }`}>
+                                  {r.driftNotes}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            <div className="polished-card p-5">
+              <div className="section-header">
+                <BookOpen className="w-4 h-4 text-indigo-500" />
+                <h3>AI Glossary Builder</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">Extracts bilingual glossary with definitions and usage examples.</p>
+              <Button
+                size="sm"
+                onClick={() => glossaryMutation.mutate()}
+                disabled={glossaryMutation.isPending}
+                data-testid="button-glossary"
+              >
+                {glossaryMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
+                Generate Glossary
+              </Button>
+              {glossaryMutation.isPending && <div className="mt-3 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>}
+              {glossaryResults.length > 0 && (
+                <motion.div className="mt-4" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                  <div className="flex justify-end mb-1">
+                    <TableDownload
+                      data={glossaryResults.map((g: any, i: number) => ({ rank: i + 1, sourceTerm: g.sourceTerm, targetTerm: g.targetTerm, definition: g.definition || "", example: g.example || "" }))}
+                      columns={[
+                        { header: "#", key: "rank", align: "left" },
+                        { header: "Source Term", key: "sourceTerm", align: "left" },
+                        { header: "Target Term", key: "targetTerm", align: "left" },
+                        { header: "Definition", key: "definition", align: "left" },
+                        { header: "Example", key: "example", align: "left" },
+                      ]}
+                      filename="Bilingual_Glossary"
+                    />
+                  </div>
+                  <div className="max-h-72 overflow-auto rounded-lg border">
+                    <table className="w-full text-sm polished-table" data-testid="table-glossary">
+                      <thead className="sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2 px-3 text-left">Source Term</th>
+                          <th className="py-2 px-3 text-left">Target Term</th>
+                          <th className="py-2 px-3 text-left">Definition</th>
+                          <th className="py-2 px-3 text-left">Example</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {glossaryResults.map((g: any, i: number) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="py-2 px-3 text-xs font-medium">{g.sourceTerm}</td>
+                            <td className="py-2 px-3 text-xs font-medium">{g.targetTerm}</td>
+                            <td className="py-2 px-3 text-xs text-muted-foreground max-w-[200px]">{g.definition}</td>
+                            <td className="py-2 px-3 text-xs text-muted-foreground/80 max-w-[200px] italic">{g.example}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )}
             </div>
           </div>
 

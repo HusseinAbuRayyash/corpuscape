@@ -11,7 +11,8 @@ import { MarkdownRender } from "@/components/markdown-render";
 import { EditableChart } from "@/components/editable-chart";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Loader2, FlaskConical, BarChart3, Layers, LineChart, Sparkles, X } from "lucide-react";
+import { Brain, Loader2, FlaskConical, BarChart3, Layers, LineChart, Sparkles, X, MessageSquare } from "lucide-react";
+import { CorpusChat } from "@/components/corpus-chat";
 import { AI_ANALYSIS_CATEGORIES, AI_ANALYSIS_PRESETS } from "@shared/schema";
 
 interface TrackTheme {
@@ -162,6 +163,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
           <TabsTrigger value="topics" className="shrink-0" data-testid="tab-ai-topics"><Layers className="w-3.5 h-3.5 mr-1.5" />Domains</TabsTrigger>
           <TabsTrigger value="metrics" className="shrink-0" data-testid="tab-ai-metrics"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Metrics</TabsTrigger>
           <TabsTrigger value="clusters" className="shrink-0" data-testid="tab-ai-clusters"><Brain className="w-3.5 h-3.5 mr-1.5" />Clusters</TabsTrigger>
+          <TabsTrigger value="chat" className="shrink-0" data-testid="tab-ai-chat"><MessageSquare className="w-3.5 h-3.5 mr-1.5" />Chat</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis" className="space-y-5">
@@ -446,6 +448,11 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                 <MarkdownRender content={clustersResult} downloadFilename="AI_Term_Clusters" />
               </motion.div>
             )}
+          </motion.div>
+        </TabsContent>
+        <TabsContent value="chat" className="space-y-4">
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <CorpusChat corpusId={corpusId} theme={theme} />
           </motion.div>
         </TabsContent>
       </Tabs>

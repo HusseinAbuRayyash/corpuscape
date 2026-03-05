@@ -454,6 +454,92 @@ export async function analyzeStrategies(pairs: any[]): Promise<string> {
   return generateContent(prompt, pairsText);
 }
 
+export async function chatWithCorpus(
+  text: string,
+  message: string,
+  history: { role: string; content: string }[] = [],
+  maxChars: number = 12000
+): Promise<string> {
+  const historyText = history.length > 0
+    ? "\n\nConversation so far:\n" + history.map(h => `${h.role === "user" ? "User" : "Assistant"}: ${h.content}`).join("\n")
+    : "";
+  const prompt = `You are an expert corpus linguistics assistant analyzing a specific corpus of text. Answer questions about the corpus with precision, citing specific examples from the text when possible. Be concise but thorough. Format your response with markdown.${historyText}\n\nUser's question: ${message}`;
+  return generateContent(prompt, text, maxChars);
+}
+
+export async function backTranslate(
+  pairs: { source: string; target: string }[],
+  srcLang: string = "en",
+  tgtLang: string = "ar"
+): Promise<{ source: string; target: string; backTranslation: string; driftNotes: string }[]> {
+  const maxPairs = Math.min(pairs.length, 15);
+  const pairsText = pairs.slice(0, maxPairs).map((p, i) =>
+    `${i + 1}. TARGET: ${p.target}`
+  ).join("\n");
+
+  const prompt = `Translate each numbered target text back into ${srcLang}. For each, provide:
+1. The back-translation
+2. Brief notes on any semantic drift compared to how a typical original ${srcLang} text would phrase this
+
+IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
+[{"index":1,"backTranslation":"...","driftNotes":"..."}]`;
+
+  const raw = await generateContent(prompt, pairsText, 15000);
+  try {
+    const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error("No JSON array found");
+    const parsed = JSON.parse(jsonMatch[0]);
+    return pairs.slice(0, maxPairs).map((p, i) => ({
+      source: p.source,
+      target: p.target,
+      backTranslation: parsed[i]?.backTranslation || "",
+      driftNotes: parsed[i]?.driftNotes || "",
+    }));
+  } catch {
+    return pairs.slice(0, maxPairs).map(p => ({
+      source: p.source,
+      target: p.target,
+      backTranslation: "",
+      driftNotes: "Could not generate back-translation",
+    }));
+  }
+}
+
+export async function generateGlossary(
+  pairs: { source: string; target: string }[]
+): Promise<{ sourceTerm: string; targetTerm: string; definition: string; example: string }[]> {
+  const pairsText = pairs.slice(0, 25).map((p, i) =>
+    `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`
+  ).join("\n");
+
+  const prompt = `Extract a bilingual glossary from these aligned translation pairs. Identify 15-25 key terms and their translations.
+
+IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
+[{"sourceTerm":"...","targetTerm":"...","definition":"Brief definition in source language","example":"Short usage example from the corpus"}]
+
+Rules:
+- Focus on domain-specific, technical, or culturally significant terms
+- Each term should appear in the provided pairs
+- Definitions should be concise (1 sentence)
+- Examples should be brief quotes from the corpus text`;
+
+  const raw = await generateContent(prompt, pairsText, 15000);
+  try {
+    const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error("No JSON array found");
+    return JSON.parse(jsonMatch[0]).map((item: any) => ({
+      sourceTerm: String(item.sourceTerm || ""),
+      targetTerm: String(item.targetTerm || ""),
+      definition: String(item.definition || ""),
+      example: String(item.example || ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function generateResearchReport(
   stats?: any,
   keywords?: any[],

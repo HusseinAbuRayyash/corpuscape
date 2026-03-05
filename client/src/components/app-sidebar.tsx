@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Home, BookOpen, Globe, Sun, Moon, Newspaper } from "lucide-react";
+import { Home, BookOpen, Globe, Sun, Moon, Newspaper, Scale } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,7 @@ const navItems = [
   { title: "Monolingual", url: "/monolingual", icon: BookOpen },
   { title: "Bilingual", url: "/bilingual", icon: Globe },
   { title: "Web Scraper", url: "/scraper", icon: Newspaper },
+  { title: "Compare", url: "/compare", icon: Scale },
 ];
 
 export function AppSidebar() {
