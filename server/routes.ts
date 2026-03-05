@@ -625,6 +625,57 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/ai/parse-chart-data", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || !text.trim()) return res.status(400).json({ error: "Text required" });
+
+      const prompt = `You are a data extraction assistant. The user has pasted text that contains data they want to visualize in a chart. Your job is to extract label-value pairs from this text, no matter what format it's in.
+
+Rules:
+- Extract EVERY data point mentioned in the text
+- Each data point needs a short, clean LABEL (the category/name) and a numeric VALUE
+- If the text describes percentages, use the percentage number as the value
+- If the text is a paragraph describing statistics, extract each statistic as a data point
+- If it's a table, extract each row
+- If it's key-value pairs in any format, extract them
+- Clean up labels: remove prefixes like "Source Language:", "Category:", etc. — just use the core name
+- Return ONLY a valid JSON array, nothing else. No markdown, no explanation.
+
+Format: [{"label": "Clean Label", "value": 42}, ...]
+
+Examples:
+Input: "Source Language: Arabic, Value: 28\\nTarget Language: Spanish, Value: 11"
+Output: [{"label":"Arabic","value":28},{"label":"Spanish","value":11}]
+
+Input: "The study found 45% explicitation, 30% simplification, and 25% normalization"
+Output: [{"label":"Explicitation","value":45},{"label":"Simplification","value":30},{"label":"Normalization","value":25}]
+
+Input: "English has 5000 words, French has 3200, German has 4100"
+Output: [{"label":"English","value":5000},{"label":"French","value":3200},{"label":"German","value":4100}]
+
+Now extract data from the user's text. Return ONLY the JSON array:`;
+
+      const result = await generateContent(prompt, text, 10000);
+      const jsonMatch = result.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return res.status(422).json({ error: "Could not extract data" });
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(parsed) || parsed.length === 0) return res.status(422).json({ error: "No data points found" });
+
+      const validated = parsed
+        .filter((item: any) => item.label && typeof item.value === "number" && !isNaN(item.value))
+        .map((item: any) => ({ label: String(item.label).trim(), value: Number(item.value) }));
+
+      if (validated.length === 0) return res.status(422).json({ error: "No valid data points extracted" });
+
+      res.json({ data: validated });
+    } catch (error: any) {
+      console.error("AI chart data parse error:", error);
+      res.status(500).json({ error: error.message || "Failed to parse data" });
+    }
+  });
+
   app.post("/api/ai/chat", async (req, res) => {
     try {
       const { corpusId, message, history = [] } = req.body;
