@@ -372,7 +372,10 @@ export async function registerRoutes(
                 columnSummaries.push(`\nCOLUMN "${header}" (${uniqueCount} unique values, ${values.length} total):\n${allValues}`);
               }
             }
-            enrichedText = columnSummaries.join("\n") + "\n\n---RAW TEXT SAMPLE---\n" + text;
+            const summaryBlock = columnSummaries.join("\n");
+            const remainingBudget = 190000 - summaryBlock.length;
+            const rawSample = remainingBudget > 1000 ? text.slice(0, remainingBudget) : "";
+            enrichedText = summaryBlock + (rawSample ? "\n\n---RAW TEXT SAMPLE---\n" + rawSample : "");
           }
         } catch {}
       }
