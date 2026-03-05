@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownRender } from "@/components/markdown-render";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, ChevronUp, Pencil, Check, X, Copy, CopyCheck } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Check, X, Copy, CopyCheck, Maximize2, Minimize2 } from "lucide-react";
 
 interface AIResultDisplayProps {
   content: string;
@@ -17,7 +17,7 @@ export function AIResultDisplay({
   content,
   onContentChange,
   downloadFilename = "AI_Results",
-  collapsedLines = 12,
+  collapsedLines = 10,
   className = "",
 }: AIResultDisplayProps) {
   const [expanded, setExpanded] = useState(false);
@@ -34,7 +34,7 @@ export function AIResultDisplay({
   useEffect(() => {
     const lineCount = content.split("\n").length;
     const charCount = content.length;
-    setIsLong(lineCount > collapsedLines || charCount > 800);
+    setIsLong(lineCount > collapsedLines || charCount > 600);
   }, [content, collapsedLines]);
 
   const handleSave = () => {
@@ -55,42 +55,42 @@ export function AIResultDisplay({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const collapsedMaxH = `${collapsedLines * 1.7}em`;
+  const collapsedMaxH = `${collapsedLines * 1.6}em`;
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <div className="flex items-center justify-end gap-1">
+    <div className={`space-y-1 ${className}`}>
+      <div className="flex items-center justify-end gap-1.5 mb-1">
         {isLong && !editing && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-[11px] px-2 gap-1 text-muted-foreground"
+            className="h-7 text-xs px-2.5 gap-1.5"
             onClick={() => setExpanded(!expanded)}
             data-testid="button-toggle-expand-ai"
           >
-            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {expanded ? "Show less" : "Show full"}
+            {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            {expanded ? "Show Less" : "Show Full"}
           </Button>
         )}
         <Button
           variant="ghost"
           size="sm"
-          className="text-[11px] px-2 gap-1 text-muted-foreground"
+          className="h-7 text-xs px-2.5 gap-1.5 text-muted-foreground"
           onClick={handleCopy}
           data-testid="button-copy-ai"
         >
-          {copied ? <CopyCheck className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+          {copied ? <CopyCheck className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? "Copied" : "Copy"}
         </Button>
         {onContentChange && !editing && (
           <Button
             variant="ghost"
             size="sm"
-            className="text-[11px] px-2 gap-1 text-muted-foreground"
+            className="h-7 text-xs px-2.5 gap-1.5 text-muted-foreground"
             onClick={() => { setEditing(true); setExpanded(true); }}
             data-testid="button-edit-ai"
           >
-            <Pencil className="w-3 h-3" />
+            <Pencil className="w-3.5 h-3.5" />
             Edit
           </Button>
         )}
@@ -114,10 +114,10 @@ export function AIResultDisplay({
             />
             <div className="flex gap-2 justify-end">
               <Button size="sm" variant="ghost" onClick={handleCancel} data-testid="button-cancel-edit-ai">
-                <X className="w-3 h-3 mr-1" />Cancel
+                <X className="w-3.5 h-3.5 mr-1" />Cancel
               </Button>
               <Button size="sm" onClick={handleSave} data-testid="button-save-edit-ai">
-                <Check className="w-3 h-3 mr-1" />Save
+                <Check className="w-3.5 h-3.5 mr-1" />Save
               </Button>
             </div>
           </motion.div>
@@ -139,19 +139,21 @@ export function AIResultDisplay({
               <MarkdownRender content={content} downloadFilename={downloadFilename} />
             </div>
             {!expanded && isLong && (
-              <div className="relative -mt-10 h-10 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+              <div className="relative -mt-12 h-12 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
             )}
             {isLong && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1 mx-auto mt-1 text-xs font-medium text-muted-foreground"
-                data-testid="button-expand-collapse-ai"
-              >
-                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {expanded ? "Show less" : "Show full result"}
-              </Button>
+              <div className="flex justify-center mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExpanded(!expanded)}
+                  className="h-7 text-xs px-4 gap-1.5 shadow-sm"
+                  data-testid="button-expand-collapse-ai"
+                >
+                  {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {expanded ? "Show Less" : "Show Full Result"}
+                </Button>
+              </div>
             )}
           </motion.div>
         )}
