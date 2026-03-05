@@ -257,7 +257,7 @@ export async function runAnalysis(
 export async function generateChartData(
   text: string,
   prompt: string,
-  maxChars: number = 30000
+  maxChars: number = 80000
 ): Promise<{ title: string; data: { label: string; value: number }[] }> {
   const systemPrompt = `You are a corpus analysis assistant. The user wants to visualize specific data from a corpus as a chart.
 Based on their request, analyze the corpus text and produce chart-ready data.
@@ -268,14 +268,15 @@ IMPORTANT: Respond ONLY with a valid JSON object in this exact format, no markdo
 {"title":"Chart Title Here","data":[{"label":"Category 1","value":42},{"label":"Category 2","value":28}]}
 
 Rules:
-- If the user asks to "list all", "show all", or "every", return ALL matching items found in the corpus — do NOT limit or truncate
-- Otherwise return between 3 and 50 data points, sorted by value descending unless order matters (e.g. chronological)
-- Labels must be short (1-4 words) and descriptive
+- The corpus may include a DATASET STRUCTURE section with pre-computed column value frequencies. USE THESE EXACT COUNTS — do not estimate or approximate when exact data is provided.
+- If the user asks for "top N" items, return exactly N items (or all items if fewer than N exist)
+- If the user asks to "list all", "show all", or "every", return ALL matching items found — do NOT limit or truncate
+- Otherwise return up to 100 data points, sorted by value descending unless order matters (e.g. chronological)
+- Labels must be short (1-5 words) and descriptive
 - Values must be positive numbers (counts, percentages, scores — whatever fits the request)
 - The title should clearly describe what the chart shows
-- If the user asks for something not quantifiable from the text, approximate based on textual evidence
-- Always base the data on actual analysis of the provided corpus text
-- Be exhaustive: include every item you can find in the text, not just the top few`;
+- When COLUMN data is provided with exact frequencies, use those exact numbers — do not recount from raw text
+- Be exhaustive and precise: include every matching item from the data`;
 
   const raw = await generateContent(systemPrompt, text, maxChars);
   try {
