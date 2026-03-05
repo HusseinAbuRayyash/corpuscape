@@ -54,6 +54,11 @@ export default function Scraper() {
   const [originalCorpusStats, setOriginalCorpusStats] = useState<CorpusStats | null>(null);
   const [isFiltered, setIsFiltered] = useState(false);
   const [filteredStats, setFilteredStats] = useState<CorpusStats | null>(null);
+  const [kwChartExpanded, setKwChartExpanded] = useState(false);
+  const [kwTableExpanded, setKwTableExpanded] = useState(false);
+  const [ngChartExpanded, setNgChartExpanded] = useState(false);
+  const [ngTableExpanded, setNgTableExpanded] = useState(false);
+  const [colTableExpanded, setColTableExpanded] = useState(false);
 
   const addUrl = useCallback(() => {
     const trimmed = urlInput.trim();
@@ -104,7 +109,7 @@ export default function Scraper() {
 
   const keywordsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId: scraperCorpusId, topN: 30 });
+      const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId: scraperCorpusId, topN: 100 });
       return res.json();
     },
     onSuccess: setKeywords,
@@ -112,7 +117,7 @@ export default function Scraper() {
 
   const ngramsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/ngrams", { corpusId: scraperCorpusId, n: parseInt(ngramN), topN: 25 });
+      const res = await apiRequest("POST", "/api/corpus/ngrams", { corpusId: scraperCorpusId, n: parseInt(ngramN), topN: 50 });
       return res.json();
     },
     onSuccess: setNgrams,
@@ -120,7 +125,7 @@ export default function Scraper() {
 
   const collocationsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/collocations", { corpusId: scraperCorpusId });
+      const res = await apiRequest("POST", "/api/corpus/collocations", { corpusId: scraperCorpusId, topN: 50 });
       return res.json();
     },
     onSuccess: setCollocations,
@@ -632,12 +637,24 @@ export default function Scraper() {
                       <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                         <div data-testid="chart-keywords">
                           <EditableChart
-                            data={keywords.slice(0, 15).map(kw => ({ label: kw.term, value: kw.frequency }))}
+                            data={(kwChartExpanded ? keywords : keywords.slice(0, 15)).map(kw => ({ label: kw.term, value: kw.frequency }))}
                             defaultTitle=""
                             layout="horizontal"
                           />
+                          {keywords.length > 15 && (
+                            <button
+                              type="button"
+                              onClick={() => setKwChartExpanded(!kwChartExpanded)}
+                              className="flex items-center gap-1 mx-auto mt-2 text-xs font-medium text-primary hover:underline"
+                              data-testid="button-expand-keywords-chart"
+                            >
+                              {kwChartExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              {kwChartExpanded ? "Show top 15" : `Show all ${keywords.length} keywords`}
+                            </button>
+                          )}
                         </div>
-                        <div className="flex justify-end mb-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] text-muted-foreground font-medium">{keywords.length} keywords extracted</span>
                           <TableDownload
                             data={keywords.map((kw, i) => ({ rank: i + 1, term: kw.term, frequency: kw.frequency }))}
                             columns={[
@@ -648,7 +665,7 @@ export default function Scraper() {
                             filename="Scraper_Keywords"
                           />
                         </div>
-                        <div className="max-h-64 overflow-auto rounded-lg border">
+                        <div className={`${kwTableExpanded ? "max-h-[600px]" : "max-h-64"} overflow-auto rounded-lg border transition-all duration-300`}>
                           <table className="w-full text-sm polished-table" data-testid="table-keywords">
                             <thead className="sticky top-0">
                               <tr>
@@ -668,6 +685,17 @@ export default function Scraper() {
                             </tbody>
                           </table>
                         </div>
+                        {keywords.length > 10 && (
+                          <button
+                            type="button"
+                            onClick={() => setKwTableExpanded(!kwTableExpanded)}
+                            className="flex items-center gap-1 mx-auto text-xs font-medium text-primary hover:underline"
+                            data-testid="button-expand-keywords-table"
+                          >
+                            {kwTableExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {kwTableExpanded ? "Compact view" : "Expand table"}
+                          </button>
+                        )}
                       </motion.div>
                     )}
                     {keywords.length === 0 && !keywordsMutation.isPending && (
@@ -714,12 +742,24 @@ export default function Scraper() {
                       <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                         <div data-testid="chart-ngrams">
                           <EditableChart
-                            data={ngrams.slice(0, 12).map(ng => ({ label: ng.ngram, value: ng.frequency }))}
+                            data={(ngChartExpanded ? ngrams : ngrams.slice(0, 12)).map(ng => ({ label: ng.ngram, value: ng.frequency }))}
                             defaultTitle=""
                             layout="vertical"
                           />
+                          {ngrams.length > 12 && (
+                            <button
+                              type="button"
+                              onClick={() => setNgChartExpanded(!ngChartExpanded)}
+                              className="flex items-center gap-1 mx-auto mt-2 text-xs font-medium text-primary hover:underline"
+                              data-testid="button-expand-ngrams-chart"
+                            >
+                              {ngChartExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              {ngChartExpanded ? "Show top 12" : `Show all ${ngrams.length} n-grams`}
+                            </button>
+                          )}
                         </div>
-                        <div className="flex justify-end mb-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] text-muted-foreground font-medium">{ngrams.length} n-grams extracted</span>
                           <TableDownload
                             data={ngrams.map((ng, i) => ({ rank: i + 1, ngram: ng.ngram, frequency: ng.frequency }))}
                             columns={[
@@ -730,7 +770,7 @@ export default function Scraper() {
                             filename="Scraper_Ngrams"
                           />
                         </div>
-                        <div className="max-h-64 overflow-auto rounded-lg border">
+                        <div className={`${ngTableExpanded ? "max-h-[600px]" : "max-h-64"} overflow-auto rounded-lg border transition-all duration-300`}>
                           <table className="w-full text-sm polished-table" data-testid="table-ngrams">
                             <thead className="sticky top-0">
                               <tr>
@@ -750,6 +790,17 @@ export default function Scraper() {
                             </tbody>
                           </table>
                         </div>
+                        {ngrams.length > 10 && (
+                          <button
+                            type="button"
+                            onClick={() => setNgTableExpanded(!ngTableExpanded)}
+                            className="flex items-center gap-1 mx-auto text-xs font-medium text-primary hover:underline"
+                            data-testid="button-expand-ngrams-table"
+                          >
+                            {ngTableExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {ngTableExpanded ? "Compact view" : "Expand table"}
+                          </button>
+                        )}
                       </motion.div>
                     )}
                     {ngrams.length === 0 && !ngramsMutation.isPending && (
@@ -782,8 +833,9 @@ export default function Scraper() {
                       <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
                     )}
                     {collocations.length > 0 && (
-                      <motion.div className="space-y-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <div className="flex justify-end">
+                      <motion.div className="space-y-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground font-medium">{collocations.length} collocations found</span>
                           <TableDownload
                             data={collocations.map(c => ({ collocate: c.collocate, frequency: c.frequency, mi: c.mi.toFixed(2), dice: c.dice.toFixed(3) }))}
                             columns={[
@@ -795,7 +847,7 @@ export default function Scraper() {
                             filename="Scraper_Collocations"
                           />
                         </div>
-                        <div className="max-h-96 overflow-auto rounded-lg border">
+                        <div className={`${colTableExpanded ? "max-h-[600px]" : "max-h-72"} overflow-auto rounded-lg border transition-all duration-300`}>
                           <table className="w-full text-sm polished-table" data-testid="table-collocations">
                             <thead className="sticky top-0">
                               <tr>
@@ -817,6 +869,17 @@ export default function Scraper() {
                             </tbody>
                           </table>
                         </div>
+                        {collocations.length > 10 && (
+                          <button
+                            type="button"
+                            onClick={() => setColTableExpanded(!colTableExpanded)}
+                            className="flex items-center gap-1 mx-auto text-xs font-medium text-primary hover:underline"
+                            data-testid="button-expand-collocations-table"
+                          >
+                            {colTableExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            {colTableExpanded ? "Compact view" : "Expand table"}
+                          </button>
+                        )}
                       </motion.div>
                     )}
                     {collocations.length === 0 && !collocationsMutation.isPending && (

@@ -25,10 +25,10 @@ shared/schema.ts        - Shared types and analysis category definitions
 - **Dataset Viewer** — paginated table view of uploaded Excel data with column headers, row numbers, text highlighting, column click-to-highlight, pagination, and export
 - Corpus statistics (words, unique, sentences, TTR)
 - **Stop List Manager** — manual word entry, file upload, English/Arabic presets, export; filters keywords/ngrams/collocations
-- Keyword extraction with bar chart visualization (own tab, separate from Stats)
-- Collocation analysis (frequency, MI, Dice)
+- Keyword extraction with bar chart visualization (own tab, separate from Stats), expand/collapse for chart (top 15 / all) and table (compact / expanded)
+- Collocation analysis (frequency, MI, Dice) with expand/collapse table
 - KWIC concordance search
-- N-gram extraction (bigrams, trigrams, 4-grams)
+- N-gram extraction (bigrams, trigrams, 4-grams) with expand/collapse for chart (top 12 / all) and table
 - **Word Cloud** — canvas-based word cloud from keywords, 12 color palettes, PNG download, shuffle layout
 - **Sub-corpus Segments** — splits corpus by paragraphs, shows word/char counts per segment
 - AI corpus summary & terminology extraction
