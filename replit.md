@@ -90,6 +90,15 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Accepts stats, keywords, collocations, ngrams, aiResults, pairs, extraSections
 - Branded Traduxa header/footer, styled tables, professional formatting
 
+### CorpusFilter (`client/src/components/corpus-filter.tsx`)
+- Dataset filtering component — filter corpus to analyze only matching subset
+- Two variants: `CorpusFilter` (monolingual/scraper) and `BilingualFilter` (bilingual pairs)
+- CorpusFilter: include/exclude paragraphs by keyword, creates new server-side corpus via `/api/corpus/filter`
+- BilingualFilter: filter pairs by source/target text and/or strategy via `/api/bilingual/filter`
+- Shows original vs filtered stats comparison with percentage
+- Clear filter reverts to original corpus; all analysis results reset on filter change
+- Integrated into all 3 tracks: Monolingual (indigo), Bilingual (teal), Scraper (amber)
+
 ### MarkdownRender (`client/src/components/markdown-render.tsx`)
 - Enhanced markdown renderer with custom table styling
 - Word, PDF, and Excel downloads
@@ -118,6 +127,7 @@ shared/schema.ts        - Shared types and analysis category definitions
 - `POST /api/corpus/concordance` — KWIC concordance search
 - `POST /api/corpus/compare` — compare two corpora stats + keywords
 - `POST /api/corpus/segment` — split corpus into paragraph segments
+- `POST /api/corpus/filter` — filter corpus paragraphs by keyword (include/exclude), returns new filtered corpusId + stats
 
 ### Bilingual
 - `POST /api/bilingual/upload` — upload source/target for alignment
@@ -127,6 +137,7 @@ shared/schema.ts        - Shared types and analysis category definitions
 - `POST /api/bilingual/back-translate` — AI back-translation check
 - `POST /api/bilingual/concordance` — bilingual concordance search
 - `POST /api/bilingual/glossary` — AI bilingual glossary extraction
+- `POST /api/bilingual/filter` — filter aligned pairs by text content and/or strategy, returns new filtered corpusId + filtered pairs
 - `POST /api/export/tmx` — export TMX
 
 ### AI

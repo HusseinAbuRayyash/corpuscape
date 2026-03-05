@@ -11,6 +11,7 @@ import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
+import { CorpusFilter } from "@/components/corpus-filter";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { WordCloud } from "@/components/word-cloud";
@@ -33,6 +34,10 @@ export default function Monolingual() {
   const [concordanceQuery, setConcordanceQuery] = useState("");
   const [ngramN, setNgramN] = useState("2");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [originalCorpusId, setOriginalCorpusId] = useState<string | null>(null);
+  const [originalStats, setOriginalStats] = useState<CorpusStats | null>(null);
+  const [isFiltered, setIsFiltered] = useState(false);
+  const [filteredStats, setFilteredStats] = useState<CorpusStats | null>(null);
   const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
 
   useEffect(() => {
@@ -163,6 +168,50 @@ export default function Monolingual() {
           <h1 className="text-3xl font-bold italic tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Monolingual Track</h1>
         </div>
       </motion.div>
+
+      {corpusId && stats && (
+        <CorpusFilter
+          corpusId={originalCorpusId || corpusId}
+          originalStats={originalStats || stats}
+          onFilterApplied={(filteredId, fStats) => {
+            if (!originalCorpusId) {
+              setOriginalCorpusId(corpusId);
+              setOriginalStats(stats);
+            }
+            setCorpusId(filteredId);
+            setStats(fStats);
+            setFilteredStats(fStats);
+            setIsFiltered(true);
+            setKeywords([]);
+            setNgrams([]);
+            setCollocations([]);
+            setConcordanceResults([]);
+            setAiResult("");
+            setTermsResult("");
+            setSegments([]);
+          }}
+          onFilterCleared={() => {
+            if (originalCorpusId) {
+              setCorpusId(originalCorpusId);
+              setStats(originalStats);
+            }
+            setIsFiltered(false);
+            setFilteredStats(null);
+            setOriginalCorpusId(null);
+            setOriginalStats(null);
+            setKeywords([]);
+            setNgrams([]);
+            setCollocations([]);
+            setConcordanceResults([]);
+            setAiResult("");
+            setTermsResult("");
+            setSegments([]);
+          }}
+          isFiltered={isFiltered}
+          filteredStats={filteredStats}
+          theme={{ gradient: "from-indigo-500 to-blue-600", accent: "text-indigo-500", text: "text-indigo-600 dark:text-indigo-400" }}
+        />
+      )}
 
       <Tabs defaultValue="upload" className="space-y-5">
         <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-monolingual">

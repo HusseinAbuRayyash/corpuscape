@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
+import { CorpusFilter } from "@/components/corpus-filter";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { MarkdownRender } from "@/components/markdown-render";
@@ -49,6 +50,10 @@ export default function Scraper() {
   const [ngramN, setNgramN] = useState("2");
   const [aiResult, setAiResult] = useState("");
   const [termsResult, setTermsResult] = useState("");
+  const [originalCorpusId, setOriginalCorpusId] = useState<string | null>(null);
+  const [originalCorpusStats, setOriginalCorpusStats] = useState<CorpusStats | null>(null);
+  const [isFiltered, setIsFiltered] = useState(false);
+  const [filteredStats, setFilteredStats] = useState<CorpusStats | null>(null);
 
   const addUrl = useCallback(() => {
     const trimmed = urlInput.trim();
@@ -530,6 +535,48 @@ export default function Scraper() {
                 <MetricCard label="Unique Words" value={corpusStats.uniqueWords} index={1} />
                 <MetricCard label="Sentences" value={corpusStats.sentences} index={2} />
                 <MetricCard label="Avg Word Length" value={corpusStats.avgWordLength} index={3} />
+              </div>
+
+              <div className="mb-6">
+                <CorpusFilter
+                  corpusId={originalCorpusId || scraperCorpusId}
+                  originalStats={originalCorpusStats || corpusStats}
+                  isFiltered={isFiltered}
+                  filteredStats={isFiltered ? corpusStats : null}
+                  theme={{ gradient: "from-amber-500 to-orange-600", accent: "text-amber-500", text: "text-amber-600 dark:text-amber-400" }}
+                  onFilterApplied={(filteredCorpusId, newStats) => {
+                    if (!originalCorpusId) {
+                      setOriginalCorpusId(scraperCorpusId);
+                    }
+                    if (!originalCorpusStats) {
+                      setOriginalCorpusStats(corpusStats);
+                    }
+                    setScraperCorpusId(filteredCorpusId);
+                    setCorpusStats(newStats);
+                    setFilteredStats(newStats);
+                    setIsFiltered(true);
+                    setKeywords([]);
+                    setNgrams([]);
+                    setCollocations([]);
+                    setConcordanceResults([]);
+                    setAiResult("");
+                    setTermsResult("");
+                  }}
+                  onFilterCleared={() => {
+                    if (originalCorpusId) setScraperCorpusId(originalCorpusId);
+                    if (originalCorpusStats) setCorpusStats(originalCorpusStats);
+                    setIsFiltered(false);
+                    setFilteredStats(null);
+                    setOriginalCorpusId(null);
+                    setOriginalCorpusStats(null);
+                    setKeywords([]);
+                    setNgrams([]);
+                    setCollocations([]);
+                    setConcordanceResults([]);
+                    setAiResult("");
+                    setTermsResult("");
+                  }}
+                />
               </div>
 
               <Tabs defaultValue="keywords" className="w-full">

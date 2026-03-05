@@ -9,6 +9,7 @@ import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { TableDownload } from "@/components/table-download";
+import { BilingualFilter } from "@/components/corpus-filter";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare } from "lucide-react";
@@ -32,6 +33,53 @@ export default function Bilingual() {
   const [concordanceResults, setConcordanceResults] = useState<any[]>([]);
   const [glossaryResults, setGlossaryResults] = useState<any[]>([]);
   const [annotations, setAnnotations] = useState<Record<number, string>>({});
+  const [originalCorpusId, setOriginalCorpusId] = useState<string | null>(null);
+  const [originalPairs, setOriginalPairs] = useState<AlignedPair[]>([]);
+  const [isFiltered, setIsFiltered] = useState(false);
+
+  const clearAnalysisResults = () => {
+    setUniversalsResult("");
+    setStrategiesResult("");
+    setBackTranslateResults([]);
+    setConcordanceResults([]);
+    setGlossaryResults([]);
+    setAnnotations({});
+  };
+
+  const recalcMetrics = (p: AlignedPair[]) => {
+    const totalSim = p.reduce((sum, pair) => sum + (pair.similarity || 0), 0);
+    const avgSimilarity = p.length > 0 ? totalSim / p.length : 0;
+    const totalLenRatio = p.reduce((sum, pair) => {
+      const sLen = (pair.source || "").length || 1;
+      const tLen = (pair.target || "").length;
+      return sum + tLen / sLen;
+    }, 0);
+    const lengthRatio = p.length > 0 ? totalLenRatio / p.length : 0;
+    const strategiesLabeled = p.filter(pair => pair.strategy).length;
+    return { alignedPairs: p.length, avgSimilarity, lengthRatio, strategiesLabeled };
+  };
+
+  const handleFilterApplied = (filteredCorpusId: string, filteredPairs: AlignedPair[]) => {
+    if (!originalCorpusId) setOriginalCorpusId(corpusId);
+    if (originalPairs.length === 0) setOriginalPairs(pairs);
+    setCorpusId(filteredCorpusId);
+    setPairs(filteredPairs);
+    setMetrics(recalcMetrics(filteredPairs));
+    setIsFiltered(true);
+    clearAnalysisResults();
+  };
+
+  const handleFilterCleared = () => {
+    if (originalCorpusId) setCorpusId(originalCorpusId);
+    if (originalPairs.length > 0) {
+      setPairs(originalPairs);
+      setMetrics(recalcMetrics(originalPairs));
+    }
+    setOriginalCorpusId(null);
+    setOriginalPairs([]);
+    setIsFiltered(false);
+    clearAnalysisResults();
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -310,6 +358,18 @@ export default function Bilingual() {
             <MetricCard label="Strategies Labeled" value={metrics.strategiesLabeled} index={2} />
             <MetricCard label="Length Ratio (T/S)" value={metrics.lengthRatio?.toFixed(2) || "0"} index={3} />
           </div>
+
+          {corpusId && (
+            <BilingualFilter
+              corpusId={originalCorpusId || corpusId}
+              totalPairs={originalPairs.length || pairs.length}
+              strategies={(isFiltered && originalPairs.length > 0 ? originalPairs : pairs).map(p => p.strategy || "")}
+              isFiltered={isFiltered}
+              filteredPairCount={isFiltered ? pairs.length : undefined}
+              onFilterApplied={handleFilterApplied}
+              onFilterCleared={handleFilterCleared}
+            />
+          )}
 
           <div className="polished-card p-6">
             <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
