@@ -55,6 +55,7 @@ export default function Scraper() {
   const [originalCorpusStats, setOriginalCorpusStats] = useState<CorpusStats | null>(null);
   const [isFiltered, setIsFiltered] = useState(false);
   const [filteredStats, setFilteredStats] = useState<CorpusStats | null>(null);
+  const [cloudWords, setCloudWords] = useState<{text: string; value: number}[]>([]);
   const [kwChartExpanded, setKwChartExpanded] = useState(false);
   const [kwTableExpanded, setKwTableExpanded] = useState(false);
   const [ngChartExpanded, setNgChartExpanded] = useState(false);
@@ -113,7 +114,10 @@ export default function Scraper() {
       const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId: scraperCorpusId, topN: 100 });
       return res.json();
     },
-    onSuccess: setKeywords,
+    onSuccess: (data) => {
+      setKeywords(data);
+      setCloudWords(data.map((kw: any) => ({ text: kw.term, value: kw.frequency })));
+    },
   });
 
   const ngramsMutation = useMutation({
@@ -1042,8 +1046,9 @@ export default function Scraper() {
                       </div>
                     ) : (
                       <WordCloud
-                        words={keywords.map((k) => ({ text: k.term, value: k.frequency }))}
+                        words={cloudWords.length > 0 ? cloudWords : keywords.map((k) => ({ text: k.term, value: k.frequency }))}
                         defaultColors={["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]}
+                        onWordsChange={setCloudWords}
                       />
                     )}
                   </motion.div>
