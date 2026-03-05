@@ -362,7 +362,10 @@ export async function registerRoutes(
 
             for (let col = 0; col < colData.headers.length; col++) {
               const header = colData.headers[col];
-              const values = colData.rows.map((r: string[]) => r[col]).filter((v: string) => v && v.trim());
+              const values = colData.rows.map((r: any) => {
+                const val = Array.isArray(r) ? r[col] : r[header];
+                return val != null ? String(val) : "";
+              }).filter((v: string) => v && v.trim());
               const freq: Record<string, number> = {};
               for (const v of values) {
                 const key = v.trim().slice(0, 200);
