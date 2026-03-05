@@ -155,11 +155,12 @@ export async function registerRoutes(
         let filteredRows: Record<string, any>[] = [...colData.rows];
         const headers: string[] = colData.headers;
 
+        const cols: string[] = filterColumns && Array.isArray(filterColumns) && filterColumns.length > 0
+          ? filterColumns
+          : (filterColumn && filterColumn !== "_all" ? [filterColumn] : []);
+
         if (filterText && filterText.trim()) {
           const query = filterText.trim().toLowerCase();
-          const cols: string[] = filterColumns && Array.isArray(filterColumns) && filterColumns.length > 0
-            ? filterColumns
-            : (filterColumn && filterColumn !== "_all" ? [filterColumn] : []);
 
           if (cols.length > 0) {
             if (filterMode === "include") {
@@ -194,7 +195,8 @@ export async function registerRoutes(
 
         if (filteredRows.length === 0) return res.status(400).json({ error: "Filter returned no results. Try different criteria." });
 
-        const filteredText = filteredRows.map(r => headers.map(h => String(r[h] || "")).join(" ")).join("\n");
+        const textCols = cols.length > 0 ? cols : headers;
+        const filteredText = filteredRows.map(r => textCols.map(h => String(r[h] || "")).join(" ")).join("\n");
         const filteredId = generateCorpusId();
         storeCorpus(filteredId, filteredText);
         storeCorpus(`${filteredId}_columns`, JSON.stringify({
