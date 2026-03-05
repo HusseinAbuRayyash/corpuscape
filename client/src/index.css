@@ -309,49 +309,52 @@
 .metric-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 1.25rem;
   background: hsl(var(--card));
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,0.04);
 }
 .metric-card::before {
   content: "";
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 15%;
+  right: 15%;
   height: 3px;
-  background: linear-gradient(90deg, #0d9488, #6366f1, #a855f7);
+  background: linear-gradient(90deg, transparent, #0d9488, #6366f1, #a855f7, transparent);
   opacity: 0;
   transition: opacity 0.3s;
+  border-radius: 0 0 2px 2px;
 }
 .metric-card:hover::before {
   opacity: 1;
 }
 .metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px -4px rgba(20, 184, 166, 0.12), 0 4px 8px -4px rgba(0,0,0,0.06);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -6px rgba(20, 184, 166, 0.15), 0 4px 10px -4px rgba(0,0,0,0.06);
+  border-color: hsl(var(--primary) / 0.2);
 }
 .dark .metric-card:hover {
-  box-shadow: 0 8px 24px -4px rgba(20, 184, 166, 0.08), 0 4px 8px -4px rgba(0,0,0,0.3);
+  box-shadow: 0 12px 28px -6px rgba(20, 184, 166, 0.1), 0 4px 10px -4px rgba(0,0,0,0.3);
 }
 
 .polished-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 1.25rem;
   background: hsl(var(--card));
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,0.05);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .polished-card:hover {
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.04);
-  border-color: hsl(var(--primary) / 0.3);
+  box-shadow: 0 8px 24px -4px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.04);
+  border-color: hsl(var(--primary) / 0.25);
 }
 .dark .polished-card:hover {
-  box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4), 0 2px 6px -2px rgba(0,0,0,0.2);
-  border-color: hsl(var(--primary) / 0.25);
+  box-shadow: 0 8px 24px -4px rgba(0,0,0,0.4), 0 2px 6px -2px rgba(0,0,0,0.2);
+  border-color: hsl(var(--primary) / 0.2);
 }
 
 .polished-table thead {
@@ -399,11 +402,11 @@
 .page-header-icon {
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: 0.875rem;
+  border-radius: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px -2px rgba(0,0,0,0.15);
+  box-shadow: 0 6px 16px -3px rgba(0,0,0,0.18);
   position: relative;
   overflow: hidden;
 }
@@ -411,27 +414,30 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(135deg, rgba(255,255,255,0.25), transparent 60%);
   border-radius: inherit;
 }
 
 .upload-zone {
-  border: 2px dashed hsl(var(--border));
-  border-radius: var(--radius);
-  padding: 2.5rem 1.5rem;
+  border: 2px dashed hsl(var(--border) / 0.7);
+  border-radius: 1.25rem;
+  padding: 3rem 2rem;
   text-align: center;
-  transition: all 0.3s;
-  background: linear-gradient(180deg, hsl(var(--muted) / 0.2), transparent);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.15), hsl(var(--muted) / 0.05));
   cursor: pointer;
 }
 .upload-zone:hover {
   border-color: hsl(var(--primary) / 0.5);
-  background: linear-gradient(180deg, hsl(var(--primary) / 0.05), transparent);
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.02));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px -4px hsl(var(--primary) / 0.15);
 }
 .upload-zone.dragging {
   border-color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.06);
-  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.08);
+  background: hsl(var(--primary) / 0.07);
+  box-shadow: 0 0 0 5px hsl(var(--primary) / 0.1), 0 8px 24px -4px hsl(var(--primary) / 0.15);
+  transform: translateY(-2px);
 }
 
 @keyframes shine {

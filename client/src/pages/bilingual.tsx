@@ -186,13 +186,14 @@ export default function Bilingual() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center gap-3.5 mb-2"
+        className="flex items-center gap-4 mb-2"
       >
         <div className="page-header-icon bg-gradient-to-br from-teal-500 to-emerald-600">
           <Globe className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold italic tracking-tight text-teal-600 dark:text-teal-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Bilingual Track</h1>
+          <h1 className="text-2xl md:text-3xl font-bold italic tracking-tight text-teal-600 dark:text-teal-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Bilingual Track</h1>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5 font-medium tracking-wide">Parallel alignment, strategies & translation analysis</p>
         </div>
       </motion.div>
 

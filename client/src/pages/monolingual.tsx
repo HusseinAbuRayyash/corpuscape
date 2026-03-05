@@ -168,13 +168,14 @@ export default function Monolingual() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center gap-3.5 mb-2"
+        className="flex items-center gap-4 mb-2"
       >
         <div className="page-header-icon bg-gradient-to-br from-indigo-500 to-blue-600">
           <BookOpen className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold italic tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Monolingual Track</h1>
+          <h1 className="text-2xl md:text-3xl font-bold italic tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Monolingual Track</h1>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5 font-medium tracking-wide">Corpus analysis, statistics & AI insights</p>
         </div>
       </motion.div>
 
@@ -244,41 +245,43 @@ export default function Monolingual() {
 
         <TabsContent value="upload" className="space-y-5">
           <motion.div
-            className="polished-card overflow-hidden"
+            className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/50 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-blue-950/30 border border-indigo-100/60 dark:border-indigo-800/20"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            style={{ boxShadow: "0 4px 20px -4px rgba(99,102,241,0.1), 0 1px 4px rgba(0,0,0,0.04)" }}
           >
-            <div className="h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-400" />
-            <div className="p-6 md:p-7">
+            <div className="absolute top-0 left-[10%] right-[10%] h-[3px] opacity-60" style={{ background: "linear-gradient(90deg, transparent, #6366f1, #3b82f6, transparent)", borderRadius: "0 0 4px 4px" }} />
+            <div className="absolute top-0 right-0 w-48 h-48 opacity-[0.04] pointer-events-none" style={{ background: "radial-gradient(circle at 100% 0%, #6366f1, transparent 70%)" }} />
+            <div className="absolute bottom-0 left-0 w-40 h-40 opacity-[0.03] pointer-events-none" style={{ background: "radial-gradient(circle at 0% 100%, #3b82f6, transparent 70%)" }} />
+
+            <div className="relative p-7 md:p-9">
               <motion.div
-                className="flex items-center gap-3 mb-1"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col items-center text-center mb-6"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.4 }}
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md" style={{ boxShadow: "0 4px 12px -2px rgba(99,102,241,0.3)" }}>
-                  <Upload className="w-5 h-5 text-white" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center mb-4 shadow-lg" style={{ boxShadow: "0 8px 20px -4px rgba(99,102,241,0.35)" }}>
+                  <Upload className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-lg font-bold tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }}>Add Your Corpus</h3>
+                <h3 className="text-xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400" style={{ fontFamily: "'Playfair Display', serif" }}>Add Your Corpus</h3>
+                <p className="text-xs text-muted-foreground/60 mt-1.5 max-w-sm">
+                  Upload one or more files — they will be merged into a single corpus for analysis
+                </p>
               </motion.div>
-              <motion.p
-                className="text-xs text-muted-foreground/70 mb-5 ml-[52px]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                Upload one or more files — they will be merged into a single corpus for analysis.
-              </motion.p>
+
               <motion.div
+                className="max-w-lg mx-auto"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25, duration: 0.4 }}
               >
                 <FileUpload onFilesSelected={setSelectedFiles} />
               </motion.div>
+
               <motion.div
-                className="mt-5"
+                className="mt-6 flex justify-center"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35, duration: 0.4 }}
@@ -286,8 +289,9 @@ export default function Monolingual() {
                 <Button
                   onClick={handleUpload}
                   disabled={selectedFiles.length === 0 || uploadMutation.isPending}
-                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 px-8 h-11 rounded-xl text-sm font-semibold"
                   data-testid="button-upload"
+                  style={{ boxShadow: selectedFiles.length > 0 ? "0 8px 24px -6px rgba(99,102,241,0.4)" : undefined }}
                 >
                   {uploadMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Upload & Process
@@ -295,13 +299,20 @@ export default function Monolingual() {
               </motion.div>
             </div>
           </motion.div>
+
           {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="stats-overview">
+            <motion.div
+              className="grid grid-cols-2 md:grid-cols-4 gap-4"
+              data-testid="stats-overview"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.4 }}
+            >
               <MetricCard label="Words" value={stats.words} index={0} />
               <MetricCard label="Unique" value={stats.uniqueWords} index={1} />
               <MetricCard label="Sentences" value={stats.sentences} index={2} />
               <MetricCard label="TTR" value={stats.typeTokenRatio.toFixed(3)} index={3} />
-            </div>
+            </motion.div>
           )}
         </TabsContent>
 

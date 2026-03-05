@@ -111,13 +111,14 @@ export default function Compare() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex items-center gap-3.5 mb-2"
+        className="flex items-center gap-4 mb-2"
       >
         <div className="page-header-icon bg-gradient-to-br from-violet-500 to-purple-600">
           <Scale className="w-5 h-5 text-white relative z-10" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold italic tracking-tight text-violet-600 dark:text-violet-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Corpus Comparison</h1>
+          <h1 className="text-2xl md:text-3xl font-bold italic tracking-tight text-violet-600 dark:text-violet-400" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">Corpus Comparison</h1>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5 font-medium tracking-wide">Side-by-side corpus analysis & AI comparison</p>
         </div>
       </motion.div>
 
