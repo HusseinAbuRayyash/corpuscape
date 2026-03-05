@@ -10,7 +10,7 @@ const ai = new GoogleGenAI({
 
 const MODEL = "gemini-2.5-flash";
 
-export async function generateContent(prompt: string, text: string, maxChars: number = 12000): Promise<string> {
+export async function generateContent(prompt: string, text: string, maxChars: number = 200000): Promise<string> {
   try {
     const response = await ai.models.generateContent({
       model: MODEL,
@@ -245,7 +245,7 @@ export async function runAnalysis(
   text: string,
   analysisType: string,
   customInstructions?: string,
-  maxChars: number = 12000
+  maxChars: number = 200000
 ): Promise<string> {
   let prompt = ANALYSIS_PROMPTS[analysisType] || ANALYSIS_PROMPTS["Custom"];
   if (customInstructions && customInstructions.trim()) {
@@ -302,7 +302,7 @@ Rules:
   }
 }
 
-export async function summarizeCorpus(text: string, maxChars: number = 15000): Promise<string> {
+export async function summarizeCorpus(text: string, maxChars: number = 200000): Promise<string> {
   const prompt = `Summarize this corpus in 3-5 concise paragraphs for a translation studies researcher. Cover: main themes, register/style, key terminology domains, and any notable patterns. Be specific and use examples from the text.`;
   return generateContent(prompt, text, maxChars);
 }
@@ -316,11 +316,11 @@ export async function extractTopics(text: string, nTopics: number = 8): Promise<
 Format as a markdown table:
 | Topic | Description | Keywords |
 |-------|-------------|----------|`;
-  return generateContent(prompt, text, 10000);
+  return generateContent(prompt, text);
 }
 
 export async function extractTerminology(text: string): Promise<string> {
-  const prompt = `Extract 20 domain-specific terms from this corpus. For each term provide:
+  const prompt = `Extract ALL domain-specific terms from this corpus (as many as you can find). For each term provide:
 - The term
 - Frequency estimate (high/medium/low)
 - Example sentence from the text
@@ -329,7 +329,7 @@ export async function extractTerminology(text: string): Promise<string> {
 Format as a markdown table:
 | Term | Frequency | Example | Domain |
 |------|-----------|---------|--------|`;
-  return generateContent(prompt, text, 8000);
+  return generateContent(prompt, text);
 }
 
 function segmentSentences(text: string): string[] {
@@ -345,8 +345,8 @@ function segmentSentences(text: string): string[] {
 }
 
 export async function alignSentences(source: string, target: string): Promise<any[]> {
-  const srcTrimmed = source.slice(0, 15000);
-  const tgtTrimmed = target.slice(0, 15000);
+  const srcTrimmed = source.slice(0, 100000);
+  const tgtTrimmed = target.slice(0, 100000);
 
   const prompt = `You are a professional bilingual sentence alignment expert for translation studies.
 
@@ -410,28 +410,35 @@ No markdown, no explanation, just the JSON array.`;
 }
 
 export async function labelStrategies(pairs: any[]): Promise<string[]> {
-  const maxPairs = Math.min(pairs.length, 15);
-  const pairsText = pairs.slice(0, maxPairs).map((p: any, i: number) => 
-    `${i + 1}. SOURCE: ${p.source} | TARGET: ${p.target}`
-  ).join("\n");
+  const BATCH_SIZE = 50;
+  const allLabels: string[] = [];
 
-  const prompt = `For each numbered pair below, identify the PRIMARY translation strategy. Use exactly one of: Domestication, Foreignization, Explicitation, Implicitation, Literal, Omission, Addition, Modulation, Generalization, Specification.
+  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
+    const batch = pairs.slice(start, start + BATCH_SIZE);
+    const pairsText = batch.map((p: any, i: number) => 
+      `${i + 1}. SOURCE: ${p.source} | TARGET: ${p.target}`
+    ).join("\n");
+
+    const prompt = `For each numbered pair below, identify the PRIMARY translation strategy. Use exactly one of: Domestication, Foreignization, Explicitation, Implicitation, Literal, Omission, Addition, Modulation, Generalization, Specification.
 Return ONLY a numbered list: one strategy per line, e.g. "1. Domestication"`;
 
-  const raw = await generateContent(prompt, pairsText);
-  const labels: string[] = [];
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.match(/^\d+\./)) {
-      labels.push(trimmed.replace(/^\d+\.\s*/, "").trim());
+    const raw = await generateContent(prompt, pairsText);
+    const labels: string[] = [];
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.match(/^\d+\./)) {
+        labels.push(trimmed.replace(/^\d+\.\s*/, "").trim());
+      }
     }
+    while (labels.length < batch.length) labels.push("");
+    allLabels.push(...labels.slice(0, batch.length));
   }
-  while (labels.length < maxPairs) labels.push("");
-  return labels.slice(0, maxPairs);
+
+  return allLabels;
 }
 
 export async function analyzeUniversals(pairs: any[]): Promise<string> {
-  const pairsText = pairs.slice(0, 15).map((p: any, i: number) => 
+  const pairsText = pairs.map((p: any, i: number) => 
     `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`
   ).join("\n");
 
@@ -448,7 +455,7 @@ Format as a clear bullet-point report suitable for a research paper.`;
 }
 
 export async function analyzeStrategies(pairs: any[]): Promise<string> {
-  const pairsText = pairs.slice(0, 20).map((p: any, i: number) => 
+  const pairsText = pairs.map((p: any, i: number) => 
     `${i + 1}. SRC: ${p.source} | TGT: ${p.target} | Strategy: ${p.strategy || "N/A"}`
   ).join("\n");
 
@@ -461,7 +468,7 @@ export async function chatWithCorpus(
   text: string,
   message: string,
   history: { role: string; content: string }[] = [],
-  maxChars: number = 12000
+  maxChars: number = 200000
 ): Promise<string> {
   const historyText = history.length > 0
     ? "\n\nConversation so far:\n" + history.map(h => `${h.role === "user" ? "User" : "Assistant"}: ${h.content}`).join("\n")
@@ -475,48 +482,65 @@ export async function backTranslate(
   srcLang: string = "en",
   tgtLang: string = "ar"
 ): Promise<{ source: string; target: string; backTranslation: string; driftNotes: string }[]> {
-  const maxPairs = Math.min(pairs.length, 15);
-  const pairsText = pairs.slice(0, maxPairs).map((p, i) =>
-    `${i + 1}. TARGET: ${p.target}`
-  ).join("\n");
+  const BATCH_SIZE = 30;
+  const allResults: { source: string; target: string; backTranslation: string; driftNotes: string }[] = [];
 
-  const prompt = `Translate each numbered target text back into ${srcLang}. For each, provide:
+  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
+    const batch = pairs.slice(start, start + BATCH_SIZE);
+    const pairsText = batch.map((p, i) =>
+      `${i + 1}. TARGET: ${p.target}`
+    ).join("\n");
+
+    const prompt = `Translate each numbered target text back into ${srcLang}. For each, provide:
 1. The back-translation
 2. Brief notes on any semantic drift compared to how a typical original ${srcLang} text would phrase this
 
 IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
 [{"index":1,"backTranslation":"...","driftNotes":"..."}]`;
 
-  const raw = await generateContent(prompt, pairsText, 15000);
-  try {
-    const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error("No JSON array found");
-    const parsed = JSON.parse(jsonMatch[0]);
-    return pairs.slice(0, maxPairs).map((p, i) => ({
-      source: p.source,
-      target: p.target,
-      backTranslation: parsed[i]?.backTranslation || "",
-      driftNotes: parsed[i]?.driftNotes || "",
-    }));
-  } catch {
-    return pairs.slice(0, maxPairs).map(p => ({
-      source: p.source,
-      target: p.target,
-      backTranslation: "",
-      driftNotes: "Could not generate back-translation",
-    }));
+    const raw = await generateContent(prompt, pairsText);
+    try {
+      const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error("No JSON array found");
+      const parsed = JSON.parse(jsonMatch[0]);
+      for (let i = 0; i < batch.length; i++) {
+        allResults.push({
+          source: batch[i].source,
+          target: batch[i].target,
+          backTranslation: parsed[i]?.backTranslation || "",
+          driftNotes: parsed[i]?.driftNotes || "",
+        });
+      }
+    } catch {
+      for (const p of batch) {
+        allResults.push({
+          source: p.source,
+          target: p.target,
+          backTranslation: "",
+          driftNotes: "Could not generate back-translation",
+        });
+      }
+    }
   }
+
+  return allResults;
 }
 
 export async function generateGlossary(
   pairs: { source: string; target: string }[]
 ): Promise<{ sourceTerm: string; targetTerm: string; definition: string; example: string }[]> {
-  const pairsText = pairs.slice(0, 25).map((p, i) =>
-    `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`
-  ).join("\n");
+  const BATCH_SIZE = 40;
+  const allTerms: { sourceTerm: string; targetTerm: string; definition: string; example: string }[] = [];
+  const seenTerms = new Set<string>();
 
-  const prompt = `Extract a bilingual glossary from these aligned translation pairs. Identify 15-25 key terms and their translations.
+  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
+    const batch = pairs.slice(start, start + BATCH_SIZE);
+    const pairsText = batch.map((p, i) =>
+      `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`
+    ).join("\n");
+
+    const prompt = `Extract a comprehensive bilingual glossary from ALL these aligned translation pairs. Identify as many key terms and their translations as you can find.
 
 IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
 [{"sourceTerm":"...","targetTerm":"...","definition":"Brief definition in source language","example":"Short usage example from the corpus"}]
@@ -527,20 +551,30 @@ Rules:
 - Definitions should be concise (1 sentence)
 - Examples should be brief quotes from the corpus text`;
 
-  const raw = await generateContent(prompt, pairsText, 15000);
-  try {
-    const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error("No JSON array found");
-    return JSON.parse(jsonMatch[0]).map((item: any) => ({
-      sourceTerm: String(item.sourceTerm || ""),
-      targetTerm: String(item.targetTerm || ""),
-      definition: String(item.definition || ""),
-      example: String(item.example || ""),
-    }));
-  } catch {
-    return [];
+    const raw = await generateContent(prompt, pairsText);
+    try {
+      const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error("No JSON array found");
+      const parsed = JSON.parse(jsonMatch[0]);
+      for (const item of parsed) {
+        const key = `${String(item.sourceTerm || "").toLowerCase()}|${String(item.targetTerm || "").toLowerCase()}`;
+        if (!seenTerms.has(key)) {
+          seenTerms.add(key);
+          allTerms.push({
+            sourceTerm: String(item.sourceTerm || ""),
+            targetTerm: String(item.targetTerm || ""),
+            definition: String(item.definition || ""),
+            example: String(item.example || ""),
+          });
+        }
+      }
+    } catch {
+      // skip failed batch
+    }
   }
+
+  return allTerms;
 }
 
 export function generateResearchReport(
@@ -578,7 +612,7 @@ export function generateResearchReport(
 
   if (keywords && keywords.length > 0) {
     lines.push("## 3. Top Keywords", "", "| Term | Frequency |", "|------|-----------|");
-    for (const kw of keywords.slice(0, 20)) {
+    for (const kw of keywords) {
       lines.push(`| ${kw.term} | ${kw.frequency} |`);
     }
     lines.push("", "");
