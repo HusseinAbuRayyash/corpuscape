@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -6,13 +6,138 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, X, Loader2, ArrowRight, Search, Calendar, Columns3 } from "lucide-react";
+import { Filter, X, Loader2, ArrowRight, Search, Calendar, Columns3, Check, ChevronDown } from "lucide-react";
 import type { CorpusStats } from "@shared/schema";
 
 export interface ColumnMeta {
   headers: string[];
   dateColumns: string[];
   totalRows: number;
+}
+
+function MultiColumnSelect({ headers, selected, onChange, testId }: {
+  headers: string[];
+  selected: string[];
+  onChange: (cols: string[]) => void;
+  testId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = search
+    ? headers.filter(h => h.toLowerCase().includes(search.toLowerCase()))
+    : headers;
+
+  const toggle = (col: string) => {
+    if (selected.includes(col)) {
+      onChange(selected.filter(c => c !== col));
+    } else {
+      onChange([...selected, col]);
+    }
+  };
+
+  const label = selected.length === 0
+    ? "All columns"
+    : selected.length === 1
+      ? (selected[0].length > 18 ? selected[0].slice(0, 18) + "..." : selected[0])
+      : `${selected.length} columns`;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 h-8 px-3 text-xs border border-input rounded-md bg-background hover:bg-accent/50 transition-colors min-w-[140px] max-w-[200px]"
+        data-testid={testId}
+      >
+        <Columns3 className="w-3 h-3 text-muted-foreground/60 shrink-0" />
+        <span className="truncate flex-1 text-left">{label}</span>
+        <ChevronDown className={`w-3 h-3 text-muted-foreground/60 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-64 bg-background border border-border rounded-lg shadow-lg overflow-hidden" data-testid="column-picker-dropdown">
+          <div className="p-2 border-b border-border/50">
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search columns..."
+              className="h-7 text-xs"
+              data-testid="input-column-search"
+              autoFocus
+            />
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30">
+            <button
+              type="button"
+              className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              onClick={() => onChange([])}
+              data-testid="button-select-all-columns"
+            >
+              All columns
+            </button>
+            <span className="text-muted-foreground/30">|</span>
+            <button
+              type="button"
+              className="text-[10px] text-muted-foreground hover:text-foreground hover:underline font-medium"
+              onClick={() => onChange([...headers])}
+              data-testid="button-select-every-column"
+            >
+              Select every column
+            </button>
+            {selected.length > 0 && (
+              <>
+                <span className="text-muted-foreground/30">|</span>
+                <button
+                  type="button"
+                  className="text-[10px] text-destructive hover:underline font-medium"
+                  onClick={() => onChange([])}
+                  data-testid="button-clear-columns"
+                >
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
+          <div className="max-h-52 overflow-y-auto p-1">
+            {filtered.map(h => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => toggle(h)}
+                className={`flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded-md transition-colors text-left ${
+                  selected.includes(h)
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                    : "hover:bg-muted/50 text-foreground/80"
+                }`}
+                data-testid={`column-option-${h.replace(/\s+/g, "-").toLowerCase()}`}
+              >
+                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                  selected.includes(h)
+                    ? "bg-blue-500 border-blue-500"
+                    : "border-muted-foreground/30"
+                }`}>
+                  {selected.includes(h) && <Check className="w-2.5 h-2.5 text-white" />}
+                </div>
+                <span className="truncate">{h}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="px-3 py-4 text-xs text-muted-foreground text-center">No columns match</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface CorpusFilterProps {
@@ -45,7 +170,7 @@ export function CorpusFilter({
   const { toast } = useToast();
   const [filterText, setFilterText] = useState("");
   const [filterMode, setFilterMode] = useState<"include" | "exclude">("include");
-  const [filterColumn, setFilterColumn] = useState("_all");
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -58,7 +183,7 @@ export function CorpusFilter({
     mutationFn: async () => {
       const body: any = { corpusId, filterMode };
       if (filterText.trim()) body.filterText = filterText.trim();
-      if (hasColumns && filterColumn !== "_all") body.filterColumn = filterColumn;
+      if (hasColumns && selectedColumns.length > 0) body.filterColumns = selectedColumns;
       if (dateFrom) body.dateFrom = dateFrom;
       if (dateTo) body.dateTo = dateTo;
       const res = await apiRequest("POST", "/api/corpus/filter", body);
@@ -84,7 +209,7 @@ export function CorpusFilter({
 
   const handleClear = () => {
     setFilterText("");
-    setFilterColumn("_all");
+    setSelectedColumns([]);
     setDateFrom("");
     setDateTo("");
     onFilterCleared();
@@ -128,17 +253,12 @@ export function CorpusFilter({
             </SelectContent>
           </Select>
           {hasColumns && (
-            <Select value={filterColumn} onValueChange={setFilterColumn}>
-              <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-filter-column">
-                <SelectValue placeholder="All columns" />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                <SelectItem value="_all">All columns</SelectItem>
-                {columns!.headers.map((h) => (
-                  <SelectItem key={h} value={h}>{h.length > 25 ? h.slice(0, 25) + "..." : h}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiColumnSelect
+              headers={columns!.headers}
+              selected={selectedColumns}
+              onChange={setSelectedColumns}
+              testId="select-filter-columns"
+            />
           )}
           <div className="relative flex-1 min-w-[150px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
@@ -174,6 +294,27 @@ export function CorpusFilter({
             </Button>
           )}
         </div>
+
+        {hasColumns && selectedColumns.length > 0 && (
+          <div className="flex gap-1 mt-2 flex-wrap">
+            {selectedColumns.map(col => (
+              <span
+                key={col}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-[10px] font-medium"
+                data-testid={`tag-column-${col.replace(/\s+/g, "-").toLowerCase()}`}
+              >
+                {col.length > 20 ? col.slice(0, 20) + "..." : col}
+                <button
+                  type="button"
+                  onClick={() => setSelectedColumns(selectedColumns.filter(c => c !== col))}
+                  className="hover:text-blue-900 dark:hover:text-blue-100"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {hasDateColumns && (
           <div className="flex gap-2 items-center mt-2 flex-wrap">

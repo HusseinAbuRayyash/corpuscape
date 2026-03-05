@@ -119,7 +119,7 @@ export async function registerRoutes(
 
   app.post("/api/corpus/filter", (req, res) => {
     try {
-      const { corpusId, filterText, filterMode = "include", filterColumn, dateFrom, dateTo } = req.body;
+      const { corpusId, filterText, filterMode = "include", filterColumn, filterColumns, dateFrom, dateTo } = req.body;
       const text = resolveCorpusText(corpusId);
       if (!text) return res.status(404).json({ error: "Corpus not found" });
 
@@ -133,11 +133,15 @@ export async function registerRoutes(
 
         if (filterText && filterText.trim()) {
           const query = filterText.trim().toLowerCase();
-          if (filterColumn && filterColumn !== "_all") {
+          const cols: string[] = filterColumns && Array.isArray(filterColumns) && filterColumns.length > 0
+            ? filterColumns
+            : (filterColumn && filterColumn !== "_all" ? [filterColumn] : []);
+
+          if (cols.length > 0) {
             if (filterMode === "include") {
-              filteredRows = filteredRows.filter(r => String(r[filterColumn] || "").toLowerCase().includes(query));
+              filteredRows = filteredRows.filter(r => cols.some(c => String(r[c] || "").toLowerCase().includes(query)));
             } else {
-              filteredRows = filteredRows.filter(r => !String(r[filterColumn] || "").toLowerCase().includes(query));
+              filteredRows = filteredRows.filter(r => !cols.some(c => String(r[c] || "").toLowerCase().includes(query)));
             }
           } else {
             if (filterMode === "include") {
