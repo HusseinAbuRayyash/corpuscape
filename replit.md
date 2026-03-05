@@ -176,6 +176,14 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Font: Playfair Display (italic, bold) for page/card titles, Inter for body
 - CSS + Framer Motion animations
 
+## AI Processing
+
+- **No truncation policy**: All AI functions process full corpus data without artificial limits
+- Default `maxChars` for text-based AI functions: 200,000 characters (fits within Gemini 2.5 Flash 1M token context)
+- Pair-based functions use batching for large datasets: `labelStrategies` (50 per batch), `backTranslate` (30 per batch), `generateGlossary` (40 per batch with deduplication)
+- `alignSentences`: 100K char limit per side
+- Analysis functions (`analyzeUniversals`, `analyzeStrategies`) process all pairs in a single prompt
+
 ## Environment
 
 - `AI_INTEGRATIONS_GEMINI_API_KEY` and `AI_INTEGRATIONS_GEMINI_BASE_URL` provided by Replit integration

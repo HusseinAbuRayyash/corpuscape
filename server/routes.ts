@@ -317,10 +317,10 @@ export async function registerRoutes(
   });
 
   app.post("/api/ai/analyze", async (req, res) => {
-    const { corpusId, analysisType, customInstructions, maxChars = 12000 } = req.body;
+    const { corpusId, analysisType, customInstructions } = req.body;
     const text = resolveCorpusText(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
-    const result = await runAnalysis(text, analysisType, customInstructions, maxChars);
+    const result = await runAnalysis(text, analysisType, customInstructions);
     res.json({ result });
   });
 
@@ -699,9 +699,7 @@ export async function registerRoutes(
       const textA = resolveCorpusText(corpusIdA);
       const textB = resolveCorpusText(corpusIdB);
       if (!textA || !textB) return res.status(404).json({ error: "One or both corpora not found" });
-      const truncA = textA.slice(0, 6000);
-      const truncB = textB.slice(0, 6000);
-      const combinedText = `===CORPUS_A===\n${truncA}\n\n===CORPUS_B===\n${truncB}`;
+      const combinedText = `===CORPUS_A===\n${textA}\n\n===CORPUS_B===\n${textB}`;
       const result = await runAnalysis(combinedText, "Custom", `You are given two corpora separated by markers ===CORPUS_A=== and ===CORPUS_B===. Provide a detailed comparative analysis covering:
 1. Lexical richness and diversity comparison
 2. Stylistic and register differences
