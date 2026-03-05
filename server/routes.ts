@@ -199,11 +199,20 @@ export async function registerRoutes(
         const filteredText = filteredRows.map(r => textCols.map(h => String(r[h] || "")).join(" ")).join("\n");
         const filteredId = generateCorpusId();
         storeCorpus(filteredId, filteredText);
+        const filteredHeaders = cols.length > 0 ? cols : colData.headers;
+        const filteredDateCols = (colData.dateColumns || []).filter((dc: string) => filteredHeaders.includes(dc));
+        const narrowedRows = cols.length > 0
+          ? filteredRows.map((r: Record<string, any>) => {
+              const narrow: Record<string, any> = {};
+              cols.forEach(c => { narrow[c] = r[c]; });
+              return narrow;
+            })
+          : filteredRows;
         storeCorpus(`${filteredId}_columns`, JSON.stringify({
-          headers: colData.headers,
-          dateColumns: colData.dateColumns,
-          totalRows: filteredRows.length,
-          rows: filteredRows,
+          headers: filteredHeaders,
+          dateColumns: filteredDateCols,
+          totalRows: narrowedRows.length,
+          rows: narrowedRows,
         }));
         const stats = getStats(filteredText);
         const originalStats = getStats(text);
@@ -211,7 +220,7 @@ export async function registerRoutes(
         res.json({
           corpusId: filteredId, stats, originalStats,
           matchedParagraphs: filteredRows.length, totalParagraphs: colData.rows.length,
-          columns: { headers: colData.headers, dateColumns: colData.dateColumns, totalRows: filteredRows.length },
+          columns: { headers: filteredHeaders, dateColumns: filteredDateCols, totalRows: narrowedRows.length },
         });
       } else {
         if (!filterText || !filterText.trim()) return res.status(400).json({ error: "Filter text required" });
