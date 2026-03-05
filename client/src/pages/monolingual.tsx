@@ -12,12 +12,13 @@ import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { CorpusFilter, type ColumnMeta } from "@/components/corpus-filter";
+import { DatasetViewer } from "@/components/dataset-viewer";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { WordCloud } from "@/components/word-cloud";
 import {
   Upload, BarChart3, Link2, Search, Hash, Brain, BookText, Download,
-  Loader2, TrendingUp, BookOpen, Cloud, Layers,
+  Loader2, TrendingUp, BookOpen, Cloud, Layers, Table,
 } from "lucide-react";
 import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult } from "@shared/schema";
 
@@ -229,6 +230,7 @@ export default function Monolingual() {
       <Tabs defaultValue="upload" className="space-y-5">
         <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-monolingual">
           <TabsTrigger value="upload" className="shrink-0" data-testid="tab-upload"><Upload className="w-3.5 h-3.5 mr-1.5" />Upload</TabsTrigger>
+          <TabsTrigger value="dataset" disabled={!columns} className="shrink-0" data-testid="tab-dataset"><Table className="w-3.5 h-3.5 mr-1.5" />Dataset</TabsTrigger>
           <TabsTrigger value="stats" disabled={!corpusId} className="shrink-0" data-testid="tab-stats"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Stats</TabsTrigger>
           <TabsTrigger value="collocations" disabled={!corpusId} className="shrink-0" data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
           <TabsTrigger value="concordance" disabled={!corpusId} className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
@@ -300,6 +302,15 @@ export default function Monolingual() {
               <MetricCard label="Sentences" value={stats.sentences} index={2} />
               <MetricCard label="TTR" value={stats.typeTokenRatio.toFixed(3)} index={3} />
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="dataset" className="space-y-5">
+          {corpusId && columns && (
+            <DatasetViewer
+              corpusId={corpusId}
+              theme={{ gradient: "from-indigo-500 to-blue-600", accent: "text-indigo-500", text: "text-indigo-600 dark:text-indigo-400" }}
+            />
           )}
         </TabsContent>
 
