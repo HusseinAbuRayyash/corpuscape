@@ -159,7 +159,7 @@ export function CorpusFilter({
   const hasColumns = columns && columns.headers.length > 0;
   const hasDateColumns = columns && columns.dateColumns.length > 0;
 
-  const canApply = filterText.trim() || (hasDateColumns && (dateFrom || dateTo));
+  const canApply = filterText.trim() || (hasDateColumns && (dateFrom || dateTo)) || (hasColumns && selectedColumns.length > 0);
 
   const filterMutation = useMutation({
     mutationFn: async () => {
