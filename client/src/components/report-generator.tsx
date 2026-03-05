@@ -88,7 +88,7 @@ function buildReportMarkdown({
     pairs.forEach((p, i) => {
       const src = p.source.length > 80 ? p.source.slice(0, 77) + "..." : p.source;
       const tgt = p.target.length > 80 ? p.target.slice(0, 77) + "..." : p.target;
-      lines.push(`| ${i + 1} | ${src} | ${tgt} | ${(p.similarity * 100).toFixed(1)}% |`);
+      lines.push(`| ${i + 1} | ${src} | ${tgt} | ${((p.similarity || 0) * 100).toFixed(1)}% |`);
     });
     lines.push("");
   }

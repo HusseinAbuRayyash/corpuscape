@@ -535,7 +535,7 @@ export default function Scraper() {
                 <MetricCard label="Words" value={corpusStats.words} index={0} />
                 <MetricCard label="Unique Words" value={corpusStats.uniqueWords} index={1} />
                 <MetricCard label="Sentences" value={corpusStats.sentences} index={2} />
-                <MetricCard label="Avg Word Length" value={corpusStats.avgWordLength} index={3} />
+                <MetricCard label="Avg Words/Sentence" value={corpusStats.avgWordsPerSentence} index={3} />
               </div>
 
               <div className="mb-6">
@@ -608,209 +608,394 @@ export default function Scraper() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="keywords" className="mt-4 space-y-4">
-                  <Button
-                    onClick={() => keywordsMutation.mutate()}
-                    disabled={keywordsMutation.isPending}
-                    size="sm"
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                    data-testid="button-extract-keywords"
-                  >
-                    {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
-                    Extract Keywords
-                  </Button>
-                  {keywords.length > 0 && (
-                    <>
-                      <TableDownload
-                        headers={["Keyword", "Frequency", "Score"]}
-                        rows={keywords.map((k) => [k.word, k.frequency, k.score])}
-                        filename="scraper_keywords"
-                      />
-                      <EditableChart
-                        data={keywords.slice(0, 20).map((k) => ({ name: k.word, value: k.frequency, score: k.score }))}
-                        title="Top Keywords"
-                        xKey="name"
-                        yKey="value"
-                        downloadFilename="scraper_keywords"
-                      />
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="ngrams" className="mt-4 space-y-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <Select value={ngramN} onValueChange={setNgramN}>
-                      <SelectTrigger className="w-28" data-testid="select-ngram-n">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2">Bigrams</SelectItem>
-                        <SelectItem value="3">Trigrams</SelectItem>
-                        <SelectItem value="4">4-grams</SelectItem>
-                        <SelectItem value="5">5-grams</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      onClick={() => ngramsMutation.mutate()}
-                      disabled={ngramsMutation.isPending}
-                      size="sm"
-                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                      data-testid="button-extract-ngrams"
-                    >
-                      {ngramsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Hash className="w-4 h-4 mr-2" />}
-                      Extract N-Grams
-                    </Button>
-                  </div>
-                  {ngrams.length > 0 && (
-                    <>
-                      <TableDownload
-                        headers={["N-Gram", "Frequency"]}
-                        rows={ngrams.map((n) => [n.ngram, n.frequency])}
-                        filename="scraper_ngrams"
-                      />
-                      <EditableChart
-                        data={ngrams.slice(0, 20).map((n) => ({ name: n.ngram, value: n.frequency }))}
-                        title={`Top ${ngramN === "2" ? "Bigrams" : ngramN === "3" ? "Trigrams" : ngramN + "-grams"}`}
-                        xKey="name"
-                        yKey="value"
-                        downloadFilename="scraper_ngrams"
-                      />
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="collocations" className="mt-4 space-y-4">
-                  <Button
-                    onClick={() => collocationsMutation.mutate()}
-                    disabled={collocationsMutation.isPending}
-                    size="sm"
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                    data-testid="button-extract-collocations"
-                  >
-                    {collocationsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
-                    Extract Collocations
-                  </Button>
-                  {collocations.length > 0 && (
-                    <>
-                      <TableDownload
-                        headers={["Collocation", "Frequency", "MI Score"]}
-                        rows={collocations.map((c) => [c.collocation, c.frequency, c.miScore])}
-                        filename="scraper_collocations"
-                      />
-                      <EditableChart
-                        data={collocations.slice(0, 20).map((c) => ({ name: c.collocation, value: c.miScore, frequency: c.frequency }))}
-                        title="Top Collocations (MI Score)"
-                        xKey="name"
-                        yKey="value"
-                        downloadFilename="scraper_collocations"
-                      />
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="concordance" className="mt-4 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Input
-                      placeholder="Search word or phrase..."
-                      value={concordanceQuery}
-                      onChange={(e) => setConcordanceQuery(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") concordanceMutation.mutate(); }}
-                      className="flex-1 border-amber-200 dark:border-amber-800/30"
-                      data-testid="input-concordance"
-                    />
-                    <Button
-                      onClick={() => concordanceMutation.mutate()}
-                      disabled={!concordanceQuery.trim() || concordanceMutation.isPending}
-                      size="sm"
-                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                      data-testid="button-search-concordance"
-                    >
-                      {concordanceMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-                      Search
-                    </Button>
-                  </div>
-                  {concordanceResults.length > 0 && (
-                    <>
-                      <TableDownload
-                        headers={["Left Context", "Keyword", "Right Context"]}
-                        rows={concordanceResults.map((c) => [c.left, c.keyword, c.right])}
-                        filename="scraper_concordance"
-                      />
-                      <div className="space-y-1 max-h-[400px] overflow-auto">
-                        {concordanceResults.map((c, i) => (
-                          <div key={i} className="flex text-xs font-mono py-1.5 px-3 rounded hover:bg-muted/30 transition-colors" data-testid={`concordance-row-${i}`}>
-                            <span className="text-right flex-1 text-muted-foreground truncate">{c.left}</span>
-                            <span className="mx-2 font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">{c.keyword}</span>
-                            <span className="flex-1 text-muted-foreground truncate">{c.right}</span>
-                          </div>
-                        ))}
+                <TabsContent value="keywords" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <TrendingUp className="w-4 h-4 text-amber-500" />
+                      <h3>Keywords</h3>
+                      <div className="ml-auto">
+                        <Button
+                          onClick={() => keywordsMutation.mutate()}
+                          disabled={keywordsMutation.isPending}
+                          size="sm"
+                          data-testid="button-extract-keywords"
+                        >
+                          {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                          Extract Keywords
+                        </Button>
                       </div>
-                    </>
-                  )}
+                    </div>
+                    {keywordsMutation.isPending && (
+                      <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                    )}
+                    {keywords.length > 0 && (
+                      <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                        <div data-testid="chart-keywords">
+                          <EditableChart
+                            data={keywords.slice(0, 15).map(kw => ({ label: kw.term, value: kw.frequency }))}
+                            defaultTitle=""
+                            layout="horizontal"
+                          />
+                        </div>
+                        <div className="flex justify-end mb-1">
+                          <TableDownload
+                            data={keywords.map((kw, i) => ({ rank: i + 1, term: kw.term, frequency: kw.frequency }))}
+                            columns={[
+                              { header: "#", key: "rank", align: "left" },
+                              { header: "Term", key: "term", align: "left" },
+                              { header: "Frequency", key: "frequency", align: "right" },
+                            ]}
+                            filename="Scraper_Keywords"
+                          />
+                        </div>
+                        <div className="max-h-64 overflow-auto rounded-lg border">
+                          <table className="w-full text-sm polished-table" data-testid="table-keywords">
+                            <thead className="sticky top-0">
+                              <tr>
+                                <th className="py-2.5 px-3 text-left">#</th>
+                                <th className="py-2.5 px-3 text-left">Term</th>
+                                <th className="py-2.5 px-3 text-right">Frequency</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {keywords.map((kw, i) => (
+                                <tr key={kw.term} className="border-b border-border/30">
+                                  <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
+                                  <td className="py-2 px-3 font-semibold text-sm">{kw.term}</td>
+                                  <td className="py-2 px-3 text-right tabular-nums font-medium">{kw.frequency}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    )}
+                    {keywords.length === 0 && !keywordsMutation.isPending && (
+                      <div className="empty-state">
+                        <TrendingUp className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Click "Extract Keywords" to discover the most frequent terms.</p>
+                      </div>
+                    )}
+                  </motion.div>
                 </TabsContent>
 
-                <TabsContent value="ai" className="mt-4 space-y-4">
-                  <Button
-                    onClick={() => aiMutation.mutate()}
-                    disabled={aiMutation.isPending}
-                    size="sm"
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                    data-testid="button-ai-summarize"
-                  >
-                    {aiMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
-                    Generate AI Summary
-                  </Button>
-                  {aiMutation.isPending && <Skeleton className="h-32 w-full" />}
-                  {aiResult && <MarkdownRender content={aiResult} downloadFilename="scraper_ai_summary" />}
+                <TabsContent value="ngrams" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <Hash className="w-4 h-4 text-amber-500" />
+                      <h3>N-grams</h3>
+                      <div className="ml-auto flex items-center gap-2">
+                        <Select value={ngramN} onValueChange={setNgramN}>
+                          <SelectTrigger className="w-28 h-8 text-xs" data-testid="select-ngram-n">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">Bigrams</SelectItem>
+                            <SelectItem value="3">Trigrams</SelectItem>
+                            <SelectItem value="4">4-grams</SelectItem>
+                            <SelectItem value="5">5-grams</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={() => ngramsMutation.mutate()}
+                          disabled={ngramsMutation.isPending}
+                          size="sm"
+                          data-testid="button-extract-ngrams"
+                        >
+                          {ngramsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Extract
+                        </Button>
+                      </div>
+                    </div>
+                    {ngramsMutation.isPending && (
+                      <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                    )}
+                    {ngrams.length > 0 && (
+                      <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                        <div data-testid="chart-ngrams">
+                          <EditableChart
+                            data={ngrams.slice(0, 12).map(ng => ({ label: ng.ngram, value: ng.frequency }))}
+                            defaultTitle=""
+                            layout="vertical"
+                          />
+                        </div>
+                        <div className="flex justify-end mb-1">
+                          <TableDownload
+                            data={ngrams.map((ng, i) => ({ rank: i + 1, ngram: ng.ngram, frequency: ng.frequency }))}
+                            columns={[
+                              { header: "#", key: "rank", align: "left" },
+                              { header: "N-gram", key: "ngram", align: "left" },
+                              { header: "Frequency", key: "frequency", align: "right" },
+                            ]}
+                            filename="Scraper_Ngrams"
+                          />
+                        </div>
+                        <div className="max-h-64 overflow-auto rounded-lg border">
+                          <table className="w-full text-sm polished-table" data-testid="table-ngrams">
+                            <thead className="sticky top-0">
+                              <tr>
+                                <th className="py-2.5 px-3 text-left">#</th>
+                                <th className="py-2.5 px-3 text-left">N-gram</th>
+                                <th className="py-2.5 px-3 text-right">Frequency</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ngrams.map((ng, i) => (
+                                <tr key={ng.ngram} className="border-b border-border/30">
+                                  <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
+                                  <td className="py-2 px-3 font-semibold text-sm">{ng.ngram}</td>
+                                  <td className="py-2 px-3 text-right tabular-nums font-medium">{ng.frequency}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    )}
+                    {ngrams.length === 0 && !ngramsMutation.isPending && (
+                      <div className="empty-state">
+                        <Hash className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Select an n-gram size and click "Extract" to find recurring phrases.</p>
+                      </div>
+                    )}
+                  </motion.div>
                 </TabsContent>
 
-                <TabsContent value="terms" className="mt-4 space-y-4">
-                  <Button
-                    onClick={() => termsMutation.mutate()}
-                    disabled={termsMutation.isPending}
-                    size="sm"
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                    data-testid="button-extract-terms"
-                  >
-                    {termsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookText className="w-4 h-4 mr-2" />}
-                    Extract Terminology
-                  </Button>
-                  {termsMutation.isPending && <Skeleton className="h-32 w-full" />}
-                  {termsResult && <MarkdownRender content={termsResult} downloadFilename="scraper_terminology" />}
+                <TabsContent value="collocations" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <Link2 className="w-4 h-4 text-amber-500" />
+                      <h3>Collocations</h3>
+                      <div className="ml-auto">
+                        <Button
+                          onClick={() => collocationsMutation.mutate()}
+                          disabled={collocationsMutation.isPending}
+                          size="sm"
+                          data-testid="button-extract-collocations"
+                        >
+                          {collocationsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Extract Collocations
+                        </Button>
+                      </div>
+                    </div>
+                    {collocationsMutation.isPending && (
+                      <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                    )}
+                    {collocations.length > 0 && (
+                      <motion.div className="space-y-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                        <div className="flex justify-end">
+                          <TableDownload
+                            data={collocations.map(c => ({ collocate: c.collocate, frequency: c.frequency, mi: c.mi.toFixed(2), dice: c.dice.toFixed(3) }))}
+                            columns={[
+                              { header: "Collocate", key: "collocate", align: "left" },
+                              { header: "Frequency", key: "frequency", align: "right" },
+                              { header: "MI", key: "mi", align: "right" },
+                              { header: "Dice", key: "dice", align: "right" },
+                            ]}
+                            filename="Scraper_Collocations"
+                          />
+                        </div>
+                        <div className="max-h-96 overflow-auto rounded-lg border">
+                          <table className="w-full text-sm polished-table" data-testid="table-collocations">
+                            <thead className="sticky top-0">
+                              <tr>
+                                <th className="py-2.5 px-3 text-left">Collocate</th>
+                                <th className="py-2.5 px-3 text-right">Freq</th>
+                                <th className="py-2.5 px-3 text-right">MI</th>
+                                <th className="py-2.5 px-3 text-right">Dice</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {collocations.map((c, i) => (
+                                <tr key={i} className="border-b border-border/30">
+                                  <td className="py-2 px-3 font-semibold">{c.collocate}</td>
+                                  <td className="py-2 px-3 text-right tabular-nums">{c.frequency}</td>
+                                  <td className="py-2 px-3 text-right tabular-nums">{c.mi.toFixed(2)}</td>
+                                  <td className="py-2 px-3 text-right tabular-nums">{c.dice.toFixed(3)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    )}
+                    {collocations.length === 0 && !collocationsMutation.isPending && (
+                      <div className="empty-state">
+                        <Link2 className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Click "Extract Collocations" to analyze word co-occurrence patterns.</p>
+                      </div>
+                    )}
+                  </motion.div>
                 </TabsContent>
 
-                <TabsContent value="wordcloud" className="mt-4 space-y-4">
-                  {keywords.length === 0 ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">Extract keywords first to generate a word cloud.</p>
+                <TabsContent value="concordance" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <Search className="w-4 h-4 text-amber-500" />
+                      <h3>KWIC Concordance</h3>
+                    </div>
+                    <div className="flex gap-2 mb-5 flex-wrap">
+                      <Input
+                        placeholder="Search term..."
+                        value={concordanceQuery}
+                        onChange={(e) => setConcordanceQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && concordanceQuery && concordanceMutation.mutate()}
+                        className="max-w-xs"
+                        data-testid="input-concordance"
+                      />
                       <Button
-                        onClick={() => keywordsMutation.mutate()}
-                        disabled={keywordsMutation.isPending}
                         size="sm"
-                        className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
-                        data-testid="button-wordcloud-extract-keywords"
+                        onClick={() => concordanceMutation.mutate()}
+                        disabled={!concordanceQuery || concordanceMutation.isPending}
+                        data-testid="button-search-concordance"
                       >
-                        {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
-                        Extract Keywords
+                        {concordanceMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                        Search
                       </Button>
                     </div>
-                  ) : (
-                    <WordCloud
-                      words={keywords.map((k) => ({ text: k.term, value: k.frequency }))}
-                      defaultColors={["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]}
-                    />
-                  )}
+                    {concordanceMutation.isPending && (
+                      <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                    )}
+                    {concordanceResults.length > 0 && (
+                      <motion.div className="space-y-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                        <div className="flex justify-end">
+                          <TableDownload
+                            data={concordanceResults.map(c => ({ left: c.left, match: c.match, right: c.right }))}
+                            columns={[
+                              { header: "Left Context", key: "left", align: "right" },
+                              { header: "Match", key: "match", align: "center" },
+                              { header: "Right Context", key: "right", align: "left" },
+                            ]}
+                            filename="Scraper_Concordance"
+                          />
+                        </div>
+                        <div className="max-h-96 overflow-auto rounded-lg border">
+                          <table className="w-full text-sm font-mono polished-table" data-testid="table-concordance">
+                            <thead className="sticky top-0">
+                              <tr>
+                                <th className="py-2.5 px-3 text-right w-2/5">Left Context</th>
+                                <th className="py-2.5 px-3 text-center">Match</th>
+                                <th className="py-2.5 px-3 text-left w-2/5">Right Context</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {concordanceResults.map((c, i) => (
+                                <tr key={i} className="border-b border-border/30">
+                                  <td className="py-2 px-3 text-right text-muted-foreground text-xs">{c.left}</td>
+                                  <td className="py-2 px-3 text-center font-bold text-amber-600 dark:text-amber-400 text-xs">{c.match}</td>
+                                  <td className="py-2 px-3 text-muted-foreground text-xs">{c.right}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    )}
+                    {concordanceResults.length === 0 && !concordanceMutation.isPending && (
+                      <div className="empty-state">
+                        <Search className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Enter a search term to find Key Word In Context matches.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </TabsContent>
+
+                <TabsContent value="ai" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <Brain className="w-4 h-4 text-amber-500" />
+                      <h3>AI Summary</h3>
+                      <div className="ml-auto">
+                        <Button
+                          onClick={() => aiMutation.mutate()}
+                          disabled={aiMutation.isPending}
+                          size="sm"
+                          data-testid="button-ai-summarize"
+                        >
+                          {aiMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
+                          Generate AI Summary
+                        </Button>
+                      </div>
+                    </div>
+                    {aiMutation.isPending && <Skeleton className="h-32 w-full" />}
+                    {aiResult && <MarkdownRender content={aiResult} downloadFilename="scraper_ai_summary" />}
+                    {!aiResult && !aiMutation.isPending && (
+                      <div className="empty-state">
+                        <Brain className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Click "Generate AI Summary" to get an automated overview of the corpus.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </TabsContent>
+
+                <TabsContent value="terms" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <BookText className="w-4 h-4 text-amber-500" />
+                      <h3>Terminology Extraction</h3>
+                      <div className="ml-auto">
+                        <Button
+                          onClick={() => termsMutation.mutate()}
+                          disabled={termsMutation.isPending}
+                          size="sm"
+                          data-testid="button-extract-terms"
+                        >
+                          {termsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookText className="w-4 h-4 mr-2" />}
+                          Extract Terminology
+                        </Button>
+                      </div>
+                    </div>
+                    {termsMutation.isPending && <Skeleton className="h-32 w-full" />}
+                    {termsResult && <MarkdownRender content={termsResult} downloadFilename="scraper_terminology" />}
+                    {!termsResult && !termsMutation.isPending && (
+                      <div className="empty-state">
+                        <BookText className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Click "Extract Terminology" to identify domain-specific terms.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </TabsContent>
+
+                <TabsContent value="wordcloud" className="mt-4">
+                  <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="section-header">
+                      <Cloud className="w-4 h-4 text-amber-500" />
+                      <h3>Word Cloud</h3>
+                    </div>
+                    {keywords.length === 0 ? (
+                      <div className="empty-state">
+                        <Cloud className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground mb-3">Extract keywords first to generate a word cloud.</p>
+                        <Button
+                          onClick={() => keywordsMutation.mutate()}
+                          disabled={keywordsMutation.isPending}
+                          size="sm"
+                          data-testid="button-wordcloud-extract-keywords"
+                        >
+                          {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                          Extract Keywords
+                        </Button>
+                      </div>
+                    ) : (
+                      <WordCloud
+                        words={keywords.map((k) => ({ text: k.term, value: k.frequency }))}
+                        defaultColors={["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]}
+                      />
+                    )}
+                  </motion.div>
                 </TabsContent>
 
                 <TabsContent value="insights" className="mt-4">
-                  <AIAnalysisPanel
-                    corpusId={scraperCorpusId}
-                    theme={{
-                      gradient: "from-amber-500 to-orange-600",
-                      accent: "text-amber-500",
-                      text: "text-amber-600 dark:text-amber-400"
-                    }}
-                  />
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                    <AIAnalysisPanel
+                      corpusId={scraperCorpusId}
+                      theme={{
+                        gradient: "from-amber-500 to-orange-600",
+                        accent: "text-amber-500",
+                        text: "text-amber-600 dark:text-amber-400"
+                      }}
+                    />
+                  </motion.div>
                 </TabsContent>
               </Tabs>
             </div>

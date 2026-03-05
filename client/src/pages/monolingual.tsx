@@ -14,6 +14,7 @@ import { TableDownload } from "@/components/table-download";
 import { CorpusFilter, type ColumnMeta } from "@/components/corpus-filter";
 import { DatasetViewer } from "@/components/dataset-viewer";
 import { StopListManager } from "@/components/stop-list-manager";
+import { ReportGenerator } from "@/components/report-generator";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { WordCloud } from "@/components/word-cloud";
@@ -43,6 +44,7 @@ export default function Monolingual() {
   const [columns, setColumns] = useState<ColumnMeta | null>(null);
   const [originalColumns, setOriginalColumns] = useState<ColumnMeta | null>(null);
   const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
+  const [stopWords, setStopWords] = useState<string[]>([]);
 
   useEffect(() => {
     const scrapedId = sessionStorage.getItem("scraped_corpus_id");
@@ -92,7 +94,7 @@ export default function Monolingual() {
 
   const keywordsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId, topN: 30 });
+      const res = await apiRequest("POST", "/api/corpus/keywords", { corpusId, topN: 30, stopWords });
       return res.json();
     },
     onSuccess: setKeywords,
@@ -100,7 +102,7 @@ export default function Monolingual() {
 
   const ngramsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/ngrams", { corpusId, n: parseInt(ngramN), topN: 25 });
+      const res = await apiRequest("POST", "/api/corpus/ngrams", { corpusId, n: parseInt(ngramN), topN: 25, stopWords });
       return res.json();
     },
     onSuccess: setNgrams,
@@ -108,7 +110,7 @@ export default function Monolingual() {
 
   const collocationsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/corpus/collocations", { corpusId });
+      const res = await apiRequest("POST", "/api/corpus/collocations", { corpusId, stopWords });
       return res.json();
     },
     onSuccess: setCollocations,
@@ -229,11 +231,20 @@ export default function Monolingual() {
         />
       )}
 
+      {corpusId && (
+        <StopListManager
+          stopWords={stopWords}
+          onChange={setStopWords}
+          theme={{ gradient: "from-indigo-500 to-blue-600", text: "text-indigo-600 dark:text-indigo-400" }}
+        />
+      )}
+
       <Tabs defaultValue="upload" className="space-y-5">
         <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-monolingual">
           <TabsTrigger value="upload" className="shrink-0" data-testid="tab-upload"><Upload className="w-3.5 h-3.5 mr-1.5" />Upload</TabsTrigger>
           <TabsTrigger value="dataset" disabled={!columns} className="shrink-0" data-testid="tab-dataset"><Table className="w-3.5 h-3.5 mr-1.5" />Dataset</TabsTrigger>
           <TabsTrigger value="stats" disabled={!corpusId} className="shrink-0" data-testid="tab-stats"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Stats</TabsTrigger>
+          <TabsTrigger value="keywords" disabled={!corpusId} className="shrink-0" data-testid="tab-keywords"><TrendingUp className="w-3.5 h-3.5 mr-1.5" />Keywords</TabsTrigger>
           <TabsTrigger value="collocations" disabled={!corpusId} className="shrink-0" data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
           <TabsTrigger value="concordance" disabled={!corpusId} className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
           <TabsTrigger value="ngrams" disabled={!corpusId} className="shrink-0" data-testid="tab-ngrams"><Hash className="w-3.5 h-3.5 mr-1.5" />N-grams</TabsTrigger>
@@ -339,70 +350,79 @@ export default function Monolingual() {
                 <MetricCard label="Type-Token Ratio" value={stats.typeTokenRatio.toFixed(4)} index={0} />
                 <MetricCard label="Avg Words/Sentence" value={stats.avgWordsPerSentence} index={1} />
               </div>
-              <div className="polished-card p-6">
-                <div className="section-header">
-                  <TrendingUp className="w-4 h-4 text-primary" />
-                  <h3>Keywords</h3>
-                  <div className="ml-auto">
-                    <Button
-                      size="sm"
-                      onClick={() => keywordsMutation.mutate()}
-                      disabled={keywordsMutation.isPending}
-                      data-testid="button-extract-keywords"
-                    >
-                      {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
-                      Extract Keywords
-                    </Button>
-                  </div>
-                </div>
-                {keywordsMutation.isPending && (
-                  <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
-                )}
-                {keywords.length > 0 && (
-                  <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                    <div data-testid="chart-keywords">
-                      <EditableChart
-                        data={keywords.slice(0, 15).map(kw => ({ label: kw.term, value: kw.frequency }))}
-                        defaultTitle=""
-                        layout="horizontal"
-                      />
-                    </div>
-                    <div className="flex justify-end mb-1">
-                      <TableDownload
-                        data={keywords.map((kw, i) => ({ rank: i + 1, term: kw.term, frequency: kw.frequency }))}
-                        columns={[
-                          { header: "#", key: "rank", align: "left" },
-                          { header: "Term", key: "term", align: "left" },
-                          { header: "Frequency", key: "frequency", align: "right" },
-                        ]}
-                        filename="Keywords"
-                      />
-                    </div>
-                    <div className="max-h-64 overflow-auto rounded-lg border">
-                      <table className="w-full text-sm polished-table" data-testid="table-keywords">
-                        <thead className="sticky top-0">
-                          <tr>
-                            <th className="py-2.5 px-3 text-left">#</th>
-                            <th className="py-2.5 px-3 text-left">Term</th>
-                            <th className="py-2.5 px-3 text-right">Frequency</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {keywords.map((kw, i) => (
-                            <tr key={kw.term} className="border-b border-border/30">
-                              <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
-                              <td className="py-2 px-3 font-semibold text-sm">{kw.term}</td>
-                              <td className="py-2 px-3 text-right tabular-nums font-medium">{kw.frequency}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
             </motion.div>
           )}
+        </TabsContent>
+
+        <TabsContent value="keywords" className="space-y-4">
+          <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="section-header">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <h3>Keywords</h3>
+              <div className="ml-auto">
+                <Button
+                  size="sm"
+                  onClick={() => keywordsMutation.mutate()}
+                  disabled={keywordsMutation.isPending}
+                  data-testid="button-extract-keywords"
+                >
+                  {keywordsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                  Extract Keywords
+                </Button>
+              </div>
+            </div>
+            {keywordsMutation.isPending && (
+              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            )}
+            {keywords.length > 0 && (
+              <motion.div className="space-y-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div data-testid="chart-keywords">
+                  <EditableChart
+                    data={keywords.slice(0, 15).map(kw => ({ label: kw.term, value: kw.frequency }))}
+                    defaultTitle=""
+                    layout="horizontal"
+                  />
+                </div>
+                <div className="flex justify-end mb-1">
+                  <TableDownload
+                    data={keywords.map((kw, i) => ({ rank: i + 1, term: kw.term, frequency: kw.frequency }))}
+                    columns={[
+                      { header: "#", key: "rank", align: "left" },
+                      { header: "Term", key: "term", align: "left" },
+                      { header: "Frequency", key: "frequency", align: "right" },
+                    ]}
+                    filename="Keywords"
+                  />
+                </div>
+                <div className="max-h-64 overflow-auto rounded-lg border">
+                  <table className="w-full text-sm polished-table" data-testid="table-keywords">
+                    <thead className="sticky top-0">
+                      <tr>
+                        <th className="py-2.5 px-3 text-left">#</th>
+                        <th className="py-2.5 px-3 text-left">Term</th>
+                        <th className="py-2.5 px-3 text-right">Frequency</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {keywords.map((kw, i) => (
+                        <tr key={kw.term} className="border-b border-border/30">
+                          <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
+                          <td className="py-2 px-3 font-semibold text-sm">{kw.term}</td>
+                          <td className="py-2 px-3 text-right tabular-nums font-medium">{kw.frequency}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+            {keywords.length === 0 && !keywordsMutation.isPending && (
+              <div className="empty-state">
+                <TrendingUp className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">Click "Extract Keywords" to analyze the most frequent terms in your corpus.</p>
+              </div>
+            )}
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="collocations" className="space-y-4">
@@ -797,6 +817,17 @@ export default function Monolingual() {
               >
                 <Download className="w-4 h-4 mr-2" />Keywords (CSV)
               </Button>
+              <ReportGenerator
+                title="Monolingual Corpus Report"
+                stats={stats}
+                keywords={keywords}
+                collocations={collocations}
+                ngrams={ngrams}
+                aiResults={{
+                  ...(aiResult ? { "AI Summary": aiResult } : {}),
+                  ...(termsResult ? { "Terminology": termsResult } : {}),
+                }}
+              />
             </div>
           </motion.div>
         </TabsContent>

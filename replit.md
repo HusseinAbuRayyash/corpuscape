@@ -24,7 +24,8 @@ shared/schema.ts        - Shared types and analysis category definitions
 - File upload (TXT, DOCX, PDF, Excel) + sample corpus
 - **Dataset Viewer** — paginated table view of uploaded Excel data with column headers, row numbers, text highlighting, column click-to-highlight, pagination, and export
 - Corpus statistics (words, unique, sentences, TTR)
-- Keyword extraction with bar chart visualization
+- **Stop List Manager** — manual word entry, file upload, English/Arabic presets, export; filters keywords/ngrams/collocations
+- Keyword extraction with bar chart visualization (own tab, separate from Stats)
 - Collocation analysis (frequency, MI, Dice)
 - KWIC concordance search
 - N-gram extraction (bigrams, trigrams, 4-grams)
@@ -37,15 +38,15 @@ shared/schema.ts        - Shared types and analysis category definitions
 ### Bilingual Track
 - Source/target file upload with AI sentence alignment
 - Pre-aligned file mode (alternating source/target lines)
+- **Tab-organized analysis**: Pairs, Concordance, Quality, Theory, Export, AI Insights
 - Translation strategy labeling (domestication, foreignization, etc.)
-- Translation universals analysis
-- Strategy analysis
-- **Back-Translation Check** — AI back-translates target segments, shows semantic drift assessment
-- **Bilingual Concordance** — search source text, see aligned target in KWIC format
-- **AI Glossary Builder** — extracts bilingual glossary with definitions and examples
+- Translation universals analysis, Strategy analysis (Theory tab)
+- **Back-Translation Check** — AI back-translates target segments, shows semantic drift assessment (Quality tab)
+- **Bilingual Concordance** — search source text, see aligned target in KWIC format (Concordance tab)
+- **AI Glossary Builder** — extracts bilingual glossary with definitions and examples (Quality tab)
 - **Annotation Mode** — editable comment column on aligned pairs, exportable as annotated CSV
-- **AI Insights section** — full AI analysis panel with Chat tab
-- Export: CSV, TMX (CAT tool format), Annotated CSV
+- **AI Insights tab** — full AI analysis panel with Chat tab
+- Export: CSV, TMX (CAT tool format), ReportGenerator, Annotated CSV
 
 ### Web Scraper
 - Add multiple URLs to scrape
@@ -57,11 +58,13 @@ shared/schema.ts        - Shared types and analysis category definitions
 - **Analyze Here** — create corpus and run AI analysis directly in scraper
 - Send cleaned text to Monolingual analysis pipeline
 
-### Corpus Comparison (NEW)
+### Corpus Comparison
 - Two side-by-side upload zones (Corpus A / Corpus B)
 - Statistics comparison table (characters, words, TTR, etc.)
 - Keyword overlap analysis (shared keywords, unique to A, unique to B)
-- Side-by-side keyword bar charts with distinct color schemes
+- Side-by-side keyword bar charts with distinct color schemes (indigo/amber)
+- **Word Cloud Comparison** — side-by-side word clouds for both corpora
+- **ReportGenerator** — downloadable comparison report with stats, keywords, shared terms
 - AI comparative analysis via Gemini
 
 ## Reusable Components
@@ -90,6 +93,12 @@ shared/schema.ts        - Shared types and analysis category definitions
 - Comprehensive Word (.docx) and PDF report generation
 - Accepts stats, keywords, collocations, ngrams, aiResults, pairs, extraSections
 - Branded Traduxa header/footer, styled tables, professional formatting
+
+### StopListManager (`client/src/components/stop-list-manager.tsx`)
+- Stop word management: manual word entry, file upload (.txt), English/Arabic presets
+- Export stop list, clear all
+- Connected to keywords/ngrams/collocations mutations via `stopWords` state
+- Theme-aware styling via `theme` prop
 
 ### CorpusFilter (`client/src/components/corpus-filter.tsx`)
 - Dataset filtering component — filter corpus to analyze only matching subset
