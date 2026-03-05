@@ -346,7 +346,38 @@ export async function registerRoutes(
       if (!prompt) return res.status(400).json({ error: "Prompt required" });
       const text = resolveCorpusText(corpusId);
       if (!text) return res.status(404).json({ error: "Corpus not found" });
-      const chartData = await generateChartData(text, prompt);
+
+      let enrichedText = text;
+      const columnsStr = getCorpus(`${corpusId}_columns`);
+      if (columnsStr) {
+        try {
+          const colData = JSON.parse(columnsStr);
+          if (colData.headers && colData.rows) {
+            const columnSummaries: string[] = [];
+            columnSummaries.push(`DATASET STRUCTURE: ${colData.headers.length} columns, ${colData.rows.length} rows`);
+            columnSummaries.push(`COLUMN HEADERS: ${colData.headers.join(" | ")}`);
+
+            for (let col = 0; col < colData.headers.length; col++) {
+              const header = colData.headers[col];
+              const values = colData.rows.map((r: string[]) => r[col]).filter((v: string) => v && v.trim());
+              const freq: Record<string, number> = {};
+              for (const v of values) {
+                const key = v.trim();
+                freq[key] = (freq[key] || 0) + 1;
+              }
+              const uniqueCount = Object.keys(freq).length;
+              if (uniqueCount > 0 && uniqueCount <= values.length) {
+                const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+                const allValues = sorted.map(([k, v]) => `${k}: ${v}`).join(", ");
+                columnSummaries.push(`\nCOLUMN "${header}" (${uniqueCount} unique values, ${values.length} total):\n${allValues}`);
+              }
+            }
+            enrichedText = columnSummaries.join("\n") + "\n\n---RAW TEXT SAMPLE---\n" + text;
+          }
+        } catch {}
+      }
+
+      const chartData = await generateChartData(enrichedText, prompt);
       res.json(chartData);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Chart generation failed" });
