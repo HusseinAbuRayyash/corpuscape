@@ -201,7 +201,7 @@ export default function Home() {
           </motion.p>
 
           <motion.p
-            className="text-sm md:text-base text-muted-foreground/70 max-w-md mx-auto leading-relaxed mb-8"
+            className="text-sm md:text-base text-muted-foreground max-w-md mx-auto leading-relaxed mb-8"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65, duration: 0.6 }}
@@ -238,15 +238,15 @@ export default function Home() {
           </motion.div>
 
           <motion.div
-            className="flex items-center justify-center gap-6 flex-wrap text-xs text-muted-foreground/50 font-medium"
+            className="flex items-center justify-center gap-6 flex-wrap text-xs text-muted-foreground/80 font-medium"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.8 }}
           >
             <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-amber-400" />Powered by Gemini AI</span>
-            <span className="hidden sm:inline text-muted-foreground/20">|</span>
+            <span className="hidden sm:inline text-muted-foreground/40">|</span>
             <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-teal-400" />No API key required</span>
-            <span className="hidden sm:inline text-muted-foreground/20">|</span>
+            <span className="hidden sm:inline text-muted-foreground/40">|</span>
             <span className="flex items-center gap-1.5"><FileText className="w-3 h-3 text-indigo-400" />5 analysis tracks</span>
           </motion.div>
         </motion.div>
@@ -267,7 +267,7 @@ export default function Home() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-capabilities-title">
               Everything You Need for <span className="text-gradient">Corpus Research</span>
             </h2>
-            <p className="text-sm text-muted-foreground/70 max-w-md mx-auto">
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
               From raw text to publication-ready analysis — all in one place.
             </p>
           </motion.div>
@@ -299,7 +299,7 @@ export default function Home() {
                   </motion.div>
                   <div>
                     <h3 className="font-bold text-sm tracking-tight mb-1.5">{cap.title}</h3>
-                    <p className="text-xs text-muted-foreground/70 leading-relaxed">{cap.description}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{cap.description}</p>
                   </div>
                 </div>
               </motion.div>
@@ -327,7 +327,7 @@ export default function Home() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-how-it-works-title">
               From Upload to <span className="subtitle-gradient">Publication</span>
             </h2>
-            <p className="text-sm text-muted-foreground/70 max-w-md mx-auto">
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Four simple steps to transform raw text into scholarly insights.
             </p>
           </motion.div>
@@ -376,7 +376,7 @@ export default function Home() {
                   </span>
                 </motion.div>
                 <h4 className="font-bold text-sm mb-1.5 tracking-tight">{step.title}</h4>
-                <p className="text-[11px] text-muted-foreground/60 leading-relaxed max-w-[180px] mx-auto">{step.description}</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed max-w-[180px] mx-auto">{step.description}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -398,7 +398,7 @@ export default function Home() {
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-tracks-title">
               Five Specialized <span className="text-gradient">Research Tracks</span>
             </h2>
-            <p className="text-sm text-muted-foreground/70 max-w-lg mx-auto">
+            <p className="text-sm text-muted-foreground max-w-lg mx-auto">
               Each track is purpose-built for a specific workflow in translation studies and corpus linguistics.
             </p>
           </motion.div>
@@ -457,7 +457,7 @@ export default function Home() {
                           >
                             {track.title}
                           </h3>
-                          <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
+                          <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
                             {track.description}
                           </p>
                         </div>
@@ -495,10 +495,10 @@ export default function Home() {
       <section className="py-16 md:py-20">
         <div className="max-w-3xl mx-auto px-6">
           <motion.div
-            className="relative overflow-hidden rounded-[2rem] border border-border/50"
+            className="relative overflow-hidden rounded-[2rem] border border-border/60 backdrop-blur-xl"
             style={{
-              background: "linear-gradient(135deg, rgba(20,184,166,0.06) 0%, rgba(99,102,241,0.06) 40%, rgba(168,85,247,0.06) 70%, rgba(225,29,72,0.04) 100%)",
-              boxShadow: "0 8px 32px -8px rgba(0,0,0,0.08)",
+              background: "linear-gradient(135deg, hsl(var(--card) / 0.9) 0%, hsl(var(--card) / 0.8) 100%)",
+              boxShadow: "0 8px 32px -8px rgba(0,0,0,0.12)",
             }}
             initial="hidden"
             whileInView="show"
@@ -518,7 +518,7 @@ export default function Home() {
               <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Ready to Explore Your Corpus?
               </h2>
-              <p className="text-sm text-muted-foreground/70 max-w-md mx-auto mb-6">
+              <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
                 Start with any track — upload your data and let AI help you discover patterns, extract terminology, and generate insights.
               </p>
               <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -549,7 +549,7 @@ export default function Home() {
       </section>
 
       <motion.div
-        className="pb-10 text-center text-[11px] text-muted-foreground/30 font-medium tracking-wide"
+        className="pb-10 text-center text-[11px] text-muted-foreground/60 font-medium tracking-wide"
         data-testid="text-footer"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
