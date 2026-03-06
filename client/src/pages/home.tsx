@@ -556,7 +556,7 @@ export default function Home() {
         viewport={{ once: true }}
         transition={{ duration: 0.8 }}
       >
-        Traduxa · Hussein Abu-Rayyash
+        © 2026 Traduxa · Hussein Abu-Rayyash. All rights reserved.
       </motion.div>
     </div>
   );
