@@ -17,11 +17,11 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   --background: 220 20% 97%;
-  --foreground: 220 25% 10%;
-  --border: 220 15% 88%;
+  --foreground: 220 30% 5%;
+  --border: 220 15% 82%;
   --card: 0 0% 100%;
-  --card-foreground: 220 25% 10%;
-  --card-border: 220 15% 92%;
+  --card-foreground: 220 30% 5%;
+  --card-border: 220 15% 85%;
   --sidebar: 224 30% 12%;
   --sidebar-foreground: 220 15% 90%;
   --sidebar-border: 224 25% 18%;
@@ -38,7 +38,7 @@
   --secondary: 220 15% 92%;
   --secondary-foreground: 220 25% 15%;
   --muted: 220 15% 93%;
-  --muted-foreground: 220 10% 42%;
+  --muted-foreground: 220 12% 32%;
   --accent: 168 20% 93%;
   --accent-foreground: 168 30% 18%;
   --destructive: 0 84% 42%;
@@ -88,11 +88,11 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
   --background: 224 25% 6%;
-  --foreground: 220 15% 92%;
-  --border: 224 20% 16%;
+  --foreground: 220 15% 95%;
+  --border: 224 20% 20%;
   --card: 224 22% 9%;
-  --card-foreground: 220 15% 92%;
-  --card-border: 224 20% 14%;
+  --card-foreground: 220 15% 95%;
+  --card-border: 224 20% 18%;
   --sidebar: 224 30% 8%;
   --sidebar-foreground: 220 15% 85%;
   --sidebar-border: 224 25% 14%;
@@ -109,7 +109,7 @@
   --secondary: 224 18% 16%;
   --secondary-foreground: 220 15% 85%;
   --muted: 224 18% 14%;
-  --muted-foreground: 220 10% 55%;
+  --muted-foreground: 220 10% 65%;
   --accent: 168 15% 13%;
   --accent-foreground: 168 20% 85%;
   --destructive: 0 84% 50%;
@@ -287,15 +287,17 @@
 .stagger-5 { animation-delay: 0.25s; }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .dark .glass-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 
@@ -348,11 +350,13 @@
 .metric-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid hsl(var(--border) / 0.6);
+  border: 1px solid hsl(var(--border) / 0.7);
   border-radius: 1.25rem;
-  background: hsl(var(--card));
+  background: hsl(var(--card) / 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px -2px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,0.06);
 }
 .metric-card::before {
   content: "";
@@ -381,10 +385,12 @@
 .polished-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid hsl(var(--border) / 0.6);
+  border: 1px solid hsl(var(--border) / 0.7);
   border-radius: 1.25rem;
-  background: hsl(var(--card));
-  box-shadow: 0 2px 8px -2px rgba(0,0,0,0.05);
+  background: hsl(var(--card) / 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,0.06);
   transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .polished-card:hover {
@@ -397,7 +403,7 @@
 }
 
 .polished-table thead {
-  background: linear-gradient(180deg, hsl(var(--muted) / 0.6), hsl(var(--muted) / 0.3));
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.9), hsl(var(--muted) / 0.7));
 }
 .polished-table thead th {
   font-size: 0.7rem;
@@ -433,7 +439,9 @@
   align-items: center;
   padding: 3rem 1.5rem;
   text-align: center;
-  background: linear-gradient(180deg, hsl(var(--muted) / 0.3), transparent);
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.6), hsl(var(--muted) / 0.2));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: var(--radius);
   border: 1px dashed hsl(var(--border));
 }
