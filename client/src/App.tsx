@@ -45,9 +45,9 @@ function App() {
               <div className="flex flex-col flex-1 min-w-0 relative">
                 <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
                   <img src={bgImage} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-background/45 dark:bg-background/55" />
+                  <div className="absolute inset-0 bg-background/75 dark:bg-background/80" />
                 </div>
-                <header className="flex items-center h-12 px-4 border-b border-border/60 bg-background/60 backdrop-blur-xl sticky top-0 z-50">
+                <header className="flex items-center h-12 px-4 border-b border-border/60 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
                 </header>
                 <main className="flex-1 overflow-auto relative z-[1]">
