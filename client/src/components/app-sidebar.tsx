@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 import { TraduxaLogo } from "@/components/traduxa-logo";
+import sidebarBg from "@assets/pexels-slendyalex-3745234_1772765280944.jpg";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
@@ -29,8 +30,10 @@ export function AppSidebar() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <Sidebar>
-      <SidebarContent>
+    <Sidebar className="relative overflow-hidden">
+      <img src={sidebarBg} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-40" aria-hidden="true" />
+      <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" aria-hidden="true" />
+      <SidebarContent className="relative z-[1]">
         <div className="px-4 py-5">
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
@@ -62,7 +65,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="relative z-[1]">
         <div className="px-2 pb-3 space-y-2">
           <Button
             size="sm"
