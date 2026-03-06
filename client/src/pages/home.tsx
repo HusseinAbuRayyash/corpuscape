@@ -237,18 +237,6 @@ export default function Home() {
             </Button>
           </motion.div>
 
-          <motion.div
-            className="flex items-center justify-center gap-6 flex-wrap text-xs text-muted-foreground/80 font-medium"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.8 }}
-          >
-            <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-amber-400" />Powered by Gemini AI</span>
-            <span className="hidden sm:inline text-muted-foreground/40">|</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-teal-400" />No API key required</span>
-            <span className="hidden sm:inline text-muted-foreground/40">|</span>
-            <span className="flex items-center gap-1.5"><FileText className="w-3 h-3 text-indigo-400" />5 analysis tracks</span>
-          </motion.div>
         </motion.div>
       </section>
 
