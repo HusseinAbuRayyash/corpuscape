@@ -713,7 +713,7 @@ export function generateResearchReport(
     }
   }
 
-  lines.push("## References", "", "Corpuscape. (2026). Corpus Compilation & Analysis Lab.", "");
+  lines.push("## References", "", "Corpuscape. (2026). Corpus Compilation & Analysis Lab for Translation Studies Research.", "");
   return lines.join("\n");
 }
 
