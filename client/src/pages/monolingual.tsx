@@ -863,7 +863,7 @@ export default function Monolingual() {
                   const blob = new Blob([text], { type: "text/markdown" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
-                  a.href = url; a.download = "traduxa_report.md"; a.click();
+                  a.href = url; a.download = "corpuscape_report.md"; a.click();
                   URL.revokeObjectURL(url);
                 }}
                 data-testid="button-export-report"

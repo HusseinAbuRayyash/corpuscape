@@ -659,7 +659,7 @@ export function generateResearchReport(
   aiAnalyses?: Array<{ name: string; content: string }>
 ): string {
   const lines: string[] = [
-    "# Traduxa - Research Report",
+    "# Corpuscape - Research Report",
     "",
     `*Generated: ${new Date().toISOString().split("T")[0]}*`,
     "",
@@ -667,10 +667,10 @@ export function generateResearchReport(
     "",
     "## 1. Methodology",
     "",
-    "This report was produced using Traduxa, a corpus linguistics lab for translation studies.",
+    "This report was produced using Corpuscape, a corpus linguistics lab for translation studies.",
     "Analyses include: corpus statistics, keyword extraction, n-gram analysis, concordancing, and AI-powered insights.",
     "",
-    "**Tool citation:** Traduxa. (2026). ATISA Pre-Workshop. Hussein Abu-Rayyash.",
+    "**Tool citation:** Corpuscape. (2026). ATISA Pre-Workshop. Hussein Abu-Rayyash.",
     "",
     "---",
     "",
@@ -713,7 +713,7 @@ export function generateResearchReport(
     }
   }
 
-  lines.push("## References", "", "Traduxa. (2026). Corpus Compilation & Analysis Lab.", "");
+  lines.push("## References", "", "Corpuscape. (2026). Corpus Compilation & Analysis Lab.", "");
   return lines.join("\n");
 }
 
@@ -723,5 +723,5 @@ export function generateTMX(pairs: any[], srcLang: string = "en", tgtLang: strin
   for (const p of pairs) {
     body += `    <tu>\n      <tuv xml:lang="${srcLang}"><seg>${esc(p.source || "")}</seg></tuv>\n      <tuv xml:lang="${tgtLang}"><seg>${esc(p.target || "")}</seg></tuv>\n    </tu>\n`;
   }
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<tmx version="1.4">\n  <header creationtool="Traduxa" creationtoolversion="1.0" datatype="plaintext" segtype="sentence" adminlang="en" srclang="${srcLang}" o-tmf="unknown">\n    <note>Exported from Traduxa</note>\n  </header>\n  <body>\n${body}  </body>\n</tmx>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<tmx version="1.4">\n  <header creationtool="Corpuscape" creationtoolversion="1.0" datatype="plaintext" segtype="sentence" adminlang="en" srclang="${srcLang}" o-tmf="unknown">\n    <note>Exported from Corpuscape</note>\n  </header>\n  <body>\n${body}  </body>\n</tmx>`;
 }
