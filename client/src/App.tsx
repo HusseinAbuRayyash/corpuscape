@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
+import bgImage from "@assets/pexels-pixabay-459301_1772765022984.jpg";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Monolingual from "@/pages/monolingual";
@@ -42,9 +43,9 @@ function App() {
             <div className="flex h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1 min-w-0 relative">
-                <div className="aurora-bg" aria-hidden="true">
-                  <div className="aurora-layer aurora-layer-1" />
-                  <div className="aurora-layer aurora-layer-2" />
+                <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
+                  <img src={bgImage} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-background/85 dark:bg-background/90 backdrop-blur-[2px]" />
                 </div>
                 <header className="flex items-center h-12 px-4 border-b border-border/60 bg-background/60 backdrop-blur-xl sticky top-0 z-50">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
