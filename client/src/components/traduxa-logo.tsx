@@ -31,7 +31,6 @@ const innerBubble = "M70 35C55 28 38 32 28 44C22 52 20 62 23 72C24 75 23 78 21 8
 
 export function TraduxaLogo({ width = 380, className = "", animated = false, iconOnly = false }: CorpuscapeLogoProps) {
   const darkBubble = "#1e2d3d";
-  const tealAccent = "#06d6a0";
 
   if (iconOnly) {
     const iconSize = width;
@@ -41,8 +40,8 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
         <motion.svg width={iconSize} height={iconSize} viewBox="0 0 120 120" fill="none" className={className} initial="hidden" animate="visible">
           <defs>
             <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#3ec6c0" />
-              <stop offset="100%" stopColor="#6366f1" />
+              <stop offset="0%" stopColor="#06d6a0" />
+              <stop offset="100%" stopColor="#00b4d8" />
             </linearGradient>
           </defs>
           <motion.path d={outerBubble} fill={darkBubble} variants={iconVariants} />
@@ -64,19 +63,20 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
     );
   }
 
-  const vbW = 500;
-  const vbH = 220;
+  const vbW = 620;
+  const vbH = 110;
   const h = width * (vbH / vbW);
 
-  const iconCenterX = vbW / 2;
-  const iconTopY = 0;
-  const iconSc = 1.3;
+  const iconSc = 0.95;
+  const iconX = 0;
+  const iconY = 2;
 
-  const textY = 210;
-  const fontSize = 46;
-  const textLetters = "CORPUSCAPE";
+  const textX = 115;
+  const textY = 78;
+  const fontSize = 52;
   const gradIdText = "text-grad";
   const gradIdBubble = "bubble-grad";
+  const textLetters = "CORPUSCAPE";
 
   if (!animated) {
     return (
@@ -92,14 +92,13 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
             <stop offset="100%" stopColor="#00b4d8" />
           </linearGradient>
         </defs>
-        <g transform={`translate(${iconCenterX - 55 * iconSc}, ${iconTopY}) scale(${iconSc})`}>
+        <g transform={`translate(${iconX}, ${iconY}) scale(${iconSc})`}>
           <path d={outerBubble} fill={darkBubble} />
           <path d={innerBubble} fill={`url(#${gradIdBubble})`} />
         </g>
         <text
-          x={vbW / 2}
+          x={textX}
           y={textY}
-          textAnchor="middle"
           fill={`url(#${gradIdText})`}
           fontFamily="'Architects Daughter', cursive"
           fontSize={fontSize}
@@ -133,14 +132,14 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
           <stop offset="100%" stopColor="#00b4d8" />
         </linearGradient>
       </defs>
-      <g transform={`translate(${iconCenterX - 55 * iconSc}, ${iconTopY}) scale(${iconSc})`}>
+      <g transform={`translate(${iconX}, ${iconY}) scale(${iconSc})`}>
         <motion.path d={outerBubble} fill={darkBubble} variants={iconVariants} />
         <motion.path d={innerBubble} fill={`url(#${gradIdBubble})`} variants={iconVariants} custom={1} />
       </g>
       {textLetters.split("").map((letter, i) => (
         <motion.text
           key={i}
-          x={75 + i * 39}
+          x={textX + i * 50}
           y={textY}
           fill={`url(#${gradIdText})`}
           fontFamily="'Architects Daughter', cursive"
