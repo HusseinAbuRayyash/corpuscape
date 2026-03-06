@@ -197,7 +197,7 @@ export default function Home() {
           >
             <span className="subtitle-gradient">Corpus Compilation & Analysis Lab</span>
             <br />
-            <span className="subtitle-gradient">for Translation Studies</span>
+            <span className="subtitle-gradient">for Translation Studies Research</span>
           </motion.p>
 
           <motion.p
