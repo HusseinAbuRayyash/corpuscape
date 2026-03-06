@@ -465,6 +465,15 @@
   border-radius: inherit;
 }
 
+.corpuscape-logo {
+  height: auto;
+  mix-blend-mode: multiply;
+}
+.dark .corpuscape-logo {
+  mix-blend-mode: screen;
+  filter: brightness(1.8);
+}
+
 .upload-zone {
   border: 2px dashed hsl(var(--border) / 0.7);
   border-radius: 1.25rem;
