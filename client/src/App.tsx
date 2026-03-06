@@ -41,11 +41,15 @@ function App() {
           <SidebarProvider style={sidebarStyle as React.CSSProperties}>
             <div className="flex h-screen w-full">
               <AppSidebar />
-              <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex flex-col flex-1 min-w-0 relative">
+                <div className="aurora-bg" aria-hidden="true">
+                  <div className="aurora-layer aurora-layer-1" />
+                  <div className="aurora-layer aurora-layer-2" />
+                </div>
                 <header className="flex items-center h-12 px-4 border-b border-border/60 bg-background/60 backdrop-blur-xl sticky top-0 z-50">
                   <SidebarTrigger data-testid="button-sidebar-toggle" />
                 </header>
-                <main className="flex-1 overflow-auto gradient-mesh">
+                <main className="flex-1 overflow-auto relative z-[1]">
                   <Router />
                 </main>
               </div>
