@@ -31,7 +31,7 @@ const innerBubble = "M70 35C55 28 38 32 28 44C22 52 20 62 23 72C24 75 23 78 21 8
 
 export function TraduxaLogo({ width = 380, className = "", animated = false, iconOnly = false }: CorpuscapeLogoProps) {
   const darkBubble = "#1e2d3d";
-  const tealAccent = "#3ec6c0";
+  const tealAccent = "#06d6a0";
 
   if (iconOnly) {
     const iconSize = width;
@@ -54,8 +54,8 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
       <svg width={iconSize} height={iconSize} viewBox="0 0 120 120" fill="none" className={className}>
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#3ec6c0" />
-            <stop offset="100%" stopColor="#6366f1" />
+            <stop offset="0%" stopColor="#06d6a0" />
+            <stop offset="100%" stopColor="#00b4d8" />
           </linearGradient>
         </defs>
         <path d={outerBubble} fill={darkBubble} />
@@ -65,15 +65,15 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
   }
 
   const vbW = 500;
-  const vbH = 280;
+  const vbH = 220;
   const h = width * (vbH / vbW);
 
   const iconCenterX = vbW / 2;
   const iconTopY = 0;
-  const iconSc = 1.5;
+  const iconSc = 1.3;
 
-  const textY = 260;
-  const fontSize = 48;
+  const textY = 210;
+  const fontSize = 46;
   const textLetters = "CORPUSCAPE";
   const gradIdText = "text-grad";
   const gradIdBubble = "bubble-grad";
@@ -83,13 +83,13 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
       <svg width={width} height={h} viewBox={`0 0 ${vbW} ${vbH}`} fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
         <defs>
           <linearGradient id={gradIdText} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#14b8a6" />
-            <stop offset="50%" stopColor="#3ec6c0" />
-            <stop offset="100%" stopColor="#6366f1" />
+            <stop offset="0%" stopColor="#06d6a0" />
+            <stop offset="50%" stopColor="#00b4d8" />
+            <stop offset="100%" stopColor="#7c3aed" />
           </linearGradient>
           <linearGradient id={gradIdBubble} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#3ec6c0" />
-            <stop offset="100%" stopColor="#6366f1" />
+            <stop offset="0%" stopColor="#06d6a0" />
+            <stop offset="100%" stopColor="#00b4d8" />
           </linearGradient>
         </defs>
         <g transform={`translate(${iconCenterX - 55 * iconSc}, ${iconTopY}) scale(${iconSc})`}>
@@ -103,7 +103,7 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
           fill={`url(#${gradIdText})`}
           fontFamily="'Architects Daughter', cursive"
           fontSize={fontSize}
-          fontWeight="400"
+          fontWeight="700"
         >
           {textLetters}
         </text>
@@ -124,13 +124,13 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
     >
       <defs>
         <linearGradient id={gradIdText} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#14b8a6" />
-          <stop offset="50%" stopColor="#3ec6c0" />
-          <stop offset="100%" stopColor="#6366f1" />
+          <stop offset="0%" stopColor="#06d6a0" />
+          <stop offset="50%" stopColor="#00b4d8" />
+          <stop offset="100%" stopColor="#7c3aed" />
         </linearGradient>
         <linearGradient id={gradIdBubble} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#3ec6c0" />
-          <stop offset="100%" stopColor="#6366f1" />
+          <stop offset="0%" stopColor="#06d6a0" />
+          <stop offset="100%" stopColor="#00b4d8" />
         </linearGradient>
       </defs>
       <g transform={`translate(${iconCenterX - 55 * iconSc}, ${iconTopY}) scale(${iconSc})`}>
@@ -140,12 +140,12 @@ export function TraduxaLogo({ width = 380, className = "", animated = false, ico
       {textLetters.split("").map((letter, i) => (
         <motion.text
           key={i}
-          x={82 + i * 38}
+          x={75 + i * 39}
           y={textY}
-          fill={tealAccent}
+          fill={`url(#${gradIdText})`}
           fontFamily="'Architects Daughter', cursive"
           fontSize={fontSize}
-          fontWeight="400"
+          fontWeight="700"
           custom={i}
           variants={letterVariants}
         >
