@@ -15,6 +15,12 @@ const ThemeContext = createContext<ThemeContextType>({
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== "undefined") {
+      const migrated = localStorage.getItem("theme_v2");
+      if (!migrated) {
+        localStorage.setItem("theme", "dark");
+        localStorage.setItem("theme_v2", "1");
+        return "dark";
+      }
       return (localStorage.getItem("theme") as Theme) || "dark";
     }
     return "dark";
