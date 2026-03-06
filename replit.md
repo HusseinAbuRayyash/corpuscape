@@ -1,6 +1,6 @@
-# Traduxa
+# Corpuscape
 
-AI-powered corpus linguistics lab for translation studies, rebuilt from Python/Streamlit to React/Express/TypeScript.
+AI-powered corpus linguistics lab for translation studies, rebuilt from Python/Streamlit to React/Express/TypeScript. Brand: **Corpuscape** by Hussein Abu-Rayyash. Domain: corpuscape.com.
 
 ## Architecture
 

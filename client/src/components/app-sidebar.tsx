@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
-import { TraduxaLogo } from "@/components/traduxa-logo";
+import { TraduxaLogo as CorpuscapeLogo } from "@/components/traduxa-logo";
 import sidebarBg from "@assets/pexels-slendyalex-3745234_1772765280944.jpg";
 
 const navItems = [
@@ -37,7 +37,7 @@ export function AppSidebar() {
         <div className="px-4 py-5">
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
-              <TraduxaLogo width={120} className="transition-transform duration-300 group-hover:scale-105" />
+              <CorpuscapeLogo width={160} className="transition-transform duration-300 group-hover:scale-105" />
             </div>
           </Link>
         </div>

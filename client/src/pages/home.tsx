@@ -3,7 +3,7 @@ import { BookOpen, Globe, Newspaper, Scale, Image, Sparkles, Zap, FileText, BarC
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { TraduxaLogo } from "@/components/traduxa-logo";
+import { TraduxaLogo as CorpuscapeLogo } from "@/components/traduxa-logo";
 
 const tracks = [
   {
@@ -182,8 +182,8 @@ export default function Home() {
             >
               <div className="absolute inset-0 blur-3xl opacity-25 bg-gradient-to-br from-teal-400 via-indigo-400 to-purple-400 rounded-full scale-[2.5]" />
               <div className="relative z-10" data-testid="img-hero-logo">
-                <TraduxaLogo width={420} animated className="hidden md:block" />
-                <TraduxaLogo width={280} animated className="block md:hidden" />
+                <CorpuscapeLogo width={420} animated className="hidden md:block" />
+                <CorpuscapeLogo width={280} animated className="block md:hidden" />
               </div>
             </motion.div>
           </motion.div>
@@ -556,7 +556,7 @@ export default function Home() {
         viewport={{ once: true }}
         transition={{ duration: 0.8 }}
       >
-        © 2026 Traduxa · Hussein Abu-Rayyash. All rights reserved.
+        © 2026 Corpuscape · Hussein Abu-Rayyash. All rights reserved.
       </motion.div>
     </div>
   );

@@ -837,7 +837,7 @@ Format with clear headings and specific examples from each corpus.`);
     const pairs = pairsStr ? JSON.parse(pairsStr) : undefined;
     const report = generateResearchReport(stats, keywords, pairs, aiSummary, aiAnalyses);
     res.setHeader("Content-Type", "text/markdown");
-    res.setHeader("Content-Disposition", "attachment; filename=traduxa_report.md");
+    res.setHeader("Content-Disposition", "attachment; filename=corpuscape_report.md");
     res.send(report);
   });
 
