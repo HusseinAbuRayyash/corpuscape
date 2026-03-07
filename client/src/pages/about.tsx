@@ -49,7 +49,7 @@ export default function About() {
                 <SiLinkedin className="w-3.5 h-3.5" /> LinkedIn
               </Button>
             </a>
-            <a href="mailto:haburayy@kent.edu">
+            <a href="mailto:husseinaburayyash@gmail.com">
               <Button variant="outline" size="sm" className="rounded-xl gap-2" data-testid="link-email">
                 <Mail className="w-3.5 h-3.5" /> Email
               </Button>
@@ -59,14 +59,16 @@ export default function About() {
 
         <motion.div variants={fadeUp} className="polished-card p-6 md:p-8 mb-6">
           <p className="text-sm leading-relaxed text-foreground/90" data-testid="text-about-bio">
-            I'm a translation studies researcher and Arabic instructor at Kent State University and Miami University.
-            My work sits at the intersection of corpus linguistics, cognitive translation studies, and AI — I'm
-            especially interested in how we can build better tools for translators and researchers.
+            I'm a PhD candidate in translation studies and a Graduate Teaching Assistant at Kent State University,
+            and I also serve as a visiting instructor at Miami University. My work sits at the intersection of
+            corpus linguistics, cognitive translation studies, and AI — I'm especially interested in how we can
+            build better tools for translators and researchers.
           </p>
           <p className="text-sm leading-relaxed text-foreground/90 mt-3">
-            I've published 20+ peer-reviewed articles on topics ranging from subtitle translation and eye-tracking
-            to machine translation post-editing and AI-generated humor. When I'm not researching, I'm usually
-            building tools like Corpuscape to make corpus work more accessible.
+            Over the years, I've published 20+ peer-reviewed articles covering everything from subtitle translation
+            and eye-tracking to machine translation post-editing and AI-generated humor. Outside of research,
+            I spend a lot of my time building tools like Corpuscape to make corpus work more accessible for
+            everyone in the field.
           </p>
         </motion.div>
 
