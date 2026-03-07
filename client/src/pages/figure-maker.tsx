@@ -689,6 +689,9 @@ export default function FigureMaker() {
                 {isAIParsing && (
                   <span className="text-[11px] text-muted-foreground animate-pulse">AI is extracting your data...</span>
                 )}
+                <Button size="sm" variant="outline" onClick={loadSample} className="ml-auto" data-testid="button-load-sample-paste">
+                  <BarChart3 className="w-3.5 h-3.5 mr-1.5" />Try Sample Data
+                </Button>
               </div>
             </TabsContent>
 
@@ -977,26 +980,6 @@ export default function FigureMaker() {
         </motion.div>
       )}
 
-      {chartData.length === 0 && (
-        <motion.div
-          className="polished-card p-10 text-center"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Image className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-          <h3 className="text-lg font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>Create Your Figure</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-            Paste your data in any format — AI will extract it automatically.
-            Supports bar, line, area, pie, radar, and scatter charts with full customization.
-          </p>
-          <div className="flex gap-3 justify-center flex-wrap">
-            <Button variant="outline" onClick={loadSample} data-testid="button-load-sample-empty">
-              <BarChart3 className="w-4 h-4 mr-2" />Try with Sample Data
-            </Button>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }
