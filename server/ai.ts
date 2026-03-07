@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
@@ -8,17 +9,55 @@ const ai = new GoogleGenAI({
   },
 });
 
-const MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const OPENAI_MODEL = "gpt-4o-mini";
+
+async function geminiGenerate(contents: string): Promise<string> {
+  const response = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents,
+  });
+  return response.text || "";
+}
+
+async function openaiGenerate(contents: string): Promise<string> {
+  const response = await openai.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages: [{ role: "user", content: contents }],
+    max_tokens: 16000,
+  });
+  return response.choices[0]?.message?.content || "";
+}
+
+async function generateWithFallback(contents: string): Promise<string> {
+  try {
+    const result = await geminiGenerate(contents);
+    if (result) return result;
+    throw new Error("Empty Gemini response");
+  } catch (error: any) {
+    console.warn(`[AI] Gemini failed (${error.message}), falling back to OpenAI...`);
+    try {
+      const result = await openaiGenerate(contents);
+      if (result) return result;
+      throw new Error("Empty OpenAI response");
+    } catch (openaiError: any) {
+      console.error("[AI] OpenAI fallback also failed:", openaiError.message);
+      throw new Error(`Both AI providers failed. Gemini: ${error.message}. OpenAI: ${openaiError.message}`);
+    }
+  }
+}
 
 export async function generateContent(prompt: string, text: string, maxChars: number = 200000): Promise<string> {
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: `${prompt}\n\nText:\n${text.slice(0, maxChars)}`,
-    });
-    return response.text || "No response generated.";
+    const contents = `${prompt}\n\nText:\n${text.slice(0, maxChars)}`;
+    return await generateWithFallback(contents);
   } catch (error: any) {
-    console.error("Gemini API error:", error);
+    console.error("AI generation error:", error);
     return `Error: ${error.message || "Failed to generate response"}`;
   }
 }
@@ -59,11 +98,7 @@ async function generateContentChunked(prompt: string, text: string): Promise<str
   const synthesisPrompt = `You received analysis results from ${chunkResults.length} separate chunks of a large corpus. Synthesize these into ONE comprehensive, unified report. Merge duplicate findings, combine examples, resolve contradictions, and present a coherent final analysis. Do NOT mention chunks or parts — present as a single seamless analysis.\n\nChunk results:\n${chunkResults.join("\n\n")}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: synthesisPrompt,
-    });
-    return response.text || chunkResults.join("\n\n");
+    return await generateWithFallback(synthesisPrompt);
   } catch {
     return chunkResults.join("\n\n");
   }
@@ -98,11 +133,7 @@ async function analyzeChunkedPairs(pairs: any[], prompt: string, batchSize: numb
   const synthesisPrompt = `You received analysis results from ${batchResults.length} separate batches of translation pairs (${pairs.length} pairs total). Synthesize into ONE unified, comprehensive report. Merge findings, combine examples, present a single coherent analysis. Do NOT mention batches.\n\n${batchResults.map((r, i) => `--- Batch ${i + 1} ---\n${r}`).join("\n\n")}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: synthesisPrompt,
-    });
-    return response.text || batchResults.join("\n\n");
+    return await generateWithFallback(synthesisPrompt);
   } catch {
     return batchResults.join("\n\n");
   }
@@ -462,11 +493,7 @@ Return ONLY a valid JSON array. Each element: {"source": "exact source sentence"
 No markdown, no explanation, just the JSON array.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: prompt,
-    });
-    const raw = response.text || "";
+    const raw = await generateWithFallback(prompt);
     const jsonMatch = raw.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -478,8 +505,8 @@ No markdown, no explanation, just the JSON array.`;
         }));
       }
     }
-  } catch (err) {
-    console.error("AI alignment error:", err);
+  } catch (err: any) {
+    console.error("AI alignment error:", err.message);
   }
 
   const srcSents = segmentSentences(source);
@@ -551,56 +578,6 @@ export async function chatWithCorpus(
   return generateContentChunked(prompt, text);
 }
 
-export async function backTranslate(
-  pairs: { source: string; target: string }[],
-  srcLang: string = "en",
-  tgtLang: string = "ar"
-): Promise<{ source: string; target: string; backTranslation: string; driftNotes: string }[]> {
-  const BATCH_SIZE = 30;
-  const allResults: { source: string; target: string; backTranslation: string; driftNotes: string }[] = [];
-
-  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
-    const batch = pairs.slice(start, start + BATCH_SIZE);
-    const pairsText = batch.map((p, i) =>
-      `${i + 1}. TARGET: ${p.target}`
-    ).join("\n");
-
-    const prompt = `Translate each numbered target text back into ${srcLang}. For each, provide:
-1. The back-translation
-2. Brief notes on any semantic drift compared to how a typical original ${srcLang} text would phrase this
-
-IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
-[{"index":1,"backTranslation":"...","driftNotes":"..."}]`;
-
-    const raw = await generateContent(prompt, pairsText);
-    try {
-      const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error("No JSON array found");
-      const parsed = JSON.parse(jsonMatch[0]);
-      for (let i = 0; i < batch.length; i++) {
-        allResults.push({
-          source: batch[i].source,
-          target: batch[i].target,
-          backTranslation: parsed[i]?.backTranslation || "",
-          driftNotes: parsed[i]?.driftNotes || "",
-        });
-      }
-    } catch {
-      for (const p of batch) {
-        allResults.push({
-          source: p.source,
-          target: p.target,
-          backTranslation: "",
-          driftNotes: "Could not generate back-translation",
-        });
-      }
-    }
-  }
-
-  return allResults;
-}
-
 export async function generateGlossary(
   pairs: { source: string; target: string }[]
 ): Promise<{ sourceTerm: string; targetTerm: string; definition: string; example: string }[]> {
@@ -644,7 +621,6 @@ Rules:
         }
       }
     } catch {
-      // skip failed batch
     }
   }
 
@@ -724,4 +700,52 @@ export function generateTMX(pairs: any[], srcLang: string = "en", tgtLang: strin
     body += `    <tu>\n      <tuv xml:lang="${srcLang}"><seg>${esc(p.source || "")}</seg></tuv>\n      <tuv xml:lang="${tgtLang}"><seg>${esc(p.target || "")}</seg></tuv>\n    </tu>\n`;
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tmx version="1.4">\n  <header creationtool="Corpuscape" creationtoolversion="1.0" datatype="plaintext" segtype="sentence" adminlang="en" srclang="${srcLang}" o-tmf="unknown">\n    <note>Exported from Corpuscape</note>\n  </header>\n  <body>\n${body}  </body>\n</tmx>`;
+}
+
+export async function backTranslate(
+  pairs: { source: string; target: string }[],
+  srcLang: string = "en",
+  tgtLang: string = "ar"
+): Promise<{ source: string; target: string; backTranslation: string; driftNotes: string }[]> {
+  const BATCH_SIZE = 30;
+  const allResults: { source: string; target: string; backTranslation: string; driftNotes: string }[] = [];
+
+  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
+    const batch = pairs.slice(start, start + BATCH_SIZE);
+    const pairsText = batch.map((p, i) =>
+      `${i + 1}. TARGET: ${p.target}`
+    ).join("\n");
+
+    const prompt = `Translate each numbered target text back into ${srcLang}. For each, provide:
+1. The back-translation
+2. Brief notes on any semantic drift compared to how a typical original ${srcLang} text would phrase this
+
+IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
+[{"index":1,"backTranslation":"...","driftNotes":"..."}]`;
+
+    const raw = await generateContent(prompt, pairsText);
+    try {
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        for (const item of parsed) {
+          const idx = (item.index || 0) - 1;
+          if (idx >= 0 && idx < batch.length) {
+            allResults.push({
+              source: batch[idx].source,
+              target: batch[idx].target,
+              backTranslation: item.backTranslation || "",
+              driftNotes: item.driftNotes || "",
+            });
+          }
+        }
+      }
+    } catch (e) {
+      for (const p of batch) {
+        allResults.push({ source: p.source, target: p.target, backTranslation: "", driftNotes: "Failed to process" });
+      }
+    }
+  }
+
+  return allResults;
 }
