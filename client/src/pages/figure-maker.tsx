@@ -720,9 +720,6 @@ export default function FigureMaker() {
               <LayoutGrid className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-lg font-bold tracking-tight text-rose-600 dark:text-rose-400" style={{ fontFamily: "'Playfair Display', serif" }}>Input Your Data</h3>
-            <span className="flex items-center gap-1 ml-auto text-[10px] font-semibold text-rose-500/70 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded-full">
-              <Sparkles className="w-3 h-3" />AI-Powered
-            </span>
           </motion.div>
 
           <Tabs value={dataInputMode} onValueChange={(v) => setDataInputMode(v as "paste" | "upload")} className="space-y-4">
