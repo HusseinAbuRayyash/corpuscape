@@ -14,6 +14,7 @@ import Bilingual from "@/pages/bilingual";
 import Scraper from "@/pages/scraper";
 import Compare from "@/pages/compare";
 import FigureMaker from "@/pages/figure-maker";
+import About from "@/pages/about";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/scraper" component={Scraper} />
       <Route path="/compare" component={Compare} />
       <Route path="/figures" component={FigureMaker} />
+      <Route path="/about" component={About} />
       <Route component={NotFound} />
     </Switch>
   );
