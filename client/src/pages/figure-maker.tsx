@@ -11,13 +11,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Label,
   LineChart, Line, AreaChart, Area, PieChart, Pie, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter, ZAxis, Legend,
+  Treemap, FunnelChart, Funnel, LabelList, ComposedChart,
 } from "recharts";
 import {
   Download, Pencil, Plus, Trash2, Check, Palette, Type, Tag,
   BarChart3, BarChartHorizontal, LineChart as LineChartIcon, AreaChart as AreaChartIcon,
   PieChart as PieChartIcon, Radar as RadarIcon, ScatterChart as ScatterIcon,
   ChevronDown, Upload, ClipboardPaste, Image, FileText, Settings2,
-  Loader2, LayoutGrid, Sparkles,
+  Loader2, LayoutGrid, Sparkles, Triangle, TreePine, Layers,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,7 +27,7 @@ interface ChartDataItem {
   value: number;
 }
 
-type ChartType = "bar" | "barHorizontal" | "line" | "area" | "pie" | "donut" | "radar" | "scatter";
+type ChartType = "bar" | "barHorizontal" | "stackedBar" | "line" | "area" | "pie" | "donut" | "halfDonut" | "radar" | "scatter" | "funnel" | "treemap";
 type LabelMode = "none" | "values" | "percentages" | "both";
 type FontFamily = "system" | "playfair" | "times" | "arial" | "georgia" | "roboto" | "lato";
 type FormatPreset = "default" | "apa" | "ieee" | "chicago" | "presentation" | "poster";
@@ -35,21 +36,32 @@ type ExportResolution = "1x" | "2x" | "3x" | "4x";
 const CHART_TYPES: { type: ChartType; label: string; icon: typeof BarChart3 }[] = [
   { type: "bar", label: "Bar", icon: BarChart3 },
   { type: "barHorizontal", label: "Horizontal", icon: BarChartHorizontal },
+  { type: "stackedBar", label: "Stacked", icon: Layers },
   { type: "line", label: "Line", icon: LineChartIcon },
   { type: "area", label: "Area", icon: AreaChartIcon },
   { type: "pie", label: "Pie", icon: PieChartIcon },
   { type: "donut", label: "Donut", icon: PieChartIcon },
+  { type: "halfDonut", label: "Half Donut", icon: PieChartIcon },
   { type: "radar", label: "Radar", icon: RadarIcon },
   { type: "scatter", label: "Scatter", icon: ScatterIcon },
+  { type: "funnel", label: "Funnel", icon: Triangle },
+  { type: "treemap", label: "Treemap", icon: TreePine },
 ];
 
 const PRESET_PALETTES = [
+  { name: "Black", colors: ["#000000", "#0a0a0a", "#141414", "#1e1e1e", "#282828", "#323232", "#3c3c3c", "#464646", "#505050", "#5a5a5a"] },
+  { name: "White", colors: ["#ffffff", "#f5f5f5", "#ebebeb", "#e0e0e0", "#d6d6d6", "#cccccc", "#c2c2c2", "#b8b8b8", "#adadad", "#a3a3a3"] },
+  { name: "B&W", colors: ["#000000", "#1a1a1a", "#333333", "#4d4d4d", "#666666", "#808080", "#999999", "#b3b3b3", "#cccccc", "#e6e6e6"] },
+  { name: "Slate", colors: ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9", "#f8fafc"] },
   { name: "Academic", colors: ["#1e3a5f", "#2a5078", "#366891", "#4280aa", "#5098c3", "#1a4731", "#24603f", "#2e794d", "#3a925b", "#48ab6a"] },
   { name: "APA Blue", colors: ["#003f5c", "#2f4b7c", "#665191", "#a05195", "#d45087", "#f95d6a", "#ff7c43", "#ffa600", "#7a5195", "#ef5675"] },
   { name: "Nature", colors: ["#e64b35", "#4dbbd5", "#00a087", "#3c5488", "#f39b7f", "#8491b4", "#91d1c2", "#dc0000", "#7e6148", "#b09c85"] },
   { name: "Science", colors: ["#3b4992", "#ee0000", "#008b45", "#631879", "#008280", "#bb0021", "#5f559b", "#a20056", "#808180", "#1b1919"] },
   { name: "Lancet", colors: ["#00468b", "#ed0000", "#42b540", "#0099b4", "#925e9f", "#fdaf91", "#ad002a", "#adb6b6", "#1b1919", "#767676"] },
   { name: "JAMA", colors: ["#374e55", "#df8f44", "#00a1d5", "#b24745", "#79af97", "#6a6599", "#80796b", "#ccc591", "#374e55", "#df8f44"] },
+  { name: "NEJM", colors: ["#bc3c29", "#0072b5", "#e18727", "#20854e", "#7876b1", "#6f99ad", "#ee4c97", "#ffdc91", "#8c564b", "#c49c94"] },
+  { name: "D3", colors: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"] },
+  { name: "Tableau", colors: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac"] },
   { name: "Teal", colors: ["#134e4a", "#115e59", "#0f766e", "#0d9488", "#14b8a6", "#2dd4bf", "#5eead4", "#99f6e4", "#b2f5ea", "#ccfbf1"] },
   { name: "Blue", colors: ["#1e3a8a", "#1e40af", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe", "#eff6ff"] },
   { name: "Indigo", colors: ["#312e81", "#3730a3", "#4338ca", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#e0e7ff", "#eef2ff"] },
@@ -60,14 +72,25 @@ const PRESET_PALETTES = [
   { name: "Green", colors: ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7", "#f0fdf4"] },
   { name: "Emerald", colors: ["#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5", "#ecfdf5"] },
   { name: "Red", colors: ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2", "#fef2f2"] },
-  { name: "Slate", colors: ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f1f5f9", "#f8fafc"] },
-  { name: "B&W", colors: ["#000000", "#1a1a1a", "#333333", "#4d4d4d", "#666666", "#808080", "#999999", "#b3b3b3", "#cccccc", "#e6e6e6"] },
+  { name: "Orange", colors: ["#7c2d12", "#9a3412", "#c2410c", "#ea580c", "#f97316", "#fb923c", "#fdba74", "#fed7aa", "#ffedd5", "#fff7ed"] },
+  { name: "Pink", colors: ["#831843", "#9d174d", "#be185d", "#db2777", "#ec4899", "#f472b6", "#f9a8d4", "#fbcfe8", "#fce7f3", "#fdf2f8"] },
+  { name: "Sky", colors: ["#0c4a6e", "#075985", "#0369a1", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#e0f2fe", "#f0f9ff"] },
   { name: "Pastel", colors: ["#fca5a5", "#fdba74", "#fde68a", "#bef264", "#86efac", "#67e8f9", "#a5b4fc", "#d8b4fe", "#f9a8d4", "#fecdd3"] },
   { name: "Rainbow", colors: ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"] },
   { name: "Earth", colors: ["#451a03", "#78350f", "#92400e", "#a16207", "#854d0e", "#713f12", "#65a30d", "#4d7c0f", "#3f6212", "#365314"] },
   { name: "Navy", colors: ["#0c1445", "#111b5e", "#162277", "#1b2990", "#2030a9", "#2b3dc2", "#3a4ed5", "#4f63e0", "#6b7ce8", "#8d9af0"] },
   { name: "Viridis", colors: ["#440154", "#482777", "#3f4a8a", "#31678e", "#26838f", "#1f9d8a", "#6cce5a", "#b6de2b", "#fee825", "#aadc32"] },
+  { name: "Plasma", colors: ["#0d0887", "#46039f", "#7201a8", "#9c179e", "#bd3786", "#d8576b", "#ed7953", "#fb9f3a", "#fdca26", "#f0f921"] },
+  { name: "Inferno", colors: ["#000004", "#160b39", "#420a68", "#6a176e", "#932667", "#bc3754", "#dd513a", "#f37819", "#fca50a", "#f0f921"] },
+  { name: "Magma", colors: ["#000004", "#140e36", "#3b0f70", "#641a80", "#8c2981", "#b73779", "#de4968", "#f7705c", "#feb078", "#fcfdbf"] },
   { name: "Warm", colors: ["#9b2226", "#ae2012", "#bb3e03", "#ca6702", "#ee9b00", "#e9d8a6", "#94d2bd", "#0a9396", "#005f73", "#001219"] },
+  { name: "Cool", colors: ["#caf0f8", "#90e0ef", "#00b4d8", "#0077b6", "#03045e", "#023e8a", "#0096c7", "#48cae4", "#ade8f4", "#caf0f8"] },
+  { name: "Sunset", colors: ["#ff6b6b", "#ee5a24", "#f0932b", "#ffbe76", "#ffeaa7", "#dfe6e9", "#74b9ff", "#a29bfe", "#6c5ce7", "#2d3436"] },
+  { name: "Ocean", colors: ["#001233", "#001845", "#002855", "#023e7d", "#0353a4", "#0466c8", "#0582ca", "#0096c7", "#00b4d8", "#48cae4"] },
+  { name: "Forest", colors: ["#1b4332", "#2d6a4f", "#40916c", "#52b788", "#74c69d", "#95d5b2", "#b7e4c7", "#d8f3dc", "#e9f5db", "#f1faee"] },
+  { name: "Retro", colors: ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#606c38", "#283618", "#dda15e", "#bc6c25", "#432818"] },
+  { name: "Neon", colors: ["#00ff87", "#60efff", "#ff00e4", "#ff6b00", "#ffe100", "#00e5ff", "#7b2ff7", "#ff2d55", "#01ff89", "#f72585"] },
+  { name: "Muted", colors: ["#6c757d", "#adb5bd", "#868e96", "#495057", "#343a40", "#ced4da", "#dee2e6", "#e9ecef", "#f1f3f5", "#f8f9fa"] },
 ];
 
 const FONT_OPTIONS: { value: FontFamily; label: string; css: string }[] = [
@@ -90,16 +113,8 @@ const FORMAT_PRESETS: { value: FormatPreset; label: string; description: string 
 ];
 
 const TOOLTIP_STYLE = { borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontSize: "12px" };
-const hasAxes = (t: ChartType) => !["pie", "donut", "radar"].includes(t);
+const hasAxes = (t: ChartType) => !["pie", "donut", "halfDonut", "radar", "funnel", "treemap"].includes(t);
 
-const SAMPLE_DATA: ChartDataItem[] = [
-  { label: "Explicitation", value: 42 },
-  { label: "Simplification", value: 35 },
-  { label: "Normalization", value: 28 },
-  { label: "Levelling Out", value: 22 },
-  { label: "Interference", value: 18 },
-  { label: "Convergence", value: 14 },
-];
 
 export default function FigureMaker() {
   const { toast } = useToast();
@@ -245,13 +260,6 @@ export default function FigureMaker() {
     e.target.value = "";
   }, [toast]);
 
-  const loadSample = useCallback(() => {
-    setChartData(SAMPLE_DATA);
-    setTitle("Translation Universals Frequency");
-    setXLabel("Universal");
-    setYLabel("Frequency");
-    toast({ title: "Sample loaded", description: "6 sample data points" });
-  }, [toast]);
 
   const updateLabel = useCallback((index: number, newLbl: string) => {
     setChartData(prev => prev.map((item, i) => i === index ? { ...item, label: newLbl } : item));
@@ -484,8 +492,10 @@ export default function FigureMaker() {
 
     const baseHeight = chartType === "barHorizontal"
       ? Math.max(250, chartData.length * 32 + 60)
-      : chartType === "pie" || chartType === "donut" ? 380
+      : chartType === "pie" || chartType === "donut" || chartType === "halfDonut" ? 380
       : chartType === "radar" ? 380
+      : chartType === "funnel" ? Math.max(300, chartData.length * 40 + 60)
+      : chartType === "treemap" ? 380
       : isPresentation ? 400 : 340;
 
     const xAxisHeight = xLabel ? 110 : 100;
@@ -521,6 +531,22 @@ export default function FigureMaker() {
                     </Bar>
                   </BarChart>
                 );
+              case "stackedBar": {
+                const total = chartData.reduce((sum, d) => sum + d.value, 0);
+                const stackedData = [chartData.reduce((acc, d) => ({ ...acc, [d.label]: d.value }), { name: "Total" } as Record<string, any>)];
+                return (
+                  <BarChart data={stackedData} margin={{ bottom: xLabel ? 20 : 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                    <XAxis dataKey="name" tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }} />
+                    <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} formatter={(value: number, name: string) => [`${value} (${((value / total) * 100).toFixed(1)}%)`, name]} />
+                    {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
+                    {chartData.map((d, i) => (
+                      <Bar key={d.label} dataKey={d.label} stackId="stack" fill={colors[i % colors.length]} radius={i === chartData.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                    ))}
+                  </BarChart>
+                );
+              }
               case "line":
                 return (
                   <LineChart data={chartData} margin={{ bottom: xLabel ? 20 : 5 }}>
@@ -560,6 +586,16 @@ export default function FigureMaker() {
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
                   </PieChart>
                 );
+              case "halfDonut":
+                return (
+                  <PieChart>
+                    <Pie data={chartData} dataKey="value" nameKey="label" cx="50%" cy="70%" startAngle={180} endAngle={0} outerRadius={140} innerRadius={70} paddingAngle={2} label={pieLabel} labelLine={labelMode !== "none" ? { strokeWidth: 1 } : false}>
+                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
+                    {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
+                  </PieChart>
+                );
               case "radar":
                 return (
                   <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
@@ -585,6 +621,41 @@ export default function FigureMaker() {
                     </Scatter>
                   </ScatterChart>
                 );
+              case "funnel": {
+                const sortedData = [...chartData].sort((a, b) => b.value - a.value).map((d, i) => ({ ...d, fill: colors[i % colors.length] }));
+                return (
+                  <FunnelChart>
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
+                    {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
+                    <Funnel dataKey="value" nameKey="label" data={sortedData} isAnimationActive>
+                      <LabelList position="right" fill="#6b7280" stroke="none" dataKey="label" fontSize={tickFontSize} fontFamily={getFontCSS()} />
+                      <LabelList position="center" fill="#fff" stroke="none" dataKey="value" fontSize={tickFontSize} fontFamily={getFontCSS()} fontWeight={600} />
+                    </Funnel>
+                  </FunnelChart>
+                );
+              }
+              case "treemap": {
+                const treemapData = chartData.map((d, i) => ({ name: d.label, size: d.value, fill: colors[i % colors.length] }));
+                const TreemapContent = ({ x, y, width, height, name, size, fill }: any) => {
+                  if (width < 30 || height < 20) return null;
+                  return (
+                    <g>
+                      <rect x={x} y={y} width={width} height={height} fill={fill} stroke="#fff" strokeWidth={2} rx={4} />
+                      {width > 50 && height > 30 && (
+                        <>
+                          <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" fill="#fff" fontSize={tickFontSize} fontFamily={getFontCSS()} fontWeight={600}>{name}</text>
+                          <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="rgba(255,255,255,0.8)" fontSize={tickFontSize - 1} fontFamily={getFontCSS()}>{size}</text>
+                        </>
+                      )}
+                    </g>
+                  );
+                };
+                return (
+                  <Treemap data={treemapData} dataKey="size" nameKey="name" aspectRatio={4 / 3} stroke="#fff" content={<TreemapContent />}>
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
+                  </Treemap>
+                );
+              }
               default:
                 return (
                   <BarChart data={chartData}>
@@ -683,15 +754,9 @@ export default function FigureMaker() {
                   )}
                   {isAIParsing ? "AI Parsing..." : "Load Data"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={loadSample} data-testid="button-load-sample">
-                  Load Sample
-                </Button>
                 {isAIParsing && (
                   <span className="text-[11px] text-muted-foreground animate-pulse">AI is extracting your data...</span>
                 )}
-                <Button size="sm" variant="outline" onClick={loadSample} className="ml-auto" data-testid="button-load-sample-paste">
-                  <BarChart3 className="w-3.5 h-3.5 mr-1.5" />Try Sample Data
-                </Button>
               </div>
             </TabsContent>
 
@@ -711,9 +776,6 @@ export default function FigureMaker() {
                   <Upload className="w-3.5 h-3.5 mr-1.5" />Choose File
                 </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={loadSample} data-testid="button-load-sample-upload">
-                Load Sample
-              </Button>
             </TabsContent>
           </Tabs>
 

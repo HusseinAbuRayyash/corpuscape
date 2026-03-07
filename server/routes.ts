@@ -631,17 +631,22 @@ export async function registerRoutes(
       const { text } = req.body;
       if (!text || !text.trim()) return res.status(400).json({ error: "Text required" });
 
-      const prompt = `You are a data extraction assistant. The user has pasted text that contains data they want to visualize in a chart. Your job is to extract label-value pairs from this text, no matter what format it's in.
+      const prompt = `You are a data extraction assistant for academic research and translation studies. The user has pasted text containing data they want to visualize in a chart (bar, line, area, pie, donut, radar, scatter, funnel, treemap, or stacked bar). Your job is to extract label-value pairs from this text, no matter what format it's in.
 
 Rules:
-- Extract EVERY data point mentioned in the text
+- Extract EVERY data point mentioned in the text — do not skip any
 - Each data point needs a short, clean LABEL (the category/name) and a numeric VALUE
 - If the text describes percentages, use the percentage number as the value
 - If the text is a paragraph describing statistics, extract each statistic as a data point
-- If it's a table, extract each row
+- If it's a table (markdown, plain text, HTML, or tab-separated), extract each row
 - If it's key-value pairs in any format, extract them
-- Clean up labels: remove prefixes like "Source Language:", "Category:", etc. — just use the core name
-- Return ONLY a valid JSON array, nothing else. No markdown, no explanation.
+- Handle complex academic data: corpus frequencies, word counts, translation strategy distributions, language pair comparisons, survey results, Likert scale data, error counts, etc.
+- Clean up labels: remove prefixes like "Source Language:", "Category:", "Variable:", etc. — just use the core name
+- For multi-column tables, use the first text column as label and the most relevant numeric column as value
+- Handle decimal numbers, negative numbers, and scientific notation
+- If values are in thousands (e.g., "5k", "2.3K"), convert them to full numbers (5000, 2300)
+- If there are multiple data series or groups, still extract all individual data points
+- Return ONLY a valid JSON array, nothing else. No markdown, no explanation, no code fences.
 
 Format: [{"label": "Clean Label", "value": 42}, ...]
 
@@ -654,6 +659,15 @@ Output: [{"label":"Explicitation","value":45},{"label":"Simplification","value":
 
 Input: "English has 5000 words, French has 3200, German has 4100"
 Output: [{"label":"English","value":5000},{"label":"French","value":3200},{"label":"German","value":4100}]
+
+Input: "The corpus contains: literary texts (45.2%), legal documents (28.7%), medical texts (15.3%), and technical manuals (10.8%)"
+Output: [{"label":"Literary Texts","value":45.2},{"label":"Legal Documents","value":28.7},{"label":"Medical Texts","value":15.3},{"label":"Technical Manuals","value":10.8}]
+
+Input: "Mean fixation duration: Source text 245ms, Target text 312ms, Reference 198ms"
+Output: [{"label":"Source Text","value":245},{"label":"Target Text","value":312},{"label":"Reference","value":198}]
+
+Input: "| Strategy | Count |\\n|---|---|\\n| Domestication | 156 |\\n| Foreignization | 89 |\\n| Omission | 34 |"
+Output: [{"label":"Domestication","value":156},{"label":"Foreignization","value":89},{"label":"Omission","value":34}]
 
 Now extract data from the user's text. Return ONLY the JSON array:`;
 
