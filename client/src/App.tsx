@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -15,6 +16,18 @@ import Scraper from "@/pages/scraper";
 import Compare from "@/pages/compare";
 import FigureMaker from "@/pages/figure-maker";
 import About from "@/pages/about";
+
+const SIDEBAR_LS_KEY = "corpuscape_sidebar_open";
+
+function readSidebarOpen(): boolean {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_LS_KEY);
+    if (stored === null) return true;
+    return stored === "true";
+  } catch {
+    return true;
+  }
+}
 
 function Router() {
   return (
@@ -37,11 +50,25 @@ const sidebarStyle = {
 };
 
 function App() {
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(readSidebarOpen);
+
+  function handleSidebarChange(open: boolean) {
+    setSidebarOpen(open);
+    try {
+      localStorage.setItem(SIDEBAR_LS_KEY, String(open));
+    } catch {
+    }
+  }
+
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+          <SidebarProvider
+            defaultOpen={sidebarOpen}
+            onOpenChange={handleSidebarChange}
+            style={sidebarStyle as React.CSSProperties}
+          >
             <div className="flex h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1 min-w-0 relative">
