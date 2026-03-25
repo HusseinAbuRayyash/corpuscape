@@ -145,9 +145,9 @@ export default function Home() {
 
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.07]" style={{ background: "radial-gradient(circle, #14b8a6, transparent 70%)" }} />
-          <div className="absolute top-[-10%] right-[-15%] w-[50%] h-[50%] rounded-full opacity-[0.06]" style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }} />
-          <div className="absolute bottom-[-20%] left-[30%] w-[40%] h-[40%] rounded-full opacity-[0.05]" style={{ background: "radial-gradient(circle, #a855f7, transparent 70%)" }} />
+          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.14]" style={{ background: "radial-gradient(circle, #14b8a6, transparent 70%)" }} />
+          <div className="absolute top-[-10%] right-[-15%] w-[50%] h-[50%] rounded-full opacity-[0.12]" style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }} />
+          <div className="absolute bottom-[-20%] left-[30%] w-[40%] h-[40%] rounded-full opacity-[0.10]" style={{ background: "radial-gradient(circle, #a855f7, transparent 70%)" }} />
           <motion.div
             className="absolute top-[15%] right-[20%] w-2 h-2 rounded-full bg-teal-400/40"
             animate={{ y: [0, -15, 0], opacity: [0.4, 0.8, 0.4] }}
@@ -211,7 +211,7 @@ export default function Home() {
           </motion.p>
 
           <motion.div
-            className="flex items-center justify-center gap-3 flex-wrap mb-12"
+            className="flex items-center justify-center gap-3 flex-wrap mb-10"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.6 }}
@@ -235,6 +235,71 @@ export default function Home() {
               Learn More
               <ChevronDown className="w-4 h-4 ml-2" />
             </Button>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.05, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            data-testid="section-hero-preview"
+          >
+            <div className="rounded-2xl border border-border/50 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm p-4 text-left shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 rounded-md bg-indigo-500/15 flex items-center justify-center">
+                  <BarChart3 className="w-3 h-3 text-indigo-500" />
+                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Keyword Analysis</span>
+              </div>
+              <div className="space-y-1.5">
+                {[["translation", 89, "#6366f1"], ["corpus", 72, "#818cf8"], ["strategy", 55, "#a5b4fc"], ["equivalence", 41, "#c7d2fe"]].map(([word, pct, color]) => (
+                  <div key={word as string} className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-20 truncate">{word as string}</span>
+                    <div className="flex-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color as string }} />
+                    </div>
+                    <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">{pct}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/50 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm p-4 text-left shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 rounded-md bg-teal-500/15 flex items-center justify-center">
+                  <Globe className="w-3 h-3 text-teal-500" />
+                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Bilingual Alignment</span>
+              </div>
+              <div className="space-y-2">
+                <div className="rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100/60 dark:border-indigo-800/30 p-2">
+                  <p className="text-[10px] text-muted-foreground mb-0.5 font-medium">Source (EN)</p>
+                  <p className="text-[11px] leading-snug">"The translation strategy reveals…"</p>
+                </div>
+                <div className="rounded-lg bg-teal-50/60 dark:bg-teal-950/30 border border-teal-100/60 dark:border-teal-800/30 p-2">
+                  <p className="text-[10px] text-muted-foreground mb-0.5 font-medium">Target (AR)</p>
+                  <p className="text-[11px] leading-snug text-right" dir="rtl">"تكشف استراتيجية الترجمة…"</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/50 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm p-4 text-left shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 rounded-md bg-rose-500/15 flex items-center justify-center">
+                  <BarChart3 className="w-3 h-3 text-rose-500" />
+                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Figure Output</span>
+              </div>
+              <div className="flex items-end justify-center gap-1 h-14 px-2">
+                {[["Explicitation", 78, "#e11d48"], ["Omission", 52, "#fb7185"], ["Addition", 44, "#fda4af"], ["Calque", 31, "#fecdd3"]].map(([label, h, color]) => (
+                  <div key={label as string} className="flex flex-col items-center gap-0.5 flex-1">
+                    <div className="w-full rounded-t-sm" style={{ height: `${(h as number) * 0.7}%`, background: color as string, minHeight: 4 }} />
+                    <span className="text-[8px] text-muted-foreground truncate w-full text-center">{(label as string).slice(0, 4)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] text-muted-foreground text-center mt-1">Fig. 1 — Strategy distribution</p>
+            </div>
           </motion.div>
 
         </motion.div>

@@ -31,11 +31,11 @@ export function AppSidebar() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <Sidebar className="relative overflow-hidden">
+    <Sidebar className="relative overflow-hidden" collapsible="icon">
       <img src={sidebarBg} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-40" aria-hidden="true" />
       <div className="absolute inset-0 bg-sidebar/70 pointer-events-none" aria-hidden="true" />
       <SidebarContent className="relative z-[1]">
-        <div className="px-4 py-5">
+        <div className="px-4 py-5 group-data-[collapsible=icon]:hidden">
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
               <CorpuscapeLogo width={160} className="transition-transform duration-300 group-hover:scale-105" />
@@ -44,23 +44,27 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/30 font-semibold">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/30 font-semibold group-data-[collapsible=icon]:hidden">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    data-active={location === item.url || (item.url !== "/" && location.startsWith(item.url))}
-                    className="data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium transition-all duration-200"
-                  >
-                    <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navItems.map((item) => {
+                const isActive = location === item.url || (item.url !== "/" && location.startsWith(item.url));
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                      className={`transition-all duration-200 relative ${isActive ? "sidebar-nav-active" : ""}`}
+                    >
+                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s/g, "-")}`}>
+                        <item.icon className="w-4 h-4 shrink-0" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -72,11 +76,12 @@ export function AppSidebar() {
             size="sm"
             variant="ghost"
             onClick={toggleTheme}
-            className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
+            className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
             data-testid="button-theme-toggle"
+            title={theme === "light" ? "Dark mode" : "Light mode"}
           >
-            {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
+            {theme === "light" ? <Moon className="w-4 h-4 shrink-0" /> : <Sun className="w-4 h-4 shrink-0" />}
+            <span className="group-data-[collapsible=icon]:hidden">{theme === "light" ? "Dark mode" : "Light mode"}</span>
           </Button>
         </div>
       </SidebarFooter>
