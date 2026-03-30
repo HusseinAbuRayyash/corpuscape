@@ -67,17 +67,23 @@ shared/schema.ts        - Shared types and analysis category definitions
 - **ReportGenerator** — downloadable comparison report with stats, keywords, shared terms
 - AI comparative analysis via Gemini
 
-### Figure Maker
+### Figure Maker (Comprehensive Upgrade)
 - Standalone chart/figure creation tool — users bring their own data
-- **Data input**: Paste/type CSV-style data OR upload CSV/TSV file, with sample data option
-- **8 chart types**: Bar, Horizontal Bar, Line, Area, Pie, Donut, Radar, Scatter
-- **24 color palettes**: Academic, APA Blue, Nature, Science, Lancet, JAMA + standard palettes (Teal, Blue, Indigo, etc.) + Viridis, Warm
-- **7 font families**: System, Playfair Display, Times New Roman, Arial/Helvetica, Georgia, Roboto, Lato
-- **6 academic format presets**: Default, APA 7th, IEEE, Chicago/MLA, Presentation, Poster — auto-configures font, labels, legend
-- **Export resolution**: 1x (72 DPI), 2x (144 DPI), 3x (216 DPI), 4x (288 DPI)
-- **Multi-format export**: PNG (via html2canvas), PDF (via jsPDF), Word/DOCX (via docx library)
+- **Data input**: Paste/type any format (AI parses), upload CSV/TSV; smart multi-series and matrix detection
+- **18 chart types**: Bar, Horizontal Bar, Stacked Bar, Grouped Bar (multi-series), Line, Area, Pie, Donut, Half Donut, Radar, Scatter, Lollipop (dot-on-stick), Error Bar, Box Plot (custom SVG), Heatmap (CSS grid), Word Bubble, Funnel, Treemap
+- **47 color palettes**: Academic journals (Nature, Science, Lancet, JAMA, NEJM), colorblind-safe (CB Safe 1, CB Safe 2, Okabe), High Contrast, Grayscale + 40 others
+- **14 font families**: System, Playfair Display, Times New Roman, Arial, Georgia, Roboto, Lato, Source Serif 4, IBM Plex Sans, Merriweather, Montserrat, Outfit, Space Grotesk, Open Sans
+- **9 academic format presets**: Default, APA 7th, IEEE, Chicago/MLA, Nature/Science, Thesis/Dissertation, Accessible (WCAG), Presentation, Poster
+- **Styling panel**: Figure background color, aspect ratio (auto/square/wide 16:9/narrow/double col), grid toggle, bar radius slider (0–16px), line thickness slider (1–6px), error bar percentage
+- **Annotations**: Reference line (mean/median/custom value) with label and custom color
+- **Export options**: PNG, PDF, Word/DOCX, SVG (vector), Copy to Clipboard, Python matplotlib code (.py), R ggplot2 code (.R)
+- **Export resolution**: 1x–4x (72–288 DPI)
+- **AI Tools panel**: AI generate figure caption (format-aware), AI chart type recommendation, AI write Results section paragraph (copyable)
+- **Undo/Redo**: 25-step history stack for data edits
+- **Templates**: 5 pre-built academic templates (Translation Strategies, Keyword Frequency, Translation Universals, Pre/Post Shift, Language Pair Distribution)
 - Full editable features: title, caption, figure number, axis labels, data labels (values/percentages/both), legend toggle
 - Inline data editing: modify labels/values, add/remove data points
+- **New server routes**: POST /api/ai/figure-caption, /api/ai/chart-recommend, /api/ai/results-paragraph
 - Track color: rose/pink
 
 ## Reusable Components

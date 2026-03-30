@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,7 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Label,
   LineChart, Line, AreaChart, Area, PieChart, Pie, RadarChart, Radar, PolarGrid,
   PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter, ZAxis, Legend,
-  Treemap, FunnelChart, Funnel, LabelList, ComposedChart,
+  Treemap, FunnelChart, Funnel, LabelList, ComposedChart, ReferenceLine, ErrorBar,
 } from "recharts";
 import {
   Download, Pencil, Plus, Trash2, Check, Palette, Type, Tag,
@@ -19,36 +20,53 @@ import {
   PieChart as PieChartIcon, Radar as RadarIcon, ScatterChart as ScatterIcon,
   ChevronDown, Upload, ClipboardPaste, Image, FileText, Settings2,
   Loader2, LayoutGrid, Sparkles, Triangle, TreePine, Layers,
+  Grid3x3, Circle, Activity, AlignJustify, Hash, Copy, Code2,
+  Undo2, Redo2, BookOpen, Paintbrush2, Wand2, SlidersHorizontal,
+  Minus, BarChart2, Columns,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const FIGURE_MAKER_FONTS_URL =
   "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,700;1,100;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,400;0,700;1,100;1,400;1,700&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap";
 
-interface ChartDataItem {
-  label: string;
-  value: number;
-}
+interface ChartDataItem { label: string; value: number }
+interface BoxPlotItem { label: string; min: number; q1: number; median: number; q3: number; max: number }
+interface HeatCell { row: string; col: string; value: number }
+interface MultiPoint { label: string; [key: string]: string | number }
 
-type ChartType = "bar" | "barHorizontal" | "stackedBar" | "line" | "area" | "pie" | "donut" | "halfDonut" | "radar" | "scatter" | "funnel" | "treemap";
+type ChartType =
+  | "bar" | "barHorizontal" | "stackedBar" | "groupedBar"
+  | "line" | "area"
+  | "pie" | "donut" | "halfDonut"
+  | "radar" | "scatter" | "funnel" | "treemap"
+  | "lollipop" | "errorBar" | "boxPlot" | "heatmap" | "wordBubble";
+
 type LabelMode = "none" | "values" | "percentages" | "both";
-type FontFamily = "system" | "playfair" | "times" | "arial" | "georgia" | "roboto" | "lato";
-type FormatPreset = "default" | "apa" | "ieee" | "chicago" | "presentation" | "poster";
+type FontFamily = "system" | "playfair" | "times" | "arial" | "georgia" | "roboto" | "lato"
+  | "sourceSerif" | "ibmPlex" | "merriweather" | "montserrat" | "outfit" | "spaceGrotesk" | "openSans";
+type FormatPreset = "default" | "apa" | "ieee" | "chicago" | "presentation" | "poster" | "nature" | "thesis" | "accessible";
 type ExportResolution = "1x" | "2x" | "3x" | "4x";
+type ExportCodeLang = "python" | "r";
 
-const CHART_TYPES: { type: ChartType; label: string; icon: typeof BarChart3 }[] = [
-  { type: "bar", label: "Bar", icon: BarChart3 },
-  { type: "barHorizontal", label: "Horizontal", icon: BarChartHorizontal },
-  { type: "stackedBar", label: "Stacked", icon: Layers },
-  { type: "line", label: "Line", icon: LineChartIcon },
-  { type: "area", label: "Area", icon: AreaChartIcon },
-  { type: "pie", label: "Pie", icon: PieChartIcon },
-  { type: "donut", label: "Donut", icon: PieChartIcon },
-  { type: "halfDonut", label: "Half Donut", icon: PieChartIcon },
-  { type: "radar", label: "Radar", icon: RadarIcon },
-  { type: "scatter", label: "Scatter", icon: ScatterIcon },
-  { type: "funnel", label: "Funnel", icon: Triangle },
-  { type: "treemap", label: "Treemap", icon: TreePine },
+const CHART_TYPES: { type: ChartType; label: string; icon: any; group?: string }[] = [
+  { type: "bar", label: "Bar", icon: BarChart3, group: "Basic" },
+  { type: "barHorizontal", label: "Horizontal", icon: BarChartHorizontal, group: "Basic" },
+  { type: "stackedBar", label: "Stacked Bar", icon: Layers, group: "Basic" },
+  { type: "groupedBar", label: "Grouped Bar", icon: Columns, group: "Basic" },
+  { type: "line", label: "Line", icon: LineChartIcon, group: "Basic" },
+  { type: "area", label: "Area", icon: AreaChartIcon, group: "Basic" },
+  { type: "pie", label: "Pie", icon: PieChartIcon, group: "Circular" },
+  { type: "donut", label: "Donut", icon: PieChartIcon, group: "Circular" },
+  { type: "halfDonut", label: "Half Donut", icon: PieChartIcon, group: "Circular" },
+  { type: "radar", label: "Radar", icon: RadarIcon, group: "Circular" },
+  { type: "scatter", label: "Scatter", icon: ScatterIcon, group: "Distribution" },
+  { type: "lollipop", label: "Lollipop", icon: Circle, group: "Distribution" },
+  { type: "errorBar", label: "Error Bar", icon: Activity, group: "Distribution" },
+  { type: "boxPlot", label: "Box Plot", icon: AlignJustify, group: "Distribution" },
+  { type: "heatmap", label: "Heatmap", icon: Grid3x3, group: "Matrix" },
+  { type: "wordBubble", label: "Word Bubble", icon: Hash, group: "Other" },
+  { type: "funnel", label: "Funnel", icon: Triangle, group: "Other" },
+  { type: "treemap", label: "Treemap", icon: TreePine, group: "Other" },
 ];
 
 const PRESET_PALETTES = [
@@ -94,6 +112,11 @@ const PRESET_PALETTES = [
   { name: "Retro", colors: ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#606c38", "#283618", "#dda15e", "#bc6c25", "#432818"] },
   { name: "Neon", colors: ["#00ff87", "#60efff", "#ff00e4", "#ff6b00", "#ffe100", "#00e5ff", "#7b2ff7", "#ff2d55", "#01ff89", "#f72585"] },
   { name: "Muted", colors: ["#6c757d", "#adb5bd", "#868e96", "#495057", "#343a40", "#ced4da", "#dee2e6", "#e9ecef", "#f1f3f5", "#f8f9fa"] },
+  { name: "CB Safe 1", colors: ["#0173b2", "#de8f05", "#029e73", "#d55e00", "#cc78bc", "#ca9161", "#fbafe4", "#949494", "#ece133", "#56b4e9"] },
+  { name: "CB Safe 2", colors: ["#332288", "#117733", "#44aa99", "#88ccee", "#ddcc77", "#cc6677", "#aa4499", "#882255", "#6699cc", "#999933"] },
+  { name: "CB Okabe", colors: ["#e69f00", "#56b4e9", "#009e73", "#f0e442", "#0072b2", "#d55e00", "#cc79a7", "#000000", "#999999", "#88ccee"] },
+  { name: "High Contrast", colors: ["#000000", "#ffffff", "#ff0000", "#0000ff", "#00aa00", "#ff9900", "#9900ff", "#00cccc", "#ff69b4", "#8b4513"] },
+  { name: "Grayscale", colors: ["#111111", "#222222", "#444444", "#555555", "#777777", "#888888", "#aaaaaa", "#bbbbbb", "#dddddd", "#eeeeee"] },
 ];
 
 const FONT_OPTIONS: { value: FontFamily; label: string; css: string }[] = [
@@ -104,6 +127,13 @@ const FONT_OPTIONS: { value: FontFamily; label: string; css: string }[] = [
   { value: "georgia", label: "Georgia", css: "Georgia, serif" },
   { value: "roboto", label: "Roboto", css: "'Roboto', sans-serif" },
   { value: "lato", label: "Lato", css: "'Lato', sans-serif" },
+  { value: "sourceSerif", label: "Source Serif 4", css: "'Source Serif 4', serif" },
+  { value: "ibmPlex", label: "IBM Plex Sans", css: "'IBM Plex Sans', sans-serif" },
+  { value: "merriweather", label: "Merriweather", css: "'Merriweather', serif" },
+  { value: "montserrat", label: "Montserrat", css: "'Montserrat', sans-serif" },
+  { value: "outfit", label: "Outfit", css: "'Outfit', sans-serif" },
+  { value: "spaceGrotesk", label: "Space Grotesk", css: "'Space Grotesk', sans-serif" },
+  { value: "openSans", label: "Open Sans", css: "'Open Sans', sans-serif" },
 ];
 
 const FORMAT_PRESETS: { value: FormatPreset; label: string; description: string }[] = [
@@ -111,27 +141,202 @@ const FORMAT_PRESETS: { value: FormatPreset; label: string; description: string 
   { value: "apa", label: "APA 7th", description: "Academic — sans-serif, numbered, italic caption" },
   { value: "ieee", label: "IEEE", description: "Technical — serif, compact, bold caption" },
   { value: "chicago", label: "Chicago/MLA", description: "Humanities — serif, descriptive caption" },
+  { value: "nature", label: "Nature / Science", description: "Journal — minimal, clean, no grid background" },
+  { value: "thesis", label: "Thesis / Dissertation", description: "Full serif, numbered, formal caption" },
+  { value: "accessible", label: "Accessible (WCAG)", description: "High contrast, large text, CB-safe colors" },
   { value: "presentation", label: "Presentation", description: "Large fonts, high contrast for slides" },
   { value: "poster", label: "Poster / Print", description: "Extra large text, thick lines, high-res" },
 ];
 
-const TOOLTIP_STYLE = { borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontSize: "12px" };
-const hasAxes = (t: ChartType) => !["pie", "donut", "halfDonut", "radar", "funnel", "treemap"].includes(t);
+interface FigureTemplate {
+  id: string; name: string; description: string; icon: string;
+  chartType: ChartType; data: ChartDataItem[]; title: string;
+  xLabel?: string; yLabel?: string; formatPreset?: FormatPreset;
+}
 
+const FIGURE_TEMPLATES: FigureTemplate[] = [
+  {
+    id: "translation-strategies",
+    name: "Translation Strategies",
+    description: "Distribution of translation strategies in a parallel corpus",
+    icon: "📊",
+    chartType: "bar",
+    title: "Distribution of Translation Strategies",
+    xLabel: "Strategy",
+    yLabel: "Frequency (n)",
+    data: [
+      { label: "Foreignization", value: 212 },
+      { label: "Domestication", value: 178 },
+      { label: "Paraphrase", value: 143 },
+      { label: "Borrowing", value: 98 },
+      { label: "Calque", value: 76 },
+      { label: "Omission", value: 54 },
+      { label: "Addition", value: 39 },
+    ],
+  },
+  {
+    id: "keyword-rank",
+    name: "Keyword Frequency",
+    description: "Top 10 keywords by frequency per million words",
+    icon: "🔤",
+    chartType: "barHorizontal",
+    title: "Top 10 Keywords by Normalized Frequency",
+    xLabel: "Frequency per Million Words",
+    data: [
+      { label: "translation", value: 4820 },
+      { label: "equivalence", value: 3541 },
+      { label: "target text", value: 2998 },
+      { label: "source text", value: 2754 },
+      { label: "strategy", value: 2310 },
+      { label: "corpus", value: 1987 },
+      { label: "discourse", value: 1645 },
+      { label: "pragmatic", value: 1422 },
+      { label: "lexical", value: 1188 },
+      { label: "register", value: 976 },
+    ],
+  },
+  {
+    id: "universals",
+    name: "Translation Universals",
+    description: "Radar showing six translation universals across two corpora",
+    icon: "🕸️",
+    chartType: "radar",
+    title: "Translation Universals — Parallel Corpus",
+    data: [
+      { label: "Simplification", value: 78 },
+      { label: "Explicitation", value: 65 },
+      { label: "Normalization", value: 72 },
+      { label: "Levelling Out", value: 54 },
+      { label: "Interference", value: 43 },
+      { label: "Unique Items", value: 38 },
+    ],
+    formatPreset: "apa",
+  },
+  {
+    id: "pre-post-shift",
+    name: "Pre/Post Translation",
+    description: "Line chart comparing pre/post linguistic features",
+    icon: "📈",
+    chartType: "line",
+    title: "Lexical Density Across Text Segments",
+    xLabel: "Segment",
+    yLabel: "Lexical Density (%)",
+    data: Array.from({ length: 8 }, (_, i) => ({
+      label: `Seg. ${i + 1}`,
+      value: Math.round(42 + Math.sin(i * 0.9) * 12 + Math.random() * 6),
+    })),
+  },
+  {
+    id: "lang-pairs",
+    name: "Language Pair Distribution",
+    description: "Donut chart of corpus language pair breakdown",
+    icon: "🌍",
+    chartType: "donut",
+    title: "Corpus Composition by Language Pair",
+    data: [
+      { label: "Arabic → English", value: 38 },
+      { label: "French → English", value: 24 },
+      { label: "Spanish → English", value: 18 },
+      { label: "German → English", value: 12 },
+      { label: "Chinese → English", value: 8 },
+    ],
+    formatPreset: "apa",
+  },
+];
+
+const TOOLTIP_STYLE = { borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontSize: "12px" };
+
+const hasAxes = (t: ChartType) => !["pie", "donut", "halfDonut", "radar", "funnel", "treemap", "wordBubble", "heatmap"].includes(t);
+const isSpecialRender = (t: ChartType) => ["boxPlot", "heatmap", "wordBubble"].includes(t);
+const needsMultiData = (t: ChartType) => t === "groupedBar";
+
+function parseHex(hex: string): [number, number, number] {
+  const c = hex.replace("#", "");
+  return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
+}
+
+function interpolateColor(hex1: string, hex2: string, t: number): string {
+  try {
+    const [r1, g1, b1] = parseHex(hex1 || "#e0f2fe");
+    const [r2, g2, b2] = parseHex(hex2 || "#0369a1");
+    return `rgb(${Math.round(r1 + (r2 - r1) * t)},${Math.round(g1 + (g2 - g1) * t)},${Math.round(b1 + (b2 - b1) * t)})`;
+  } catch { return "#e0f2fe"; }
+}
+
+function generatePythonCode(
+  data: ChartDataItem[], chartType: ChartType, colors: string[],
+  title: string, xLabel: string, yLabel: string, caption: string, figureNumber: string
+): string {
+  const labels = data.map(d => `'${d.label.replace(/'/g, "\\'")}'`).join(", ");
+  const values = data.map(d => d.value).join(", ");
+  const cols = colors.slice(0, data.length).map(c => `'${c}'`).join(", ");
+  let code = `import matplotlib.pyplot as plt\nimport numpy as np\n\nlabels = [${labels}]\nvalues = [${values}]\ncolors = [${cols}]\n\nfig, ax = plt.subplots(figsize=(8, 5), dpi=300)\n`;
+  if (chartType === "bar") code += `ax.bar(labels, values, color=colors, edgecolor='white')\nax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)\n`;
+  else if (chartType === "barHorizontal") code += `ax.barh(labels, values, color=colors)\n`;
+  else if (chartType === "line") code += `ax.plot(labels, values, color=colors[0], marker='o', linewidth=2.5, markersize=6)\nax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)\n`;
+  else if (chartType === "area") code += `ax.fill_between(range(len(labels)), values, alpha=0.4, color=colors[0])\nax.plot(range(len(labels)), values, color=colors[0], linewidth=2)\nax.set_xticks(range(len(labels)))\nax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)\n`;
+  else if (chartType === "pie") code += `ax.pie(values, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)\nax.axis('equal')\n`;
+  else if (chartType === "donut") code += `wedges, _ = ax.pie(values, labels=None, colors=colors, startangle=90, wedgeprops=dict(width=0.5))\nax.legend(wedges, labels, loc='center left', bbox_to_anchor=(1, 0, 0.5, 1))\nax.axis('equal')\n`;
+  else if (chartType === "scatter") code += `ax.scatter(range(len(values)), values, c=colors[:len(values)] if len(colors) >= len(values) else colors[0], s=80, edgecolors='white')\nax.set_xticks(range(len(labels)))\nax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)\n`;
+  else code += `ax.bar(labels, values, color=colors, edgecolor='white')\nax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)\n`;
+  if (title) code += `ax.set_title('${title.replace(/'/g, "\\'")}', fontsize=13, fontweight='bold', pad=10)\n`;
+  if (xLabel) code += `ax.set_xlabel('${xLabel.replace(/'/g, "\\'")}', fontsize=11)\n`;
+  if (yLabel) code += `ax.set_ylabel('${yLabel.replace(/'/g, "\\'")}', fontsize=11)\n`;
+  code += `ax.spines['top'].set_visible(False)\nax.spines['right'].set_visible(False)\nplt.tight_layout()\n`;
+  if (caption) code += `# Figure ${figureNumber}. ${caption}\n`;
+  code += `plt.savefig('figure_${figureNumber}.png', dpi=300, bbox_inches='tight')\nplt.show()\n`;
+  return code;
+}
+
+function generateRCode(
+  data: ChartDataItem[], chartType: ChartType, colors: string[],
+  title: string, xLabel: string, yLabel: string, caption: string, figureNumber: string
+): string {
+  const labels = data.map(d => `"${d.label.replace(/"/g, '\\"')}"`).join(", ");
+  const values = data.map(d => d.value).join(", ");
+  const cols = colors.slice(0, data.length).map(c => `"${c}"`).join(", ");
+  let code = `library(ggplot2)\n\ndata <- data.frame(\n  label = factor(c(${labels}), levels = c(${labels})),\n  value = c(${values})\n)\n\np <- ggplot(data, aes(x = label, y = value`;
+  if (["bar", "barHorizontal", "scatter"].includes(chartType)) code += `, fill = label`;
+  code += `)) +\n`;
+  if (chartType === "bar") code += `  geom_bar(stat = "identity", color = "white") +\n  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +\n`;
+  else if (chartType === "barHorizontal") code += `  geom_bar(stat = "identity", color = "white") +\n  coord_flip() +\n`;
+  else if (chartType === "line") code += `  geom_line(aes(group = 1), color = "${colors[0]}", linewidth = 1.5) +\n  geom_point(color = "${colors[0]}", size = 3) +\n  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +\n`;
+  else if (chartType === "area") code += `  geom_area(aes(group = 1), fill = "${colors[0]}", alpha = 0.4) +\n  geom_line(aes(group = 1), color = "${colors[0]}", linewidth = 1.5) +\n`;
+  else if (chartType === "pie") code += `  geom_bar(stat = "identity", width = 1, color = "white") +\n  coord_polar("y", start = 0) +\n  theme_void() +\n`;
+  else if (chartType === "scatter") code += `  geom_point(size = 4, alpha = 0.8, color = "white", stroke = 1) +\n  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +\n`;
+  else code += `  geom_bar(stat = "identity", color = "white") +\n  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +\n`;
+  code += `  scale_fill_manual(values = c(${cols}), guide = "none") +\n`;
+  code += `  labs(`;
+  const labs: string[] = [];
+  if (title) labs.push(`title = "${title.replace(/"/g, '\\"')}"`);
+  if (xLabel) labs.push(`x = "${xLabel.replace(/"/g, '\\"')}"`);
+  if (yLabel) labs.push(`y = "${yLabel.replace(/"/g, '\\"')}"`);
+  code += labs.join(", ") + `) +\n`;
+  code += `  theme_minimal(base_size = 12) +\n  theme(panel.grid.major.x = element_blank())\n\nprint(p)\nggsave("figure_${figureNumber}.png", p, dpi = 300, width = 8, height = 5, bg = "white")\n`;
+  if (caption) code += `# Figure ${figureNumber}. ${caption}\n`;
+  return code;
+}
 
 export default function FigureMaker() {
   useEffect(() => {
     const id = "figure-maker-fonts";
     if (document.getElementById(id)) return;
     const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = FIGURE_MAKER_FONTS_URL;
+    link.id = id; link.rel = "stylesheet"; link.href = FIGURE_MAKER_FONTS_URL;
     document.head.appendChild(link);
   }, []);
 
   const { toast } = useToast();
+
   const [chartData, setChartData] = useState<ChartDataItem[]>([]);
+  const [multiData, setMultiData] = useState<MultiPoint[]>([]);
+  const [seriesNames, setSeriesNames] = useState<string[]>([]);
+  const [boxData, setBoxData] = useState<BoxPlotItem[]>([]);
+  const [heatData, setHeatData] = useState<HeatCell[]>([]);
+
+  const [historyStack, setHistoryStack] = useState<ChartDataItem[][]>([[]]);
+  const [historyPtr, setHistoryPtr] = useState(0);
+
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
   const [figureNumber, setFigureNumber] = useState("1");
@@ -144,64 +349,83 @@ export default function FigureMaker() {
   const [formatPreset, setFormatPreset] = useState<FormatPreset>("default");
   const [resolution, setResolution] = useState<ExportResolution>("3x");
   const [showLegend, setShowLegend] = useState(false);
-  const [editing, setEditing] = useState(false);
+
+  const [showGrid, setShowGrid] = useState(true);
+  const [gridOpacity, setGridOpacity] = useState(0.2);
+  const [barRadius, setBarRadius] = useState(4);
+  const [lineThickness, setLineThickness] = useState(2.5);
+  const [figBg, setFigBg] = useState<string>("transparent");
+  const [aspectRatio, setAspectRatio] = useState<string>("auto");
+  const [errorPct, setErrorPct] = useState(12);
+
+  const [showRefLine, setShowRefLine] = useState(false);
+  const [refLineType, setRefLineType] = useState<"mean" | "median" | "custom">("mean");
+  const [refLineCustom, setRefLineCustom] = useState("");
+  const [refLineLabel, setRefLineLabel] = useState("Mean");
+  const [refLineColor, setRefLineColor] = useState("#ef4444");
+
   const [editingTitle, setEditingTitle] = useState(false);
-  const [showPalettes, setShowPalettes] = useState(false);
-  const [showChartTypes, setShowChartTypes] = useState(false);
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newValue, setNewValue] = useState("");
   const [pasteData, setPasteData] = useState("");
   const [dataInputMode, setDataInputMode] = useState<"paste" | "upload">("paste");
   const [exporting, setExporting] = useState(false);
+  const [codeLang, setCodeLang] = useState<ExportCodeLang>("python");
+
+  const [aiCaptionResult, setAiCaptionResult] = useState("");
+  const [aiResultsResult, setAiResultsResult] = useState("");
+  const [aiRecommendResult, setAiRecommendResult] = useState<{ chartType: string; reason: string } | null>(null);
+  const [aiContext, setAiContext] = useState("");
+
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  const getFontCSS = useCallback(() => {
-    return FONT_OPTIONS.find(f => f.value === fontFamily)?.css || "system-ui, sans-serif";
-  }, [fontFamily]);
+  const getFontCSS = useCallback(() => FONT_OPTIONS.find(f => f.value === fontFamily)?.css || "system-ui, sans-serif", [fontFamily]);
 
   const applyFormatPreset = useCallback((preset: FormatPreset) => {
     setFormatPreset(preset);
     switch (preset) {
-      case "apa":
-        setFontFamily("arial");
-        setLabelMode("values");
-        setShowLegend(false);
-        break;
-      case "ieee":
-        setFontFamily("times");
-        setLabelMode("values");
-        setShowLegend(true);
-        break;
-      case "chicago":
-        setFontFamily("georgia");
-        setLabelMode("none");
-        setShowLegend(true);
-        break;
-      case "presentation":
-        setFontFamily("arial");
-        setLabelMode("values");
-        setShowLegend(true);
-        setResolution("2x");
-        break;
-      case "poster":
-        setFontFamily("arial");
-        setLabelMode("both");
-        setShowLegend(true);
-        setResolution("4x");
-        break;
-      default:
-        break;
+      case "apa": setFontFamily("arial"); setLabelMode("values"); setShowLegend(false); break;
+      case "ieee": setFontFamily("times"); setLabelMode("values"); setShowLegend(true); break;
+      case "chicago": setFontFamily("georgia"); setLabelMode("none"); setShowLegend(true); break;
+      case "nature": setFontFamily("arial"); setLabelMode("values"); setShowGrid(false); setShowLegend(true); break;
+      case "thesis": setFontFamily("times"); setLabelMode("values"); setShowLegend(true); break;
+      case "accessible": setFontFamily("arial"); setColors(PRESET_PALETTES.find(p => p.name === "CB Safe 1")!.colors); setLabelMode("both"); setShowLegend(true); break;
+      case "presentation": setFontFamily("arial"); setLabelMode("values"); setShowLegend(true); setResolution("2x"); break;
+      case "poster": setFontFamily("arial"); setLabelMode("both"); setShowLegend(true); setResolution("4x"); break;
     }
   }, []);
+
+  const pushHistory = useCallback((newData: ChartDataItem[]) => {
+    setHistoryStack(prev => {
+      const trimmed = prev.slice(0, historyPtr + 1);
+      return [...trimmed, newData].slice(-25);
+    });
+    setHistoryPtr(prev => Math.min(prev + 1, 24));
+  }, [historyPtr]);
+
+  const undo = useCallback(() => {
+    if (historyPtr > 0) {
+      const newPtr = historyPtr - 1;
+      setHistoryPtr(newPtr);
+      setChartData(historyStack[newPtr] || []);
+    }
+  }, [historyStack, historyPtr]);
+
+  const redo = useCallback(() => {
+    if (historyPtr < historyStack.length - 1) {
+      const newPtr = historyPtr + 1;
+      setHistoryPtr(newPtr);
+      setChartData(historyStack[newPtr] || []);
+    }
+  }, [historyStack, historyPtr]);
 
   const tryLocalParse = useCallback((input: string): ChartDataItem[] => {
     const lines = input.trim().split("\n").filter(l => l.trim());
     const parsed: ChartDataItem[] = [];
-    const isHeaderLine = (l: string) => /^["']?(label|name|category|item|key)\b/i.test(l.trim());
+    const isHeaderLine = (l: string) => /^["']?(label|name|category|item|key|word)\b/i.test(l.trim());
     const startIdx = lines.length > 1 && isHeaderLine(lines[0]) ? 1 : 0;
-
     for (let li = startIdx; li < lines.length; li++) {
       const line = lines[li];
       const parts = line.split(/[\t,;|]/).map(p => p.trim());
@@ -209,50 +433,145 @@ export default function FigureMaker() {
         const label = parts[0].replace(/^["']|["']$/g, "").trim();
         const rawLast = parts[parts.length - 1];
         const value = parseFloat(rawLast);
-        if (label && !isNaN(value) && /^\d+(\.\d+)?$/.test(rawLast)) {
-          parsed.push({ label, value });
-        }
+        if (label && !isNaN(value)) parsed.push({ label, value });
       }
     }
     return parsed;
   }, []);
 
+  const tryParseMultiSeries = useCallback((input: string): { data: MultiPoint[]; series: string[] } | null => {
+    const lines = input.trim().split("\n").filter(l => l.trim());
+    if (lines.length < 2) return null;
+    const header = lines[0].split(/[\t,;]/).map(s => s.trim().replace(/^["']|["']$/g, ""));
+    if (header.length < 3) return null;
+    const data: MultiPoint[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(/[\t,;]/).map(s => s.trim().replace(/^["']|["']$/g, ""));
+      if (parts.length < header.length) continue;
+      const row: MultiPoint = { label: parts[0] };
+      let ok = true;
+      for (let j = 1; j < header.length; j++) {
+        const val = parseFloat(parts[j]);
+        if (isNaN(val)) { ok = false; break; }
+        row[header[j]] = val;
+      }
+      if (ok) data.push(row);
+    }
+    if (data.length === 0) return null;
+    return { data, series: header.slice(1) };
+  }, []);
+
+  const tryParseBoxPlot = useCallback((input: string): BoxPlotItem[] | null => {
+    const lines = input.trim().split("\n").filter(l => l.trim());
+    const isHeader = (l: string) => /label|min|q1|median|q3|max/i.test(l);
+    const startIdx = lines.length > 1 && isHeader(lines[0]) ? 1 : 0;
+    const result: BoxPlotItem[] = [];
+    for (let i = startIdx; i < lines.length; i++) {
+      const parts = lines[i].split(/[\t,;]/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+      const label = lines[i].split(/[\t,;]/)[0].trim().replace(/^["']|["']$/g, "");
+      if (parts.length >= 5) {
+        result.push({ label, min: parts[0] || 0, q1: parts[1] || 0, median: parts[2] || 0, q3: parts[3] || 0, max: parts[4] || 0 });
+      }
+    }
+    return result.length > 0 ? result : null;
+  }, []);
+
+  const tryParseHeatmap = useCallback((input: string): HeatCell[] | null => {
+    const lines = input.trim().split("\n").filter(l => l.trim());
+    if (lines.length < 2) return null;
+    const headerParts = lines[0].split(/[\t,;]/).map(s => s.trim().replace(/^["']|["']$/g, ""));
+    const cols = headerParts.slice(1).filter(Boolean);
+    if (cols.length === 0) return null;
+    const cells: HeatCell[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(/[\t,;]/).map(s => s.trim().replace(/^["']|["']$/g, ""));
+      const row = parts[0];
+      if (!row) continue;
+      for (let j = 0; j < cols.length; j++) {
+        const val = parseFloat(parts[j + 1]);
+        if (!isNaN(val)) cells.push({ row, col: cols[j], value: val });
+      }
+    }
+    return cells.length > 0 ? cells : null;
+  }, []);
+
   const aiParseMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const res = await apiRequest("POST", "/api/ai/parse-chart-data", { text });
+    mutationFn: async (text: string) => { const res = await apiRequest("POST", "/api/ai/parse-chart-data", { text }); return res.json(); },
+    onSuccess: (data) => {
+      if (data.data?.length > 0) {
+        setChartData(data.data);
+        pushHistory(data.data);
+        toast({ title: "AI parsed your data", description: `${data.data.length} data points extracted` });
+      } else toast({ title: "No data found", variant: "destructive" });
+    },
+    onError: () => {
+      const local = tryLocalParse(pasteData);
+      if (local.length > 0) { setChartData(local); pushHistory(local); toast({ title: "Data loaded", description: `${local.length} data points` }); }
+      else toast({ title: "Could not parse data", description: "Try a clearer format", variant: "destructive" });
+    },
+  });
+
+  const aiCaptionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai/figure-caption", { chartType, data: chartData, formatPreset, title });
       return res.json();
     },
     onSuccess: (data) => {
-      if (data.data && data.data.length > 0) {
-        setChartData(data.data);
-        toast({ title: "AI parsed your data", description: `${data.data.length} data points extracted` });
-      } else {
-        toast({ title: "No data found", description: "AI could not extract any numeric data from the text", variant: "destructive" });
-      }
+      if (data.caption) { setAiCaptionResult(data.caption); }
+      else toast({ title: "AI caption failed", variant: "destructive" });
     },
-    onError: (error: any) => {
-      const local = tryLocalParse(pasteData);
-      if (local.length > 0) {
-        setChartData(local);
-        toast({ title: "Data loaded", description: `${local.length} data points parsed` });
-      } else {
-        toast({ title: "Could not parse data", description: "Try a clearer format or include numbers", variant: "destructive" });
-      }
+    onError: () => toast({ title: "AI caption failed", variant: "destructive" }),
+  });
+
+  const aiRecommendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai/chart-recommend", { data: chartData, context: aiContext });
+      return res.json();
     },
+    onSuccess: (data) => { setAiRecommendResult(data); },
+    onError: () => toast({ title: "AI recommendation failed", variant: "destructive" }),
+  });
+
+  const aiResultsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai/results-paragraph", { chartType, data: chartData, title, caption, figureNumber });
+      return res.json();
+    },
+    onSuccess: (data) => { if (data.paragraph) setAiResultsResult(data.paragraph); },
+    onError: () => toast({ title: "AI failed", variant: "destructive" }),
   });
 
   const parsePastedData = useCallback(() => {
     if (!pasteData.trim()) return;
-    const local = tryLocalParse(pasteData);
-    if (local.length > 0) {
-      setChartData(local);
-      toast({ title: "Data loaded", description: `${local.length} data points parsed` });
+
+    if (chartType === "groupedBar" || needsMultiData(chartType)) {
+      const multi = tryParseMultiSeries(pasteData);
+      if (multi) {
+        setMultiData(multi.data);
+        setSeriesNames(multi.series);
+        toast({ title: "Multi-series data loaded", description: `${multi.data.length} groups, ${multi.series.length} series` });
+        return;
+      }
+    }
+    if (chartType === "boxPlot") {
+      const box = tryParseBoxPlot(pasteData);
+      if (box) { setBoxData(box); toast({ title: "Box plot data loaded", description: `${box.length} groups` }); return; }
+    }
+    if (chartType === "heatmap") {
+      const heat = tryParseHeatmap(pasteData);
+      if (heat) { setHeatData(heat); toast({ title: "Heatmap data loaded", description: `${heat.length} cells` }); return; }
+    }
+    const multi = tryParseMultiSeries(pasteData);
+    if (multi && chartType !== "groupedBar") {
+      const flat = multi.data.map(d => ({ label: String(d.label), value: Number(d[multi.series[0]]) || 0 }));
+      setChartData(flat); pushHistory(flat);
+      toast({ title: "Data loaded", description: `${flat.length} data points (first series)` });
       return;
     }
+    const local = tryLocalParse(pasteData);
+    if (local.length > 0) { setChartData(local); pushHistory(local); toast({ title: "Data loaded", description: `${local.length} data points` }); return; }
     aiParseMutation.mutate(pasteData);
-  }, [pasteData, toast, tryLocalParse]);
-
-  const isAIParsing = aiParseMutation.isPending;
+  }, [pasteData, chartType, tryParseMultiSeries, tryParseBoxPlot, tryParseHeatmap, tryLocalParse, pushHistory]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -262,44 +581,33 @@ export default function FigureMaker() {
       const text = ev.target?.result as string;
       if (!text) return;
       const local = tryLocalParse(text);
-      if (local.length > 0) {
-        setChartData(local);
-        toast({ title: "File loaded", description: `${local.length} data points from ${file.name}` });
-      } else {
-        aiParseMutation.mutate(text);
-      }
+      if (local.length > 0) { setChartData(local); pushHistory(local); toast({ title: "File loaded", description: `${local.length} data points from ${file.name}` }); }
+      else aiParseMutation.mutate(text);
     };
     reader.readAsText(file);
     e.target.value = "";
-  }, [toast]);
+  }, [toast, tryLocalParse, pushHistory]);
 
-
-  const updateLabel = useCallback((index: number, newLbl: string) => {
-    setChartData(prev => prev.map((item, i) => i === index ? { ...item, label: newLbl } : item));
-  }, []);
-
-  const updateValue = useCallback((index: number, newVal: number) => {
-    setChartData(prev => prev.map((item, i) => i === index ? { ...item, value: newVal } : item));
-  }, []);
-
-  const removeItem = useCallback((index: number) => {
-    setChartData(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
+  const updateLabel = useCallback((i: number, v: string) => setChartData(prev => prev.map((d, idx) => idx === i ? { ...d, label: v } : d)), []);
+  const updateValue = useCallback((i: number, v: number) => setChartData(prev => prev.map((d, idx) => idx === i ? { ...d, value: v } : d)), []);
+  const removeItem = useCallback((i: number) => { const next = chartData.filter((_, idx) => idx !== i); setChartData(next); pushHistory(next); }, [chartData, pushHistory]);
   const addItem = useCallback(() => {
     if (!newLabel.trim()) return;
-    setChartData(prev => [...prev, { label: newLabel.trim(), value: Number(newValue) || 0 }]);
-    setNewLabel("");
-    setNewValue("");
-  }, [newLabel, newValue]);
+    const next = [...chartData, { label: newLabel.trim(), value: Number(newValue) || 0 }];
+    setChartData(next); pushHistory(next); setNewLabel(""); setNewValue("");
+  }, [chartData, newLabel, newValue, pushHistory]);
 
-  const togglePanel = useCallback((panel: "types" | "palettes" | "edit" | "labels" | "settings") => {
-    setShowChartTypes(panel === "types" ? prev => !prev : false);
-    setShowPalettes(panel === "palettes" ? prev => !prev : false);
-    setEditing(panel === "edit" ? prev => !prev : false);
-    setShowLabelOptions(panel === "labels" ? prev => !prev : false);
-    setShowSettings(panel === "settings" ? prev => !prev : false);
-  }, []);
+  const applyTemplate = useCallback((tpl: FigureTemplate) => {
+    setChartData(tpl.data);
+    pushHistory(tpl.data);
+    setChartType(tpl.chartType);
+    setTitle(tpl.title);
+    setXLabel(tpl.xLabel || "");
+    setYLabel(tpl.yLabel || "");
+    if (tpl.formatPreset) applyFormatPreset(tpl.formatPreset);
+    setOpenPanel(null);
+    toast({ title: `Template applied`, description: tpl.name });
+  }, [pushHistory, applyFormatPreset]);
 
   const getExportElement = useCallback(() => {
     const container = chartContainerRef.current;
@@ -314,10 +622,11 @@ export default function FigureMaker() {
     try {
       const { default: html2canvas } = await import("html2canvas");
       const scale = parseInt(resolution.replace("x", ""));
-      exportEl.style.background = "#ffffff";
+      const bg = figBg === "transparent" ? "#ffffff" : figBg;
+      exportEl.style.background = bg;
       exportEl.style.padding = "32px";
       exportEl.style.borderRadius = "0";
-      const canvas = await html2canvas(exportEl, { scale, backgroundColor: "#ffffff", useCORS: true, logging: false });
+      const canvas = await html2canvas(exportEl, { scale, backgroundColor: bg, useCORS: true, logging: false });
       exportEl.style.background = "";
       exportEl.style.padding = "";
       exportEl.style.borderRadius = "";
@@ -325,13 +634,10 @@ export default function FigureMaker() {
       link.download = `${title || "figure"}.png`;
       link.href = canvas.toDataURL("image/png", 1.0);
       link.click();
-      toast({ title: "PNG exported", description: `Resolution: ${canvas.width}×${canvas.height}px` });
-    } catch {
-      toast({ title: "Export failed", variant: "destructive" });
-    } finally {
-      setExporting(false);
-    }
-  }, [title, resolution, getExportElement, toast]);
+      toast({ title: "PNG exported", description: `${canvas.width}×${canvas.height}px` });
+    } catch { toast({ title: "Export failed", variant: "destructive" }); }
+    finally { setExporting(false); }
+  }, [title, resolution, figBg, getExportElement, toast]);
 
   const downloadPDF = useCallback(async () => {
     const exportEl = getExportElement();
@@ -341,37 +647,23 @@ export default function FigureMaker() {
       const { default: html2canvas } = await import("html2canvas");
       const { jsPDF } = await import("jspdf");
       const scale = parseInt(resolution.replace("x", ""));
-      exportEl.style.background = "#ffffff";
-      exportEl.style.padding = "32px";
-      exportEl.style.borderRadius = "0";
-      const canvas = await html2canvas(exportEl, { scale, backgroundColor: "#ffffff", useCORS: true, logging: false });
-      exportEl.style.background = "";
-      exportEl.style.padding = "";
-      exportEl.style.borderRadius = "";
+      const bg = figBg === "transparent" ? "#ffffff" : figBg;
+      exportEl.style.background = bg; exportEl.style.padding = "32px"; exportEl.style.borderRadius = "0";
+      const canvas = await html2canvas(exportEl, { scale, backgroundColor: bg, useCORS: true, logging: false });
+      exportEl.style.background = ""; exportEl.style.padding = ""; exportEl.style.borderRadius = "";
       const imgData = canvas.toDataURL("image/png", 1.0);
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const isLandscape = imgWidth > imgHeight * 1.2;
+      const isLandscape = canvas.width > canvas.height * 1.2;
       const pdf = new jsPDF({ orientation: isLandscape ? "landscape" : "portrait", unit: "pt", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 40;
-      const maxW = pageWidth - margin * 2;
-      const maxH = pageHeight - margin * 2;
-      const ratio = Math.min(maxW / imgWidth, maxH / imgHeight);
-      const w = imgWidth * ratio;
-      const h = imgHeight * ratio;
-      const x = (pageWidth - w) / 2;
-      const y = (pageHeight - h) / 2;
-      pdf.addImage(imgData, "PNG", x, y, w, h);
+      const pw = pdf.internal.pageSize.getWidth(); const ph = pdf.internal.pageSize.getHeight();
+      const margin = 40; const maxW = pw - margin * 2; const maxH = ph - margin * 2;
+      const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
+      const w = canvas.width * ratio; const h = canvas.height * ratio;
+      pdf.addImage(imgData, "PNG", (pw - w) / 2, (ph - h) / 2, w, h);
       pdf.save(`${title || "figure"}.pdf`);
       toast({ title: "PDF exported" });
-    } catch {
-      toast({ title: "PDF export failed", variant: "destructive" });
-    } finally {
-      setExporting(false);
-    }
-  }, [title, resolution, getExportElement, toast]);
+    } catch { toast({ title: "PDF export failed", variant: "destructive" }); }
+    finally { setExporting(false); }
+  }, [title, resolution, figBg, getExportElement, toast]);
 
   const downloadDOCX = useCallback(async () => {
     const exportEl = getExportElement();
@@ -381,85 +673,100 @@ export default function FigureMaker() {
       const { default: html2canvas } = await import("html2canvas");
       const docx = await import("docx");
       const scale = parseInt(resolution.replace("x", ""));
-      exportEl.style.background = "#ffffff";
-      exportEl.style.padding = "32px";
-      exportEl.style.borderRadius = "0";
-      const canvas = await html2canvas(exportEl, { scale, backgroundColor: "#ffffff", useCORS: true, logging: false });
-      exportEl.style.background = "";
-      exportEl.style.padding = "";
-      exportEl.style.borderRadius = "";
+      const bg = figBg === "transparent" ? "#ffffff" : figBg;
+      exportEl.style.background = bg; exportEl.style.padding = "32px"; exportEl.style.borderRadius = "0";
+      const canvas = await html2canvas(exportEl, { scale, backgroundColor: bg, useCORS: true, logging: false });
+      exportEl.style.background = ""; exportEl.style.padding = ""; exportEl.style.borderRadius = "";
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/png", 1.0));
       const arrayBuffer = await blob.arrayBuffer();
-      const imgWidth = 600;
-      const imgHeight = Math.round((canvas.height / canvas.width) * imgWidth);
-
-      const doc = new docx.Document({
-        sections: [{
-          properties: { page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
-          children: [
-            ...(title ? [new docx.Paragraph({
-              children: [new docx.TextRun({ text: `Figure ${figureNumber}`, bold: true, font: getFontCSS().split(",")[0].replace(/'/g, ""), size: 24 })],
-              spacing: { after: 120 },
-            })] : []),
-            new docx.Paragraph({
-              children: [new docx.ImageRun({
-                data: arrayBuffer,
-                transformation: { width: imgWidth, height: imgHeight },
-                type: "png",
-              })],
-              spacing: { after: 120 },
-            }),
-            ...(caption ? [new docx.Paragraph({
-              children: [
-                new docx.TextRun({ text: `Figure ${figureNumber}. `, bold: true, italics: formatPreset === "apa", font: getFontCSS().split(",")[0].replace(/'/g, ""), size: 20 }),
-                new docx.TextRun({ text: caption, italics: formatPreset === "apa", font: getFontCSS().split(",")[0].replace(/'/g, ""), size: 20 }),
-              ],
-              spacing: { before: 120 },
-            })] : []),
-          ],
-        }],
-      });
+      const imgWidth = 600; const imgHeight = Math.round((canvas.height / canvas.width) * imgWidth);
+      const fontName = getFontCSS().split(",")[0].replace(/'/g, "").trim();
+      const doc = new docx.Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } } }, children: [
+        ...(title ? [new docx.Paragraph({ children: [new docx.TextRun({ text: `Figure ${figureNumber}`, bold: true, font: fontName, size: 24 })], spacing: { after: 120 } })] : []),
+        new docx.Paragraph({ children: [new docx.ImageRun({ data: arrayBuffer, transformation: { width: imgWidth, height: imgHeight }, type: "png" })], spacing: { after: 120 } }),
+        ...(caption ? [new docx.Paragraph({ children: [new docx.TextRun({ text: `Figure ${figureNumber}. `, bold: true, italics: formatPreset === "apa", font: fontName, size: 20 }), new docx.TextRun({ text: caption, italics: formatPreset === "apa", font: fontName, size: 20 })], spacing: { before: 120 } })] : []),
+      ] }] });
       const docBlob = await docx.Packer.toBlob(doc);
       const url = URL.createObjectURL(docBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${title || "figure"}.docx`;
-      a.click();
+      const a = document.createElement("a"); a.href = url; a.download = `${title || "figure"}.docx`; a.click();
       URL.revokeObjectURL(url);
       toast({ title: "Word document exported" });
-    } catch {
-      toast({ title: "DOCX export failed", variant: "destructive" });
-    } finally {
-      setExporting(false);
-    }
-  }, [title, caption, figureNumber, resolution, formatPreset, getExportElement, getFontCSS, toast]);
+    } catch { toast({ title: "DOCX export failed", variant: "destructive" }); }
+    finally { setExporting(false); }
+  }, [title, caption, figureNumber, resolution, formatPreset, figBg, getExportElement, getFontCSS, toast]);
+
+  const downloadSVG = useCallback(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
+    const svg = container.querySelector("[data-export-area] svg");
+    if (!svg) { toast({ title: "No SVG found", description: "SVG export works for recharts-based chart types", variant: "destructive" }); return; }
+    const clone = svg.cloneNode(true) as SVGElement;
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(clone);
+    const blob = new Blob([svgStr], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `${title || "figure"}.svg`; a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "SVG exported" });
+  }, [title, toast]);
+
+  const copyToClipboard = useCallback(async () => {
+    const exportEl = getExportElement();
+    if (!exportEl) return;
+    setExporting(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const bg = figBg === "transparent" ? "#ffffff" : figBg;
+      exportEl.style.background = bg; exportEl.style.padding = "24px"; exportEl.style.borderRadius = "0";
+      const canvas = await html2canvas(exportEl, { scale: 2, backgroundColor: bg, useCORS: true, logging: false });
+      exportEl.style.background = ""; exportEl.style.padding = ""; exportEl.style.borderRadius = "";
+      canvas.toBlob(async (blob) => {
+        if (!blob) { toast({ title: "Copy failed", variant: "destructive" }); return; }
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          toast({ title: "Copied to clipboard", description: "Figure copied as PNG" });
+        } catch { toast({ title: "Copy failed", description: "Use PNG export instead", variant: "destructive" }); }
+      });
+    } catch { toast({ title: "Copy failed", variant: "destructive" }); }
+    finally { setExporting(false); }
+  }, [figBg, getExportElement, toast]);
+
+  const downloadCode = useCallback(() => {
+    const code = codeLang === "python"
+      ? generatePythonCode(chartData, chartType, colors, title, xLabel, yLabel, caption, figureNumber)
+      : generateRCode(chartData, chartType, colors, title, xLabel, yLabel, caption, figureNumber);
+    const ext = codeLang === "python" ? "py" : "R";
+    const blob = new Blob([code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `figure_${figureNumber}.${ext}`; a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: `${codeLang === "python" ? "Python" : "R"} code exported`, description: `figure_${figureNumber}.${ext}` });
+  }, [chartData, chartType, colors, title, xLabel, yLabel, caption, figureNumber, codeLang, toast]);
+
+  const getRefLineValue = useCallback((): number | null => {
+    if (!showRefLine || chartData.length === 0) return null;
+    if (refLineType === "custom") return parseFloat(refLineCustom) || null;
+    const vals = chartData.map(d => d.value);
+    if (refLineType === "mean") return vals.reduce((a, b) => a + b, 0) / vals.length;
+    const sorted = [...vals].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  }, [showRefLine, refLineType, refLineCustom, chartData]);
 
   const currentTypeInfo = CHART_TYPES.find(t => t.type === chartType) || CHART_TYPES[0];
   const CurrentIcon = currentTypeInfo.icon;
   const totalValue = chartData.reduce((sum, d) => sum + d.value, 0);
-
   const isPresentation = formatPreset === "presentation" || formatPreset === "poster";
   const tickFontSize = isPresentation ? 13 : 10;
   const labelFontSize = isPresentation ? 14 : 11;
+  const xAxisHeight = xLabel ? 110 : 100;
+  const refVal = getRefLineValue();
 
-  const xAxisLabel = xLabel ? (
-    <Label value={xLabel} position="insideBottom" offset={-5} style={{ fontSize: labelFontSize, fontWeight: 600, fill: "#6b7280", fontFamily: getFontCSS() }} />
-  ) : undefined;
-  const yAxisLabel = yLabel ? (
-    <Label value={yLabel} angle={-90} position="insideLeft" offset={10} style={{ fontSize: labelFontSize, fontWeight: 600, fill: "#6b7280", textAnchor: "middle", fontFamily: getFontCSS() }} />
-  ) : undefined;
+  const xAxisLabel = xLabel ? (<Label value={xLabel} position="insideBottom" offset={-5} style={{ fontSize: labelFontSize, fontWeight: 600, fill: "#6b7280", fontFamily: getFontCSS() }} />) : undefined;
+  const yAxisLabel = yLabel ? (<Label value={yLabel} angle={-90} position="insideLeft" offset={10} style={{ fontSize: labelFontSize, fontWeight: 600, fill: "#6b7280", textAnchor: "middle", fontFamily: getFontCSS() }} />) : undefined;
 
   const formatSingleLabel = (val: number) => {
-    if (labelMode === "none") return "";
-    const pct = totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
-    if (labelMode === "values") return String(val);
-    if (labelMode === "percentages") return pct;
-    return String(val);
-  };
-
-  const formatPctLabel = (val: number) => totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
-
-  const formatLineLabel = (val: number) => {
     if (labelMode === "none") return "";
     const pct = totalValue > 0 ? ((val / totalValue) * 100).toFixed(1) + "%" : "0%";
     if (labelMode === "values") return String(val);
@@ -469,29 +776,24 @@ export default function FigureMaker() {
 
   const renderCustomBarLabel = (props: any) => {
     if (labelMode === "none") return null;
-    const { x, y, width, height, value } = props;
+    const { x, y, width, height, value, index } = props;
     const fs = isPresentation ? 11 : 8;
-    if (labelMode === "both") {
-      if (chartType === "barHorizontal") {
-        return (
-          <g>
-            <text x={x + width / 2} y={y + height / 2} dy={4} textAnchor="middle" fontSize={fs} fill="#ffffff" fontWeight={700} fontFamily={getFontCSS()}>{value}</text>
-            <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={fs} fill="#6b7280" fontWeight={500} fontFamily={getFontCSS()}>{formatPctLabel(value)}</text>
-          </g>
-        );
-      }
-      return (
+    if (chartType === "barHorizontal") {
+      if (labelMode === "both") return (
         <g>
           <text x={x + width / 2} y={y + height / 2} dy={4} textAnchor="middle" fontSize={fs} fill="#ffffff" fontWeight={700} fontFamily={getFontCSS()}>{value}</text>
-          <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={fs} fill="#6b7280" fontWeight={500} fontFamily={getFontCSS()}>{formatPctLabel(value)}</text>
+          <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={fs} fill="#6b7280" fontFamily={getFontCSS()}>{totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) + "%" : ""}</text>
         </g>
       );
+      return <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={fs + 1} fill="#6b7280" fontFamily={getFontCSS()}>{formatSingleLabel(value)}</text>;
     }
-    const text = formatSingleLabel(value);
-    if (chartType === "barHorizontal") {
-      return <text x={x + width + 4} y={y + height / 2} dy={4} fontSize={fs + 1} fill="#6b7280" fontWeight={500} fontFamily={getFontCSS()}>{text}</text>;
-    }
-    return <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={fs + 1} fill="#6b7280" fontWeight={500} fontFamily={getFontCSS()}>{text}</text>;
+    if (labelMode === "both") return (
+      <g>
+        <text x={x + width / 2} y={y + height / 2} dy={4} textAnchor="middle" fontSize={fs} fill="#ffffff" fontWeight={700} fontFamily={getFontCSS()}>{value}</text>
+        <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={fs} fill="#6b7280" fontFamily={getFontCSS()}>{totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) + "%" : ""}</text>
+      </g>
+    );
+    return <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={fs + 1} fill="#6b7280" fontFamily={getFontCSS()}>{formatSingleLabel(value)}</text>;
   };
 
   const pieLabel = labelMode === "none" ? false : ({ label, value, percent }: any) => {
@@ -500,100 +802,331 @@ export default function FigureMaker() {
     return `${label}: ${value} (${(percent * 100).toFixed(1)}%)`;
   };
 
-  const renderChart = () => {
-    if (chartData.length === 0) return null;
-
-    const baseHeight = chartType === "barHorizontal"
-      ? Math.max(250, chartData.length * 32 + 60)
-      : chartType === "pie" || chartType === "donut" || chartType === "halfDonut" ? 380
-      : chartType === "radar" ? 380
+  const getChartHeight = () => {
+    if (aspectRatio === "square") return 450;
+    if (aspectRatio === "wide") return 337;
+    if (aspectRatio === "narrow") return 550;
+    if (aspectRatio === "double") return 380;
+    return chartType === "barHorizontal" ? Math.max(250, chartData.length * 32 + 60)
+      : ["pie", "donut", "halfDonut", "radar"].includes(chartType) ? 380
       : chartType === "funnel" ? Math.max(300, chartData.length * 40 + 60)
       : chartType === "treemap" ? 380
       : isPresentation ? 400 : 340;
+  };
 
-    const xAxisHeight = xLabel ? 110 : 100;
+  const gridProps = showGrid
+    ? { strokeDasharray: "3 3", strokeOpacity: gridOpacity }
+    : { strokeDasharray: "0 0", strokeOpacity: 0 };
+
+  const renderBoxPlot = () => {
+    if (boxData.length === 0) return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm text-center p-4">
+        <div>
+          <AlignJustify className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          Paste box plot data:<br />
+          <code className="text-xs bg-muted px-1.5 py-0.5 rounded mt-1 inline-block">Label, Min, Q1, Median, Q3, Max</code>
+        </div>
+      </div>
+    );
+    const allVals = boxData.flatMap(d => [d.min, d.max]);
+    const minY = Math.min(...allVals); const maxY = Math.max(...allVals);
+    const range = maxY - minY || 1;
+    const PAD = { t: 30, r: 30, b: 50, l: 55 };
+    const W = 560; const H = 320;
+    const pw = W - PAD.l - PAD.r; const ph = H - PAD.t - PAD.b;
+    const sy = (v: number) => PAD.t + ph - ((v - minY) / range) * ph;
+    const bw = Math.min(44, pw / (boxData.length * 2));
+    const yTicks = 5;
+    return (
+      <div className="overflow-x-auto">
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ fontFamily: getFontCSS() }}>
+          {Array.from({ length: yTicks }, (_, i) => {
+            const v = minY + (range / (yTicks - 1)) * i;
+            const ys = sy(v);
+            return (
+              <g key={i}>
+                {showGrid && <line x1={PAD.l} y1={ys} x2={PAD.l + pw} y2={ys} stroke="#ccc" strokeWidth={0.5} strokeDasharray="3 3" />}
+                <text x={PAD.l - 6} y={ys} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="#888">{v.toFixed(1)}</text>
+              </g>
+            );
+          })}
+          <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + ph} stroke="#999" strokeWidth={1} />
+          <line x1={PAD.l} y1={PAD.t + ph} x2={PAD.l + pw} y2={PAD.t + ph} stroke="#999" strokeWidth={1} />
+          {boxData.map((d, i) => {
+            const cx = PAD.l + (i + 0.5) * (pw / boxData.length);
+            const yMin = sy(d.min); const yMax = sy(d.max);
+            const yQ1 = sy(d.q1); const yQ3 = sy(d.q3); const yMed = sy(d.median);
+            const col = colors[i % colors.length];
+            return (
+              <g key={i}>
+                <line x1={cx} y1={yMax} x2={cx} y2={yMin} stroke={col} strokeWidth={1.5} strokeDasharray="3 2" />
+                <line x1={cx - bw * 0.3} y1={yMin} x2={cx + bw * 0.3} y2={yMin} stroke={col} strokeWidth={2} />
+                <line x1={cx - bw * 0.3} y1={yMax} x2={cx + bw * 0.3} y2={yMax} stroke={col} strokeWidth={2} />
+                <rect x={cx - bw / 2} y={yQ3} width={bw} height={Math.abs(yQ1 - yQ3)} fill={col} fillOpacity={0.25} stroke={col} strokeWidth={1.5} rx={2} />
+                <line x1={cx - bw / 2} y1={yMed} x2={cx + bw / 2} y2={yMed} stroke={col} strokeWidth={2.5} />
+                <text x={cx} y={PAD.t + ph + 14} textAnchor="middle" fontSize={10} fill="#666">{d.label}</text>
+              </g>
+            );
+          })}
+          {refVal !== null && (
+            <g>
+              <line x1={PAD.l} y1={sy(refVal)} x2={PAD.l + pw} y2={sy(refVal)} stroke={refLineColor} strokeWidth={1.5} strokeDasharray="5 3" />
+              <text x={PAD.l + pw + 2} y={sy(refVal)} fontSize={9} fill={refLineColor} dominantBaseline="middle">{refLineLabel}</text>
+            </g>
+          )}
+        </svg>
+      </div>
+    );
+  };
+
+  const renderHeatmap = () => {
+    if (heatData.length === 0) return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm text-center p-4">
+        <div>
+          <Grid3x3 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          Paste matrix data — first row is column headers, first column is row names.
+        </div>
+      </div>
+    );
+    const rows = [...new Set(heatData.map(d => d.row))];
+    const cols = [...new Set(heatData.map(d => d.col))];
+    const vals = heatData.map(d => d.value);
+    const minV = Math.min(...vals); const maxV = Math.max(...vals);
+    const low = colors[colors.length - 1] || "#f0f9ff"; const high = colors[0] || "#0369a1";
+    return (
+      <div className="overflow-auto max-h-96">
+        <table style={{ borderCollapse: "collapse", fontSize: 11, fontFamily: getFontCSS() }}>
+          <thead>
+            <tr>
+              <th className="p-2 text-right text-muted-foreground text-xs font-normal"></th>
+              {cols.map(col => <th key={col} className="p-2 text-center text-xs font-semibold" style={{ whiteSpace: "nowrap" }}>{col}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => (
+              <tr key={row}>
+                <td className="p-2 pr-3 text-right text-xs font-semibold" style={{ whiteSpace: "nowrap" }}>{row}</td>
+                {cols.map(col => {
+                  const cell = heatData.find(d => d.row === row && d.col === col);
+                  const t = cell && maxV > minV ? (cell.value - minV) / (maxV - minV) : 0;
+                  const bg = cell ? interpolateColor(low, high, t) : "#f5f5f5";
+                  const textColor = t > 0.55 ? "#ffffff" : "#111111";
+                  return (
+                    <td key={col} className="p-2 text-center text-xs" style={{ backgroundColor: bg, color: textColor, minWidth: 56, border: "1px solid rgba(255,255,255,0.3)" }}>
+                      {cell ? cell.value : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderWordBubble = () => {
+    if (chartData.length === 0) return null;
+    const maxV = Math.max(...chartData.map(d => d.value));
+    const minV = Math.min(...chartData.map(d => d.value));
+    const getSize = (v: number) => Math.round(14 + ((maxV > minV ? (v - minV) / (maxV - minV) : 0.5)) * 56);
+    return (
+      <div className="flex flex-wrap gap-2.5 items-center justify-center p-6 min-h-[220px]">
+        {[...chartData].sort((a, b) => b.value - a.value).map((d, i) => {
+          const sz = getSize(d.value);
+          const pad = Math.round(sz * 0.45);
+          return (
+            <div key={i} className="flex flex-col items-center gap-1 cursor-default select-none transition-transform hover:scale-105" style={{ maxWidth: 150 }}>
+              <div className="rounded-full flex items-center justify-center font-semibold text-white text-center leading-tight" style={{
+                backgroundColor: colors[i % colors.length],
+                minWidth: sz * 1.9, minHeight: sz * 1.9,
+                paddingLeft: pad, paddingRight: pad,
+                paddingTop: Math.round(pad * 0.5), paddingBottom: Math.round(pad * 0.5),
+                fontSize: sz * 0.52,
+                fontFamily: getFontCSS(),
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              }}>
+                {d.label}
+              </div>
+              {labelMode !== "none" && (
+                <span className="text-[10px] text-muted-foreground font-medium" style={{ fontFamily: getFontCSS() }}>
+                  {labelMode === "percentages" ? (totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) + "%" : "") : d.value}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderChart = () => {
+    if (isSpecialRender(chartType)) {
+      if (chartType === "boxPlot") return renderBoxPlot();
+      if (chartType === "heatmap") return renderHeatmap();
+      if (chartType === "wordBubble") return renderWordBubble();
+      return null;
+    }
+
+    const activeData = chartData.length > 0 ? chartData : null;
+    if (!activeData && !multiData.length) return null;
+
+    const height = getChartHeight();
+
+    if (chartType === "groupedBar") {
+      if (multiData.length === 0) return (
+        <div className="flex items-center justify-center h-56 text-muted-foreground text-sm text-center p-4">
+          <div><Columns className="w-8 h-8 mx-auto mb-2 opacity-30" />Paste multi-column data for grouped bar:<br />
+            <code className="text-xs bg-muted px-1.5 py-0.5 rounded mt-1 inline-block">Category↹Series1↹Series2↹Series3</code>
+          </div>
+        </div>
+      );
+      return (
+        <div style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={multiData} margin={{ bottom: xLabel ? 20 : 5 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="label" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
+              <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
+              <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
+              {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
+              {seriesNames.map((name, i) => (
+                <Bar key={name} dataKey={name} fill={colors[i % colors.length]} radius={[barRadius, barRadius, 0, 0]} />
+              ))}
+              {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
+
+    if (!activeData) return null;
 
     return (
-      <div style={{ height: baseHeight + (hasAxes(chartType) && chartType !== "barHorizontal" ? 20 : 0) }}>
+      <div style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
           {(() => {
             switch (chartType) {
               case "bar":
                 return (
-                  <BarChart data={chartData} margin={{ bottom: xLabel ? 20 : 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                  <BarChart data={activeData} margin={{ bottom: xLabel ? 20 : 5 }}>
+                    <CartesianGrid {...gridProps} />
                     <XAxis dataKey="label" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
                     <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]} label={labelMode !== "none" ? renderCustomBarLabel : false}>
-                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    <Bar dataKey="value" radius={[barRadius, barRadius, 0, 0]} label={labelMode !== "none" ? renderCustomBarLabel : false}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Bar>
+                    {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
                   </BarChart>
                 );
               case "barHorizontal":
                 return (
-                  <BarChart data={chartData} layout="vertical" margin={{ bottom: xLabel ? 20 : 5, right: labelMode !== "none" ? 60 : 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                  <BarChart data={activeData} layout="vertical" margin={{ bottom: xLabel ? 20 : 5, right: labelMode !== "none" ? 60 : 5 }}>
+                    <CartesianGrid {...gridProps} />
                     <XAxis type="number" tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yLabel ? <Label value={yLabel} position="insideBottom" offset={-5} style={{ fontSize: labelFontSize, fontWeight: 600, fill: "#6b7280", fontFamily: getFontCSS() }} /> : undefined}</XAxis>
                     <YAxis dataKey="label" type="category" width={140} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xLabel ? <Label value={xLabel} angle={-90} position="insideLeft" offset={15} style={{ fontSize: labelFontSize, fontWeight: 600, fill: "#6b7280", textAnchor: "middle", fontFamily: getFontCSS() }} /> : undefined}</YAxis>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]} label={labelMode !== "none" ? renderCustomBarLabel : false}>
-                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    <Bar dataKey="value" radius={[0, barRadius, barRadius, 0]} label={labelMode !== "none" ? renderCustomBarLabel : false}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Bar>
+                    {refVal !== null && <ReferenceLine x={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
                   </BarChart>
                 );
               case "stackedBar": {
-                const total = chartData.reduce((sum, d) => sum + d.value, 0);
-                const stackedData = [chartData.reduce((acc, d) => ({ ...acc, [d.label]: d.value }), { name: "Total" } as Record<string, any>)];
+                const stackedData = [activeData.reduce((acc, d) => ({ ...acc, [d.label]: d.value }), { name: "Total" } as Record<string, any>)];
                 return (
                   <BarChart data={stackedData} margin={{ bottom: xLabel ? 20 : 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                    <CartesianGrid {...gridProps} />
                     <XAxis dataKey="name" tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }} />
                     <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
-                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} formatter={(value: number, name: string) => [`${value} (${((value / total) * 100).toFixed(1)}%)`, name]} />
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} formatter={(value: number, name: string) => [`${value} (${(totalValue > 0 ? (value / totalValue) * 100 : 0).toFixed(1)}%)`, name]} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    {chartData.map((d, i) => (
-                      <Bar key={d.label} dataKey={d.label} stackId="stack" fill={colors[i % colors.length]} radius={i === chartData.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                    {activeData.map((d, i) => (
+                      <Bar key={d.label} dataKey={d.label} stackId="stack" fill={colors[i % colors.length]} radius={i === activeData.length - 1 ? [barRadius, barRadius, 0, 0] : [0, 0, 0, 0]} />
                     ))}
+                  </BarChart>
+                );
+              }
+              case "lollipop": {
+                const LollipopDot = (props: any) => {
+                  if (!props || props.x === undefined) return null;
+                  const { x, y, width, index } = props;
+                  const cx = x + (width || 2) / 2;
+                  return <circle cx={cx} cy={y} r={7} fill={colors[(index || 0) % colors.length]} stroke="#fff" strokeWidth={1.5} />;
+                };
+                return (
+                  <BarChart data={activeData} margin={{ bottom: xLabel ? 20 : 5 }}>
+                    <CartesianGrid {...gridProps} />
+                    <XAxis dataKey="label" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
+                    <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
+                    <Bar dataKey="value" barSize={2} radius={0} fill={colors[0]} label={<LollipopDot />}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    </Bar>
+                    {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
+                  </BarChart>
+                );
+              }
+              case "errorBar": {
+                const errData = activeData.map(d => ({ ...d, errorVals: [d.value * (errorPct / 100), d.value * (errorPct / 100)] }));
+                return (
+                  <BarChart data={errData} margin={{ bottom: xLabel ? 20 : 5 }}>
+                    <CartesianGrid {...gridProps} />
+                    <XAxis dataKey="label" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
+                    <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
+                    <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
+                    {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
+                    <Bar dataKey="value" radius={[barRadius, barRadius, 0, 0]}>
+                      {errData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                      <ErrorBar dataKey="errorVals" width={4} strokeWidth={1.5} stroke="#444" />
+                    </Bar>
+                    {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
                   </BarChart>
                 );
               }
               case "line":
                 return (
-                  <LineChart data={chartData} margin={{ bottom: xLabel ? 20 : 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                  <LineChart data={activeData} margin={{ bottom: xLabel ? 20 : 5 }}>
+                    <CartesianGrid {...gridProps} />
                     <XAxis dataKey="label" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
                     <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    <Line type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={isPresentation ? 3.5 : 2.5} dot={{ fill: colors[0], r: isPresentation ? 5 : 4 }} activeDot={{ r: 6, fill: colors[1] || colors[0] }} label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={isPresentation ? 11 : 9} fill="#6b7280" fontWeight={500} fontFamily={getFontCSS()}>{formatLineLabel(value)}</text> : false} />
+                    <Line type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={lineThickness} dot={{ fill: colors[0], r: isPresentation ? 5 : 4 }} activeDot={{ r: 6, fill: colors[1] || colors[0] }}
+                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={isPresentation ? 11 : 9} fill="#6b7280" fontFamily={getFontCSS()}>{formatSingleLabel(value)}</text> : false}
+                    />
+                    {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
                   </LineChart>
                 );
               case "area":
                 return (
-                  <AreaChart data={chartData} margin={{ bottom: xLabel ? 20 : 5 }}>
+                  <AreaChart data={activeData} margin={{ bottom: xLabel ? 20 : 5 }}>
                     <defs>
                       <linearGradient id="fmAreaGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={colors[0]} stopOpacity={0.4} />
                         <stop offset="95%" stopColor={colors[0]} stopOpacity={0.05} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                    <CartesianGrid {...gridProps} />
                     <XAxis dataKey="label" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
                     <YAxis tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    <Area type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={2} fill="url(#fmAreaGrad)" label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={isPresentation ? 11 : 9} fill="#6b7280" fontWeight={500} fontFamily={getFontCSS()}>{formatLineLabel(value)}</text> : false} />
+                    <Area type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={lineThickness} fill="url(#fmAreaGrad)"
+                      label={labelMode !== "none" ? ({ x, y, value }: any) => <text x={x} y={y - 10} textAnchor="middle" fontSize={isPresentation ? 11 : 9} fill="#6b7280" fontFamily={getFontCSS()}>{formatSingleLabel(value)}</text> : false}
+                    />
+                    {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" label={{ value: refLineLabel, fill: refLineColor, fontSize: 10, fontFamily: getFontCSS() }} />}
                   </AreaChart>
                 );
               case "pie":
               case "donut":
                 return (
                   <PieChart>
-                    <Pie data={chartData} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={chartType === "donut" ? 120 : 130} innerRadius={chartType === "donut" ? 60 : 0} paddingAngle={2} label={pieLabel} labelLine={labelMode !== "none" ? { strokeWidth: 1 } : false}>
-                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    <Pie data={activeData} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={chartType === "donut" ? 120 : 130} innerRadius={chartType === "donut" ? 60 : 0} paddingAngle={2} label={pieLabel} labelLine={labelMode !== "none" ? { strokeWidth: 1 } : false}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Pie>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
@@ -602,8 +1135,8 @@ export default function FigureMaker() {
               case "halfDonut":
                 return (
                   <PieChart>
-                    <Pie data={chartData} dataKey="value" nameKey="label" cx="50%" cy="70%" startAngle={180} endAngle={0} outerRadius={140} innerRadius={70} paddingAngle={2} label={pieLabel} labelLine={labelMode !== "none" ? { strokeWidth: 1 } : false}>
-                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    <Pie data={activeData} dataKey="value" nameKey="label" cx="50%" cy="70%" startAngle={180} endAngle={0} outerRadius={140} innerRadius={70} paddingAngle={2} label={pieLabel} labelLine={labelMode !== "none" ? { strokeWidth: 1 } : false}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Pie>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
@@ -611,31 +1144,32 @@ export default function FigureMaker() {
                 );
               case "radar":
                 return (
-                  <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
-                    <PolarGrid strokeDasharray="3 3" className="opacity-30" />
+                  <RadarChart data={activeData} cx="50%" cy="50%" outerRadius="70%">
+                    <PolarGrid strokeDasharray="3 3" strokeOpacity={showGrid ? 0.3 : 0} />
                     <PolarAngleAxis dataKey="label" tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }} />
                     <PolarRadiusAxis tick={{ fontSize: tickFontSize - 1 }} />
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    <Radar dataKey="value" stroke={colors[0]} fill={colors[0]} fillOpacity={0.3} strokeWidth={2} />
+                    <Radar dataKey="value" stroke={colors[0]} fill={colors[0]} fillOpacity={0.3} strokeWidth={lineThickness} />
                   </RadarChart>
                 );
               case "scatter":
                 return (
                   <ScatterChart margin={{ bottom: xLabel ? 20 : 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                    <CartesianGrid {...gridProps} />
                     <XAxis dataKey="label" name="Item" angle={-45} textAnchor="end" height={xAxisHeight} interval={0} tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{xAxisLabel}</XAxis>
                     <YAxis dataKey="value" name="Value" tick={{ fontSize: tickFontSize, fontFamily: getFontCSS() }}>{yAxisLabel}</YAxis>
                     <ZAxis range={[60, 300]} />
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} cursor={{ strokeDasharray: "3 3" }} />
                     {showLegend && <Legend wrapperStyle={{ fontFamily: getFontCSS(), fontSize: tickFontSize }} />}
-                    <Scatter data={chartData} fill={colors[0]}>
-                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    <Scatter data={activeData} fill={colors[0]}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Scatter>
+                    {refVal !== null && <ReferenceLine y={refVal} stroke={refLineColor} strokeDasharray="4 4" />}
                   </ScatterChart>
                 );
               case "funnel": {
-                const sortedData = [...chartData].sort((a, b) => b.value - a.value).map((d, i) => ({ ...d, fill: colors[i % colors.length] }));
+                const sortedData = [...activeData].sort((a, b) => b.value - a.value).map((d, i) => ({ ...d, fill: colors[i % colors.length] }));
                 return (
                   <FunnelChart>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
@@ -648,8 +1182,8 @@ export default function FigureMaker() {
                 );
               }
               case "treemap": {
-                const treemapData = chartData.map((d, i) => ({ name: d.label, size: d.value, fill: colors[i % colors.length] }));
-                const TreemapContent = ({ x, y, width, height, name, size, fill }: any) => {
+                const treemapData = activeData.map((d, i) => ({ name: d.label, size: d.value, fill: colors[i % colors.length] }));
+                const TC = ({ x, y, width, height, name, size, fill }: any) => {
                   if (width < 30 || height < 20) return null;
                   return (
                     <g>
@@ -664,20 +1198,20 @@ export default function FigureMaker() {
                   );
                 };
                 return (
-                  <Treemap data={treemapData} dataKey="size" nameKey="name" aspectRatio={4 / 3} stroke="#fff" content={<TreemapContent />}>
+                  <Treemap data={treemapData} dataKey="size" nameKey="name" aspectRatio={4 / 3} stroke="#fff" content={<TC />}>
                     <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontFamily: getFontCSS() }} />
                   </Treemap>
                 );
               }
               default:
                 return (
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+                  <BarChart data={activeData}>
+                    <CartesianGrid {...gridProps} />
                     <XAxis dataKey="label" angle={-45} textAnchor="end" height={100} interval={0} tick={{ fontSize: tickFontSize }} />
                     <YAxis tick={{ fontSize: tickFontSize }} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {chartData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+                    <Bar dataKey="value" radius={[barRadius, barRadius, 0, 0]}>
+                      {activeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
                     </Bar>
                   </BarChart>
                 );
@@ -692,25 +1226,26 @@ export default function FigureMaker() {
     if (!caption) return null;
     const prefix = `Figure ${figureNumber}. `;
     switch (formatPreset) {
-      case "apa":
-        return <p className="text-sm mt-3 italic" style={{ fontFamily: getFontCSS() }}><span className="font-bold not-italic">{prefix}</span>{caption}</p>;
-      case "ieee":
-        return <p className="text-xs mt-2 text-center" style={{ fontFamily: getFontCSS() }}><span className="font-bold">Fig. {figureNumber}.</span> {caption}</p>;
-      case "chicago":
-        return <p className="text-sm mt-3" style={{ fontFamily: getFontCSS() }}><span className="font-semibold">{prefix}</span>{caption}</p>;
-      default:
-        return <p className="text-xs text-muted-foreground mt-2" style={{ fontFamily: getFontCSS() }}><span className="font-semibold text-foreground">{prefix}</span>{caption}</p>;
+      case "apa": return <p className="text-sm mt-3 italic" style={{ fontFamily: getFontCSS() }}><span className="font-bold not-italic">{prefix}</span>{caption}</p>;
+      case "ieee": return <p className="text-xs mt-2 text-center" style={{ fontFamily: getFontCSS() }}><span className="font-bold">Fig. {figureNumber}.</span> {caption}</p>;
+      case "chicago": return <p className="text-sm mt-3" style={{ fontFamily: getFontCSS() }}><span className="font-semibold">{prefix}</span>{caption}</p>;
+      case "nature": return <p className="text-xs mt-2" style={{ fontFamily: getFontCSS() }}><span className="font-bold">{prefix}</span>{caption}</p>;
+      case "thesis": return <p className="text-sm mt-3" style={{ fontFamily: getFontCSS() }}><span className="font-bold">{prefix}</span><span className="italic">{caption}</span></p>;
+      default: return <p className="text-xs text-muted-foreground mt-2" style={{ fontFamily: getFontCSS() }}><span className="font-semibold text-foreground">{prefix}</span>{caption}</p>;
     }
   };
 
+  const hasData = chartData.length > 0 || multiData.length > 0 || boxData.length > 0 || heatData.length > 0;
+
+  const togglePanel = useCallback((panel: string) => {
+    setOpenPanel(prev => prev === panel ? null : panel);
+  }, []);
+
+  const chartGroups = ["Basic", "Circular", "Distribution", "Matrix", "Other"];
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center gap-4 mb-2"
-      >
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex items-center gap-4 mb-2">
         <div className="page-header-icon bg-gradient-to-br from-rose-500 to-pink-600">
           <Image className="w-5 h-5 text-white relative z-10" />
         </div>
@@ -720,12 +1255,7 @@ export default function FigureMaker() {
         </div>
       </motion.div>
 
-      <motion.div
-        className="polished-card overflow-hidden"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
-      >
+      <motion.div className="polished-card overflow-hidden" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}>
         <div className="h-1 bg-gradient-to-r from-rose-500 via-pink-400 to-rose-500" />
         <div className="p-6 md:p-7">
           <motion.div className="flex items-center gap-3 mb-5" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
@@ -735,79 +1265,67 @@ export default function FigureMaker() {
             <h3 className="text-lg font-bold tracking-tight text-rose-600 dark:text-rose-400" style={{ fontFamily: "'Playfair Display', serif" }}>Input Your Data</h3>
           </motion.div>
 
+          {chartType === "groupedBar" && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+              Grouped Bar mode: paste tab-separated data with a header row (first column = group labels, remaining columns = series names).
+            </div>
+          )}
+          {chartType === "boxPlot" && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+              Box Plot mode: paste data as columns — <code>Label, Min, Q1, Median, Q3, Max</code>
+            </div>
+          )}
+          {chartType === "heatmap" && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+              Heatmap mode: paste a matrix — first row = column headers, first column = row labels.
+            </div>
+          )}
+
           <Tabs value={dataInputMode} onValueChange={(v) => setDataInputMode(v as "paste" | "upload")} className="space-y-4">
             <TabsList data-testid="tabs-data-input">
               <TabsTrigger value="paste" className="gap-1.5" data-testid="tab-paste"><ClipboardPaste className="w-3.5 h-3.5" />Paste / Type</TabsTrigger>
               <TabsTrigger value="upload" className="gap-1.5" data-testid="tab-upload"><Upload className="w-3.5 h-3.5" />Upload CSV</TabsTrigger>
             </TabsList>
-
             <TabsContent value="paste" className="space-y-3">
               <Textarea
-                placeholder={"Paste your data in any format — AI will extract it automatically.\n\nExamples:\n• Arabic, 28\n• Source Language: Arabic, Value: 28\n• The study found 45% explicitation and 30% simplification\n• English has 5000 words, French has 3200\n• Any table, paragraph, or list with numbers"}
-                value={pasteData}
-                onChange={(e) => setPasteData(e.target.value)}
+                placeholder={"Paste your data in any format — AI will extract it automatically.\n\nExamples:\n• Arabic, 28\n• The study found 45% explicitation and 30% simplification\n• English has 5000 words, French has 3200\n• Any table, paragraph, or list with numbers\n\nFor grouped bar: paste a table with column headers\nFor heatmap: paste a matrix (rows × columns)"}
+                value={pasteData} onChange={(e) => setPasteData(e.target.value)}
                 className="min-h-[140px] font-mono text-xs resize-y border-rose-200 dark:border-rose-800/30 focus-visible:ring-rose-400/40"
                 data-testid="textarea-paste-data"
               />
               <div className="flex gap-2 flex-wrap items-center">
-                <Button
-                  size="sm"
-                  onClick={parsePastedData}
-                  disabled={!pasteData.trim() || isAIParsing}
-                  className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white"
-                  data-testid="button-parse-data"
-                >
-                  {isAIParsing ? (
-                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                  )}
-                  {isAIParsing ? "AI Parsing..." : "Load Data"}
+                <Button size="sm" onClick={parsePastedData} disabled={!pasteData.trim() || aiParseMutation.isPending}
+                  className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white" data-testid="button-parse-data">
+                  {aiParseMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                  {aiParseMutation.isPending ? "AI Parsing..." : "Load Data"}
                 </Button>
-                {isAIParsing && (
-                  <span className="text-[11px] text-muted-foreground animate-pulse">AI is extracting your data...</span>
-                )}
+                {aiParseMutation.isPending && <span className="text-[11px] text-muted-foreground animate-pulse">AI is extracting your data...</span>}
               </div>
             </TabsContent>
-
             <TabsContent value="upload" className="space-y-3">
               <div className="relative rounded-xl border-2 border-dashed border-rose-200 dark:border-rose-800/40 bg-rose-50/30 dark:bg-rose-950/10 p-6 text-center">
                 <Upload className="w-8 h-8 text-rose-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Upload a data file</p>
                 <p className="text-[11px] text-muted-foreground mb-3">CSV, TSV, or text files — AI will extract the data automatically</p>
-                <input
-                  type="file"
-                  accept=".csv,.tsv,.txt"
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  data-testid="input-file-upload"
-                />
-                <Button size="sm" variant="outline" className="pointer-events-none">
-                  <Upload className="w-3.5 h-3.5 mr-1.5" />Choose File
-                </Button>
+                <input type="file" accept=".csv,.tsv,.txt" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" data-testid="input-file-upload" />
+                <Button size="sm" variant="outline" className="pointer-events-none"><Upload className="w-3.5 h-3.5 mr-1.5" />Choose File</Button>
               </div>
             </TabsContent>
           </Tabs>
 
-          {chartData.length > 0 && (
-            <motion.div
-              className="mt-4 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/30 text-xs text-rose-600 dark:text-rose-400 font-medium"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-            >
-              {chartData.length} data points loaded — customize your figure below
+          {hasData && (
+            <motion.div className="mt-4 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/30 text-xs text-rose-600 dark:text-rose-400 font-medium" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+              {chartType === "groupedBar" && multiData.length > 0 ? `${multiData.length} groups, ${seriesNames.length} series loaded` :
+                chartType === "boxPlot" && boxData.length > 0 ? `${boxData.length} box plot groups loaded` :
+                  chartType === "heatmap" && heatData.length > 0 ? `${heatData.length} heatmap cells loaded` :
+                    `${chartData.length} data points loaded`} — customize your figure below
             </motion.div>
           )}
         </div>
       </motion.div>
 
-      {chartData.length > 0 && (
-        <motion.div
-          className="space-y-4"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
+      {hasData && (
+        <motion.div className="space-y-4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <div className="polished-card p-6" ref={chartContainerRef}>
             <div className="overflow-x-auto scrollbar-hide mb-2">
               <div className="flex items-center gap-1.5 min-w-max">
@@ -822,25 +1340,49 @@ export default function FigureMaker() {
                     {title ? <span className="font-medium text-foreground">{title}</span> : <span className="italic">Title</span>}
                   </button>
                 )}
+
                 <div className="w-px h-4 bg-border flex-shrink-0" />
-                <Button size="sm" variant={showChartTypes ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("types")} data-testid="button-toggle-chart-type">
+
+                <Button size="sm" variant={openPanel === "types" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("types")} data-testid="button-toggle-chart-type">
                   <CurrentIcon className="w-3 h-3" />{currentTypeInfo.label}<ChevronDown className="w-2.5 h-2.5" />
                 </Button>
-                <Button size="sm" variant={showPalettes ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("palettes")} data-testid="button-toggle-palette">
+                <Button size="sm" variant={openPanel === "palettes" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("palettes")} data-testid="button-toggle-palette">
                   <Palette className="w-3 h-3" />Colors
                 </Button>
                 {hasAxes(chartType) && (
-                  <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("settings")} data-testid="button-toggle-axes-inline">
+                  <Button size="sm" variant={openPanel === "axes" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("axes")} data-testid="button-toggle-axes-inline">
                     <Type className="w-3 h-3" />Axes
                   </Button>
                 )}
-                <Button size="sm" variant={showLabelOptions ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("labels")} data-testid="button-toggle-labels">
+                <Button size="sm" variant={openPanel === "labels" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("labels")} data-testid="button-toggle-labels">
                   <Tag className="w-3 h-3" />Labels
                 </Button>
-                <Button size="sm" variant={editing ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("edit")} data-testid="button-toggle-edit">
-                  <Pencil className="w-3 h-3" />{editing ? "Done" : "Edit"}
+                <Button size="sm" variant={openPanel === "style" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("style")} data-testid="button-toggle-style">
+                  <Paintbrush2 className="w-3 h-3" />Style
                 </Button>
+                <Button size="sm" variant={openPanel === "annotate" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("annotate")} data-testid="button-toggle-annotate">
+                  <Minus className="w-3 h-3" />Annotate
+                </Button>
+                <Button size="sm" variant={openPanel === "edit" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("edit")} data-testid="button-toggle-edit">
+                  <Pencil className="w-3 h-3" />{openPanel === "edit" ? "Done" : "Edit"}
+                </Button>
+
                 <div className="w-px h-4 bg-border flex-shrink-0" />
+
+                <Button size="icon" variant="ghost" className="w-6 h-6 flex-shrink-0" onClick={undo} disabled={historyPtr <= 0} title="Undo" data-testid="button-undo"><Undo2 className="w-3 h-3" /></Button>
+                <Button size="icon" variant="ghost" className="w-6 h-6 flex-shrink-0" onClick={redo} disabled={historyPtr >= historyStack.length - 1} title="Redo" data-testid="button-redo"><Redo2 className="w-3 h-3" /></Button>
+
+                <div className="w-px h-4 bg-border flex-shrink-0" />
+
+                <Button size="sm" variant={openPanel === "templates" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("templates")} data-testid="button-toggle-templates">
+                  <BookOpen className="w-3 h-3" />Templates
+                </Button>
+                <Button size="sm" variant={openPanel === "ai" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("ai")} data-testid="button-toggle-ai">
+                  <Wand2 className="w-3 h-3" />AI
+                </Button>
+
+                <div className="w-px h-4 bg-border flex-shrink-0" />
+
                 <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={downloadPNG} disabled={exporting} data-testid="button-export-png">
                   {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}PNG
                 </Button>
@@ -850,33 +1392,54 @@ export default function FigureMaker() {
                 <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={downloadDOCX} disabled={exporting} data-testid="button-export-docx">
                   <FileText className="w-3 h-3" />Word
                 </Button>
+                <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={downloadSVG} data-testid="button-export-svg">
+                  <BarChart2 className="w-3 h-3" />SVG
+                </Button>
+                <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={copyToClipboard} disabled={exporting} data-testid="button-copy-clipboard">
+                  <Copy className="w-3 h-3" />Copy
+                </Button>
+                <Button size="sm" variant={openPanel === "code" ? "default" : "outline"} className="h-6 text-[11px] px-2 gap-1 flex-shrink-0" onClick={() => togglePanel("code")} data-testid="button-toggle-code">
+                  <Code2 className="w-3 h-3" />Code
+                </Button>
               </div>
             </div>
 
             <AnimatePresence>
-              {showChartTypes && (
+              {openPanel === "types" && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                  <div className="flex flex-wrap gap-1 p-2 rounded-lg border bg-muted/20 mb-2">
-                    {CHART_TYPES.map(({ type, label, icon: Icon }) => (
-                      <button key={type} onClick={() => { setChartType(type); setShowChartTypes(false); }} className={`flex items-center gap-1 px-2 py-1.5 rounded-md border text-[11px] font-medium transition-all ${chartType === type ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"}`} data-testid={`button-chart-type-${type}`}>
-                        <Icon className="w-3.5 h-3.5" />{label}
-                      </button>
-                    ))}
+                  <div className="p-2 rounded-lg border bg-muted/20 mb-2 space-y-2">
+                    {chartGroups.map(group => {
+                      const groupTypes = CHART_TYPES.filter(t => t.group === group);
+                      return (
+                        <div key={group}>
+                          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1">{group}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {groupTypes.map(({ type, label, icon: Icon }) => (
+                              <button key={type} onClick={() => { setChartType(type); setOpenPanel(null); }}
+                                className={`flex items-center gap-1 px-2 py-1.5 rounded-md border text-[11px] font-medium transition-all ${chartType === type ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"}`}
+                                data-testid={`button-chart-type-${type}`}>
+                                <Icon className="w-3.5 h-3.5" />{label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
             <AnimatePresence>
-              {showPalettes && (
+              {openPanel === "palettes" && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                  <div className="flex flex-wrap gap-1.5 p-2 rounded-lg border bg-muted/20 mb-2 max-h-48 overflow-auto">
+                  <div className="flex flex-wrap gap-1.5 p-2 rounded-lg border bg-muted/20 mb-2 max-h-52 overflow-auto">
                     {PRESET_PALETTES.map((palette) => (
-                      <button key={palette.name} onClick={() => { setColors(palette.colors); setShowPalettes(false); }} className="flex items-center gap-1 px-2 py-1 rounded-md border hover:border-primary/50 hover:bg-background transition-all text-[11px] font-medium" data-testid={`button-palette-${palette.name.toLowerCase()}`}>
+                      <button key={palette.name} onClick={() => { setColors(palette.colors); setOpenPanel(null); }}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md border hover:border-primary/50 hover:bg-background transition-all text-[11px] font-medium"
+                        data-testid={`button-palette-${palette.name.toLowerCase()}`}>
                         <div className="flex gap-px">
-                          {palette.colors.slice(0, 5).map((c, ci) => (
-                            <div key={ci} className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c }} />
-                          ))}
+                          {palette.colors.slice(0, 5).map((c, ci) => <div key={ci} className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c }} />)}
                         </div>
                         {palette.name}
                       </button>
@@ -887,17 +1450,21 @@ export default function FigureMaker() {
             </AnimatePresence>
 
             <AnimatePresence>
-              {showLabelOptions && (
+              {openPanel === "labels" && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                  <div className="flex items-center gap-1 p-2 rounded-lg border bg-muted/20 mb-2">
+                  <div className="flex items-center gap-1 p-2 rounded-lg border bg-muted/20 mb-2 flex-wrap">
                     <span className="text-[11px] font-semibold text-muted-foreground mr-1">Show:</span>
                     {(["none", "values", "percentages", "both"] as LabelMode[]).map((mode) => (
-                      <button key={mode} onClick={() => { setLabelMode(mode); setShowLabelOptions(false); }} className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all capitalize ${labelMode === mode ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"}`} data-testid={`button-label-mode-${mode}`}>
+                      <button key={mode} onClick={() => { setLabelMode(mode); setOpenPanel(null); }}
+                        className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all capitalize ${labelMode === mode ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"}`}
+                        data-testid={`button-label-mode-${mode}`}>
                         {mode === "both" ? "Values + %" : mode === "none" ? "None" : mode === "values" ? "Values" : "Percentages"}
                       </button>
                     ))}
                     <div className="w-px h-4 bg-border mx-1" />
-                    <button onClick={() => setShowLegend(!showLegend)} className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all ${showLegend ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"}`} data-testid="button-toggle-legend">
+                    <button onClick={() => setShowLegend(!showLegend)}
+                      className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all ${showLegend ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50 hover:bg-background"}`}
+                      data-testid="button-toggle-legend">
                       Legend {showLegend ? "On" : "Off"}
                     </button>
                   </div>
@@ -906,7 +1473,7 @@ export default function FigureMaker() {
             </AnimatePresence>
 
             <AnimatePresence>
-              {showSettings && (
+              {openPanel === "axes" && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
                   <div className="flex items-center gap-3 p-2.5 rounded-lg border bg-muted/20 mb-2">
                     <div className="flex items-center gap-1.5 flex-1">
@@ -917,14 +1484,113 @@ export default function FigureMaker() {
                       <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap">Y Axis:</span>
                       <Input value={yLabel} onChange={(e) => setYLabel(e.target.value)} placeholder="e.g. Frequency" className="h-6 text-[11px] flex-1" data-testid="input-y-label" />
                     </div>
-                    <Button size="icon" variant="ghost" className="w-6 h-6 flex-shrink-0" onClick={() => setShowSettings(false)} data-testid="button-save-axes"><Check className="w-3 h-3" /></Button>
+                    <Button size="icon" variant="ghost" className="w-6 h-6 flex-shrink-0" onClick={() => setOpenPanel(null)}><Check className="w-3 h-3" /></Button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
             <AnimatePresence>
-              {editing && (
+              {openPanel === "style" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                  <div className="p-3 rounded-lg border bg-muted/20 mb-2 space-y-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">Aspect Ratio</label>
+                        <div className="flex flex-wrap gap-1">
+                          {[["auto", "Auto"], ["square", "Square"], ["wide", "Wide 16:9"], ["narrow", "Narrow"], ["double", "Double Col"]].map(([v, l]) => (
+                            <button key={v} onClick={() => setAspectRatio(v)}
+                              className={`px-2 py-1 rounded-md border text-[11px] font-medium transition-all ${aspectRatio === v ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                              data-testid={`button-aspect-${v}`}>{l}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">Figure Background</label>
+                        <div className="flex flex-wrap gap-1">
+                          {[["transparent", "None"], ["#ffffff", "White"], ["#f8f9fa", "Gray"], ["#000000", "Black"]].map(([v, l]) => (
+                            <button key={v} onClick={() => setFigBg(v)}
+                              className={`px-2 py-1 rounded-md border text-[11px] font-medium transition-all ${figBg === v ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                              data-testid={`button-bg-${l.toLowerCase()}`} style={v !== "transparent" ? { backgroundColor: v === "#ffffff" ? "#f0f0f0" : v === "#f8f9fa" ? "#e8e8e8" : "#222" } : {}}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">Grid Lines</label>
+                        <button onClick={() => setShowGrid(!showGrid)}
+                          className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all ${showGrid ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                          data-testid="button-toggle-grid">
+                          Grid {showGrid ? "On" : "Off"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Bar Radius: {barRadius}px</label>
+                        <Slider value={[barRadius]} onValueChange={([v]) => setBarRadius(v)} min={0} max={16} step={1} className="w-full" data-testid="slider-bar-radius" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Line Thickness: {lineThickness}px</label>
+                        <Slider value={[lineThickness]} onValueChange={([v]) => setLineThickness(v)} min={1} max={6} step={0.5} className="w-full" data-testid="slider-line-thickness" />
+                      </div>
+                      {chartType === "errorBar" && (
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Error Bar: ±{errorPct}%</label>
+                          <Slider value={[errorPct]} onValueChange={([v]) => setErrorPct(v)} min={1} max={40} step={1} className="w-full" data-testid="slider-error-pct" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {openPanel === "annotate" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                  <div className="p-3 rounded-lg border bg-muted/20 mb-2">
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <button onClick={() => setShowRefLine(!showRefLine)}
+                        className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all ${showRefLine ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                        data-testid="button-toggle-refline">
+                        Reference Line {showRefLine ? "On" : "Off"}
+                      </button>
+                      {showRefLine && (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground font-medium">Type:</span>
+                            {(["mean", "median", "custom"] as const).map(t => (
+                              <button key={t} onClick={() => setRefLineType(t)}
+                                className={`px-2 py-1.5 rounded-md border text-[11px] font-medium capitalize transition-all ${refLineType === t ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                                data-testid={`button-refline-type-${t}`}>{t}</button>
+                            ))}
+                          </div>
+                          {refLineType === "custom" && (
+                            <Input value={refLineCustom} onChange={(e) => setRefLineCustom(e.target.value)} placeholder="Value" className="h-6 text-[11px] w-20" data-testid="input-refline-value" />
+                          )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground font-medium">Label:</span>
+                            <Input value={refLineLabel} onChange={(e) => setRefLineLabel(e.target.value)} placeholder="Label" className="h-6 text-[11px] w-24" data-testid="input-refline-label" />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground font-medium">Color:</span>
+                            <input type="color" value={refLineColor} onChange={(e) => setRefLineColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border" data-testid="input-refline-color" />
+                          </div>
+                          {refVal !== null && (
+                            <span className="text-[11px] text-muted-foreground">= {refVal.toFixed(2)}</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {openPanel === "edit" && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
                   <div className="p-2.5 rounded-lg border bg-muted/20 space-y-1.5 mb-2">
                     <div className="max-h-44 overflow-auto space-y-1">
@@ -948,7 +1614,130 @@ export default function FigureMaker() {
               )}
             </AnimatePresence>
 
-            <div data-export-area className="rounded-lg">
+            <AnimatePresence>
+              {openPanel === "templates" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                  <div className="p-2 rounded-lg border bg-muted/20 mb-2">
+                    <p className="text-[11px] text-muted-foreground mb-2 font-medium">Click a template to populate with sample academic data:</p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5">
+                      {FIGURE_TEMPLATES.map(tpl => (
+                        <button key={tpl.id} onClick={() => applyTemplate(tpl)}
+                          className="flex flex-col items-center gap-1 p-2 rounded-lg border text-center hover:border-primary/60 hover:bg-background transition-all text-[11px] font-medium"
+                          data-testid={`button-template-${tpl.id}`}>
+                          <span className="text-lg">{tpl.icon}</span>
+                          <span className="leading-tight">{tpl.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal leading-tight">{tpl.description.slice(0, 35)}…</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {openPanel === "ai" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                  <div className="p-3 rounded-lg border bg-muted/20 mb-2 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">AI Caption</p>
+                        <Button size="sm" variant="outline" className="w-full h-7 text-[11px] gap-1.5"
+                          onClick={() => aiCaptionMutation.mutate()} disabled={chartData.length === 0 || aiCaptionMutation.isPending}
+                          data-testid="button-ai-caption">
+                          {aiCaptionMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                          {aiCaptionMutation.isPending ? "Writing..." : "Generate Caption"}
+                        </Button>
+                        {aiCaptionResult && (
+                          <div className="space-y-1">
+                            <p className="text-[11px] bg-background border rounded p-2 leading-relaxed">{aiCaptionResult}</p>
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] w-full" onClick={() => { setCaption(aiCaptionResult); toast({ title: "Caption applied" }); }} data-testid="button-apply-caption">
+                              <Check className="w-3 h-3 mr-1" />Use This Caption
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Chart Recommendation</p>
+                        <div className="flex gap-1">
+                          <Input value={aiContext} onChange={(e) => setAiContext(e.target.value)} placeholder="e.g. translation strategies" className="h-7 text-[11px] flex-1" data-testid="input-ai-context" />
+                          <Button size="sm" variant="outline" className="h-7 text-[11px] px-2 gap-1 flex-shrink-0"
+                            onClick={() => aiRecommendMutation.mutate()} disabled={chartData.length === 0 || aiRecommendMutation.isPending}
+                            data-testid="button-ai-recommend">
+                            {aiRecommendMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            Ask
+                          </Button>
+                        </div>
+                        {aiRecommendResult && (
+                          <div className="space-y-1">
+                            <p className="text-[11px] bg-background border rounded p-2 leading-relaxed">
+                              <span className="font-bold">{aiRecommendResult.chartType}</span> — {aiRecommendResult.reason}
+                            </p>
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] w-full"
+                              onClick={() => { const found = CHART_TYPES.find(t => t.type === aiRecommendResult.chartType); if (found) { setChartType(found.type); toast({ title: "Chart type applied" }); } }}
+                              data-testid="button-apply-recommendation">
+                              <Check className="w-3 h-3 mr-1" />Switch to {aiRecommendResult.chartType}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Results Paragraph</p>
+                        <Button size="sm" variant="outline" className="w-full h-7 text-[11px] gap-1.5"
+                          onClick={() => aiResultsMutation.mutate()} disabled={chartData.length === 0 || aiResultsMutation.isPending}
+                          data-testid="button-ai-results">
+                          {aiResultsMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                          {aiResultsMutation.isPending ? "Writing..." : "Write Results Section"}
+                        </Button>
+                        {aiResultsResult && (
+                          <div className="space-y-1">
+                            <p className="text-[11px] bg-background border rounded p-2 leading-relaxed line-clamp-4">{aiResultsResult}</p>
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] w-full"
+                              onClick={async () => { await navigator.clipboard.writeText(aiResultsResult); toast({ title: "Copied to clipboard" }); }}
+                              data-testid="button-copy-results">
+                              <Copy className="w-3 h-3 mr-1" />Copy to Clipboard
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {openPanel === "code" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                  <div className="p-3 rounded-lg border bg-muted/20 mb-2 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Export code for:</span>
+                      <button onClick={() => setCodeLang("python")}
+                        className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all ${codeLang === "python" ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                        data-testid="button-code-python">Python (matplotlib)</button>
+                      <button onClick={() => setCodeLang("r")}
+                        className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all ${codeLang === "r" ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/50"}`}
+                        data-testid="button-code-r">R (ggplot2)</button>
+                      <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1.5 ml-auto"
+                        onClick={downloadCode} disabled={chartData.length === 0} data-testid="button-download-code">
+                        <Download className="w-3 h-3" />Download {codeLang === "python" ? ".py" : ".R"}
+                      </Button>
+                    </div>
+                    {chartData.length > 0 && (
+                      <pre className="text-[10px] bg-background border rounded p-2 overflow-auto max-h-44 leading-relaxed font-mono">
+                        {codeLang === "python"
+                          ? generatePythonCode(chartData, chartType, colors, title, xLabel, yLabel, caption, figureNumber)
+                          : generateRCode(chartData, chartType, colors, title, xLabel, yLabel, caption, figureNumber)}
+                      </pre>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div data-export-area className="rounded-lg" style={{ background: figBg === "transparent" ? undefined : figBg }}>
               {title && (
                 <h4 className="text-center font-bold text-sm mb-2 text-foreground" style={{ fontFamily: getFontCSS() }}>
                   {formatPreset === "ieee" ? `Fig. ${figureNumber}. ${title}` : title}
@@ -964,7 +1753,6 @@ export default function FigureMaker() {
               <Settings2 className="w-4 h-4 text-rose-500" />
               <h3>Figure Settings</h3>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
               <div className="space-y-4">
                 <div>
@@ -973,20 +1761,14 @@ export default function FigureMaker() {
                 </div>
                 <div>
                   <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Caption</label>
-                  <Textarea
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
+                  <Textarea value={caption} onChange={(e) => setCaption(e.target.value)}
                     placeholder="Frequency distribution of translation universals identified in the parallel corpus..."
-                    className="min-h-[60px] text-sm resize-y"
-                    data-testid="textarea-caption"
-                  />
+                    className="min-h-[60px] text-sm resize-y" data-testid="textarea-caption" />
                 </div>
                 <div>
                   <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Font</label>
                   <Select value={fontFamily} onValueChange={(v) => setFontFamily(v as FontFamily)}>
-                    <SelectTrigger className="h-8 text-sm" data-testid="select-font">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-font"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {FONT_OPTIONS.map(f => (
                         <SelectItem key={f.value} value={f.value}>
@@ -997,14 +1779,11 @@ export default function FigureMaker() {
                   </Select>
                 </div>
               </div>
-
               <div className="space-y-4">
                 <div>
                   <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Academic / Presentation Format</label>
                   <Select value={formatPreset} onValueChange={(v) => applyFormatPreset(v as FormatPreset)}>
-                    <SelectTrigger className="h-8 text-sm" data-testid="select-format">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-format"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {FORMAT_PRESETS.map(f => (
                         <SelectItem key={f.value} value={f.value}>
@@ -1020,9 +1799,7 @@ export default function FigureMaker() {
                 <div>
                   <label className="text-[11px] text-muted-foreground mb-1.5 block font-medium uppercase tracking-wider">Export Resolution</label>
                   <Select value={resolution} onValueChange={(v) => setResolution(v as ExportResolution)}>
-                    <SelectTrigger className="h-8 text-sm" data-testid="select-resolution">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-resolution"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1x">1x — Screen (72 DPI)</SelectItem>
                       <SelectItem value="2x">2x — Retina (144 DPI)</SelectItem>
@@ -1031,18 +1808,23 @@ export default function FigureMaker() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="pt-2">
+                <div className="pt-1">
                   <label className="text-[11px] text-muted-foreground mb-2 block font-medium uppercase tracking-wider">Quick Export</label>
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" variant="secondary" onClick={downloadPNG} disabled={exporting} data-testid="button-quick-png">
-                      {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Image className="w-3.5 h-3.5 mr-1.5" />}
-                      PNG
+                      {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Image className="w-3.5 h-3.5 mr-1.5" />}PNG
                     </Button>
                     <Button size="sm" variant="secondary" onClick={downloadPDF} disabled={exporting} data-testid="button-quick-pdf">
                       <FileText className="w-3.5 h-3.5 mr-1.5" />PDF
                     </Button>
                     <Button size="sm" variant="secondary" onClick={downloadDOCX} disabled={exporting} data-testid="button-quick-docx">
                       <FileText className="w-3.5 h-3.5 mr-1.5" />Word
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={downloadSVG} data-testid="button-quick-svg">
+                      <BarChart2 className="w-3.5 h-3.5 mr-1.5" />SVG
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={copyToClipboard} disabled={exporting} data-testid="button-quick-copy">
+                      <Copy className="w-3.5 h-3.5 mr-1.5" />Copy
                     </Button>
                   </div>
                 </div>
@@ -1051,7 +1833,6 @@ export default function FigureMaker() {
           </div>
         </motion.div>
       )}
-
     </div>
   );
 }
