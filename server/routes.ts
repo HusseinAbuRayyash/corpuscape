@@ -27,6 +27,9 @@ import {
   backTranslate,
   generateGlossary,
   generateContent,
+  generateFigureCaption,
+  recommendChartType,
+  generateResultsParagraph,
 } from "./ai";
 import {
   storeCorpus,
@@ -688,6 +691,39 @@ Now extract data from the user's text. Return ONLY the JSON array:`;
     } catch (error: any) {
       console.error("AI chart data parse error:", error);
       res.status(500).json({ error: error.message || "Failed to parse data" });
+    }
+  });
+
+  app.post("/api/ai/figure-caption", async (req, res) => {
+    try {
+      const { chartType, data, formatPreset, title } = req.body;
+      if (!data || !Array.isArray(data) || data.length === 0) return res.status(400).json({ error: "Data required" });
+      const caption = await generateFigureCaption(chartType || "bar", data, formatPreset || "default", title || "");
+      res.json({ caption: caption.trim() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to generate caption" });
+    }
+  });
+
+  app.post("/api/ai/chart-recommend", async (req, res) => {
+    try {
+      const { data, context } = req.body;
+      if (!data || !Array.isArray(data) || data.length === 0) return res.status(400).json({ error: "Data required" });
+      const result = await recommendChartType(data, context || "");
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to recommend chart type" });
+    }
+  });
+
+  app.post("/api/ai/results-paragraph", async (req, res) => {
+    try {
+      const { chartType, data, title, caption, figureNumber } = req.body;
+      if (!data || !Array.isArray(data) || data.length === 0) return res.status(400).json({ error: "Data required" });
+      const paragraph = await generateResultsParagraph(chartType || "bar", data, title || "", caption || "", figureNumber || "1");
+      res.json({ paragraph: paragraph.trim() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to generate paragraph" });
     }
   });
 

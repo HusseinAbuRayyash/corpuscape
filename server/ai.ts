@@ -702,6 +702,87 @@ export function generateTMX(pairs: any[], srcLang: string = "en", tgtLang: strin
   return `<?xml version="1.0" encoding="UTF-8"?>\n<tmx version="1.4">\n  <header creationtool="Corpuscape" creationtoolversion="1.0" datatype="plaintext" segtype="sentence" adminlang="en" srclang="${srcLang}" o-tmf="unknown">\n    <note>Exported from Corpuscape</note>\n  </header>\n  <body>\n${body}  </body>\n</tmx>`;
 }
 
+export async function generateFigureCaption(
+  chartType: string,
+  data: { label: string; value: number }[],
+  formatPreset: string,
+  title: string
+): Promise<string> {
+  const dataStr = data.slice(0, 20).map(d => `${d.label}: ${d.value}`).join(", ");
+  const prompt = `You are an academic writing assistant specializing in corpus linguistics and translation studies.
+
+Generate a professional figure caption for the following chart. Write ONLY the caption text — do not include "Figure N." prefix.
+
+Chart type: ${chartType}
+Chart title: ${title || "(untitled)"}
+Data summary: ${dataStr}
+Format style: ${formatPreset}
+
+Style guidelines:
+- APA 7th: One clear descriptive sentence. Mention key findings. End with period. No "Fig." prefix.
+- IEEE: Short, technical, compact. Describe what the figure displays.
+- Chicago: Descriptive title-like phrasing followed by a clarifying sentence.
+- Nature/Science: Concise, declarative. No period at end of title clause.
+- Thesis: Full descriptive sentence with corpus/methodology context.
+- Default: Clear 1–2 sentences explaining what is displayed and any notable pattern.
+
+Write ONLY the caption text (1–2 sentences, no prefix):`;
+  return generateContent(prompt, dataStr, 4000);
+}
+
+export async function recommendChartType(
+  data: { label: string; value: number }[],
+  context: string
+): Promise<{ chartType: string; reason: string }> {
+  const dataStr = data.slice(0, 15).map(d => `${d.label}: ${d.value}`).join(", ");
+  const prompt = `You are a data visualization expert for academic research in corpus linguistics and translation studies.
+
+Given this dataset, recommend the single best chart type for academic publication. 
+
+Data: ${dataStr}
+User context: ${context || "Translation studies research figure"}
+
+Available chart types: bar, barHorizontal, stackedBar, groupedBar, line, area, pie, donut, halfDonut, radar, scatter, funnel, treemap, lollipop, errorBar, heatmap, wordBubble
+
+Return ONLY valid JSON in this format (no markdown, no explanation):
+{"chartType": "bar", "reason": "One sentence explaining why this chart type best represents this data for academic publication."}`;
+
+  const raw = await generateContent(prompt, dataStr, 3000);
+  try {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+  } catch {}
+  return { chartType: "bar", reason: "Bar chart is the most versatile choice for categorical comparison." };
+}
+
+export async function generateResultsParagraph(
+  chartType: string,
+  data: { label: string; value: number }[],
+  title: string,
+  caption: string,
+  figureNumber: string
+): Promise<string> {
+  const dataStr = data.slice(0, 20).map(d => `${d.label}: ${d.value}`).join(", ");
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const sorted = [...data].sort((a, b) => b.value - a.value);
+  const dominant = sorted[0];
+  const pct = total > 0 ? ((dominant?.value / total) * 100).toFixed(1) : "0";
+  const prompt = `You are an academic writing assistant specializing in corpus linguistics and translation studies.
+
+Write a concise academic Results section paragraph describing the figure data below. 
+The paragraph should cite the figure number, describe key findings with specific values, mention the dominant category, and discuss distribution patterns.
+
+Figure ${figureNumber}: ${title || "Translation data"}
+Chart type: ${chartType}
+Data: ${dataStr}
+Total: ${total}
+Dominant category: ${dominant?.label} (${dominant?.value}, ${pct}%)
+Caption: ${caption || "(none)"}
+
+Write a 2-3 sentence academic Results paragraph citing Figure ${figureNumber}. Use academic register. Mention specific numbers and percentages. Do not use headers or bullet points — prose only.`;
+  return generateContent(prompt, dataStr, 5000);
+}
+
 export async function backTranslate(
   pairs: { source: string; target: string }[],
   srcLang: string = "en",
