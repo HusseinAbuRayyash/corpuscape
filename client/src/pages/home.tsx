@@ -133,7 +133,7 @@ export default function Home() {
     <div className="min-h-full relative" ref={scrollRef}>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden pb-40 md:pb-52">
+      <section className="relative overflow-hidden pb-20 md:pb-28">
 
         {/* Orbs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -297,86 +297,6 @@ export default function Home() {
           </motion.div>
         </motion.div>
       </section>
-
-      {/* ── PREVIEW CARDS (overlap hero bottom) ── */}
-      <motion.div
-        className="relative z-20 max-w-5xl mx-auto px-4 md:px-10 -mt-36 md:-mt-44 mb-0"
-        initial={{ opacity: 0, y: 32 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.0, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        data-testid="section-hero-preview"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          {/* Card 1: Keyword Analysis */}
-          <div className="rounded-[20px] border border-white/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-[rgba(17,24,39,0.75)] backdrop-blur-xl p-6 shadow-2xl transition-all duration-400 hover:-translate-y-1.5 hover:border-white/20 dark:hover:border-white/[0.12]"
-            style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
-            <div className="flex items-center gap-2.5 mb-5">
-              <span className="w-2 h-2 rounded-full bg-indigo-400" />
-              <span className="text-[10px] font-bold uppercase tracking-[2px] text-muted-foreground">Keyword Analysis</span>
-            </div>
-            <div className="space-y-3">
-              {[["translation", 89, "linear-gradient(90deg,#6366f1,#818cf8)"],
-                ["corpus", 72, "linear-gradient(90deg,#818cf8,#a5b4fc)"],
-                ["strategy", 55, "linear-gradient(90deg,#a5b4fc,#c7d2fe)"],
-                ["equivalence", 38, "linear-gradient(90deg,#c7d2fe,#e0e7ff)"]].map(([word, pct, grad]) => (
-                <div key={word as string} className="flex items-center gap-3">
-                  <span className="text-[12px] font-medium text-foreground/80 w-[88px] truncate">{word as string}</span>
-                  <div className="flex-1 h-[3px] rounded-full bg-border/30 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: grad as string }} />
-                  </div>
-                  <span className="text-[12px] font-bold tabular-nums text-foreground w-7 text-right">{pct}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 2: Bilingual Alignment */}
-          <div className="rounded-[20px] border border-white/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-[rgba(17,24,39,0.75)] backdrop-blur-xl p-6 shadow-2xl transition-all duration-400 hover:-translate-y-1.5 hover:border-white/20 dark:hover:border-white/[0.12]"
-            style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
-            <div className="flex items-center gap-2.5 mb-5">
-              <span className="w-2 h-2 rounded-full bg-teal-400" />
-              <span className="text-[10px] font-bold uppercase tracking-[2px] text-muted-foreground">Bilingual Alignment</span>
-            </div>
-            <div className="space-y-2.5">
-              <div className="rounded-xl border border-border/40 bg-background/40 p-3">
-                <p className="text-[9px] font-bold uppercase tracking-[2px] text-muted-foreground/60 mb-1.5">Source · EN</p>
-                <p className="text-[12.5px] font-medium leading-snug text-foreground">"The translation strategy reveals…"</p>
-              </div>
-              <div className="rounded-xl border border-teal-500/15 bg-teal-500/5 p-3">
-                <p className="text-[9px] font-bold uppercase tracking-[2px] text-muted-foreground/60 mb-1.5">Target · AR</p>
-                <p className="text-[12.5px] font-medium leading-snug text-right text-foreground" dir="rtl">"تكشف استراتيجية الترجمة…"</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Figure Output */}
-          <div className="rounded-[20px] border border-white/[0.08] dark:border-white/[0.06] bg-white/70 dark:bg-[rgba(17,24,39,0.75)] backdrop-blur-xl p-6 shadow-2xl transition-all duration-400 hover:-translate-y-1.5 hover:border-white/20 dark:hover:border-white/[0.12]"
-            style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
-            <div className="flex items-center gap-2.5 mb-5">
-              <span className="w-2 h-2 rounded-full bg-rose-400" />
-              <span className="text-[10px] font-bold uppercase tracking-[2px] text-muted-foreground">Figure Output</span>
-            </div>
-            <div className="flex items-end gap-1.5 h-[84px] px-1 mb-3">
-              {[["Explicitation", 78, "linear-gradient(to top,#e11d48,#fb7185)"],
-                ["Omission", 55, "linear-gradient(to top,#fb7185,#fda4af)"],
-                ["Addition", 42, "linear-gradient(to top,#fda4af,#fecdd3)"],
-                ["Calque", 29, "linear-gradient(to top,#fecdd3,#fff1f2)"]].map(([label, h, grad]) => (
-                <div key={label as string} className="flex flex-col items-center gap-1 flex-1">
-                  <div
-                    className="w-full rounded-t-md relative overflow-hidden"
-                    style={{ height: `${(h as number) * 1.02}%`, background: grad as string, minHeight: 5 }}
-                  >
-                    <div className="absolute inset-0 rounded-t-md" style={{ background: "linear-gradient(to top, transparent 60%, rgba(255,255,255,0.18))" }} />
-                  </div>
-                  <span className="text-[8px] font-semibold text-muted-foreground/70 truncate w-full text-center">{(label as string).slice(0, 5)}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-[9.5px] text-muted-foreground/60 text-center italic">Fig. 1 — Strategy distribution</p>
-          </div>
-        </div>
-      </motion.div>
 
       {/* ── CAPABILITIES ── */}
       <section id="features" className="py-24 md:py-32 relative">
