@@ -66,7 +66,7 @@ export function FileUpload({
           accept={accept}
           multiple={multiple}
           className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
+          onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
           data-testid="input-file"
         />
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/12 to-primary/6 flex items-center justify-center mx-auto mb-4 border border-primary/10">

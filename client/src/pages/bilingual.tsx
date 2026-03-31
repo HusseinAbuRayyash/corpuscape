@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -54,15 +54,7 @@ export default function Bilingual() {
     setAnnotations({});
   };
 
-  useEffect(() => {
-    if (uploadMode !== "prealigned" || alignedFiles.length === 0) {
-      setColHeaders(null);
-      setColPreview(null);
-      setSourceColIdx(0);
-      setTargetColIdx(1);
-      return;
-    }
-    const file = alignedFiles[0];
+  const inspectAlignedFile = useCallback((file: File) => {
     const ext = file.name.toLowerCase().split(".").pop() || "";
     if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") {
       setColHeaders(null);
@@ -108,7 +100,19 @@ export default function Bilingual() {
       })
       .catch(() => { setColHeaders(null); setColPreview(null); })
       .finally(() => setIsInspecting(false));
-  }, [alignedFiles, uploadMode]);
+  }, []);
+
+  const handleAlignedFilesSelected = useCallback((files: File[]) => {
+    setAlignedFiles(files);
+    if (files.length === 0) {
+      setColHeaders(null);
+      setColPreview(null);
+      setSourceColIdx(0);
+      setTargetColIdx(1);
+      return;
+    }
+    inspectAlignedFile(files[files.length - 1]);
+  }, [inspectAlignedFile]);
 
   const recalcMetrics = (p: AlignedPair[]) => {
     const totalSim = p.reduce((sum, pair) => sum + (pair.similarity || 0), 0);
@@ -358,7 +362,7 @@ export default function Bilingual() {
                 <div className="relative rounded-xl border-2 border-dashed border-teal-200 dark:border-teal-800/40 bg-gradient-to-br from-teal-50/40 to-emerald-50/40 dark:from-teal-950/10 dark:to-emerald-950/10 p-4">
                   <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-slate-900 text-[10px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400">Pre-Aligned</span>
                   <FileUpload
-                    onFilesSelected={setAlignedFiles}
+                    onFilesSelected={handleAlignedFilesSelected}
                     label="Upload pre-aligned file(s)"
                     description="Excel, CSV, or alternating-line TXT/DOCX"
                   />
