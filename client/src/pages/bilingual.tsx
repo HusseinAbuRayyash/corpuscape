@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import { ReportGenerator } from "@/components/report-generator";
 import { BilingualFilter } from "@/components/corpus-filter";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare } from "lucide-react";
+import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare, Table2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AlignedPair } from "@shared/schema";
 
 export default function Bilingual() {
@@ -38,6 +39,11 @@ export default function Bilingual() {
   const [originalCorpusId, setOriginalCorpusId] = useState<string | null>(null);
   const [originalPairs, setOriginalPairs] = useState<AlignedPair[]>([]);
   const [isFiltered, setIsFiltered] = useState(false);
+  const [colHeaders, setColHeaders] = useState<string[] | null>(null);
+  const [colPreview, setColPreview] = useState<string[][] | null>(null);
+  const [sourceColIdx, setSourceColIdx] = useState(0);
+  const [targetColIdx, setTargetColIdx] = useState(1);
+  const [isInspecting, setIsInspecting] = useState(false);
 
   const clearAnalysisResults = () => {
     setUniversalsResult("");
@@ -47,6 +53,62 @@ export default function Bilingual() {
     setGlossaryResults([]);
     setAnnotations({});
   };
+
+  useEffect(() => {
+    if (uploadMode !== "prealigned" || alignedFiles.length === 0) {
+      setColHeaders(null);
+      setColPreview(null);
+      setSourceColIdx(0);
+      setTargetColIdx(1);
+      return;
+    }
+    const file = alignedFiles[0];
+    const ext = file.name.toLowerCase().split(".").pop() || "";
+    if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") {
+      setColHeaders(null);
+      setColPreview(null);
+      return;
+    }
+    setIsInspecting(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fetch("/api/bilingual/preview-aligned", { method: "POST", body: fd })
+      .then(r => r.json())
+      .then((data) => {
+        if (data.headers && data.headers.length > 0) {
+          setColHeaders(data.headers);
+          setColPreview(data.previewRows || []);
+          const hdrs: string[] = data.headers;
+          const findBest = (patterns: RegExp[]) => {
+            for (const p of patterns) {
+              const idx = hdrs.findIndex(h => p.test(h.trim()));
+              if (idx >= 0) return idx;
+            }
+            return -1;
+          };
+          const srcIdx = findBest([
+            /arabic.*body|arabic body/i,
+            /^source.?text|^source$|^src$/i,
+            /^arabic/i,
+            /^original/i,
+          ]);
+          const tgtIdx = findBest([
+            /english.*body|english body/i,
+            /^target.?text|^target$|^tgt$/i,
+            /^english/i,
+            /^translation/i,
+          ]);
+          if (srcIdx >= 0) setSourceColIdx(srcIdx);
+          if (tgtIdx >= 0 && tgtIdx !== srcIdx) setTargetColIdx(tgtIdx);
+          else if (srcIdx === 0) setTargetColIdx(1);
+        } else {
+          setColHeaders(null);
+          setColPreview(null);
+        }
+      })
+      .catch(() => { setColHeaders(null); setColPreview(null); })
+      .finally(() => setIsInspecting(false));
+  }, [alignedFiles, uploadMode]);
 
   const recalcMetrics = (p: AlignedPair[]) => {
     const totalSim = p.reduce((sum, pair) => sum + (pair.similarity || 0), 0);
@@ -94,6 +156,8 @@ export default function Bilingual() {
         return res.json();
       } else {
         alignedFiles.forEach((f) => formData.append("files", f));
+        formData.append("sourceColIdx", String(sourceColIdx));
+        formData.append("targetColIdx", String(targetColIdx));
         const res = await fetch("/api/bilingual/upload-aligned", { method: "POST", body: formData });
         if (!res.ok) throw new Error("Processing failed");
         return res.json();
@@ -296,14 +360,100 @@ export default function Bilingual() {
                   <FileUpload
                     onFilesSelected={setAlignedFiles}
                     label="Upload pre-aligned file(s)"
-                    description="Alternating source/target lines"
+                    description="Excel, CSV, or alternating-line TXT/DOCX"
                   />
                 </div>
+
+                <AnimatePresence>
+                  {isInspecting && (
+                    <motion.div key="inspecting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="flex items-center gap-2 text-[11px] text-teal-600 dark:text-teal-400 mt-2 ml-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Reading file structure…
+                    </motion.div>
+                  )}
+
+                  {!isInspecting && colHeaders && colHeaders.length > 0 && (
+                    <motion.div key="col-picker"
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.25 }}
+                      className="mt-3 rounded-xl border border-teal-200 dark:border-teal-800/40 bg-teal-50/60 dark:bg-teal-950/20 p-3.5 space-y-3"
+                    >
+                      <div className="flex items-center gap-2 text-[11px] font-semibold text-teal-700 dark:text-teal-400">
+                        <Table2 className="w-3.5 h-3.5" />
+                        {colHeaders.length > 2
+                          ? `${colHeaders.length} columns detected — select which to use:`
+                          : "Column mapping — confirm source and target:"}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Source column</label>
+                          <Select value={String(sourceColIdx)} onValueChange={(v) => setSourceColIdx(Number(v))}>
+                            <SelectTrigger className="h-8 text-xs" data-testid="select-source-col">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {colHeaders.map((h, i) => (
+                                <SelectItem key={i} value={String(i)} className="text-xs">
+                                  {h || `Column ${i + 1}`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target column</label>
+                          <Select value={String(targetColIdx)} onValueChange={(v) => setTargetColIdx(Number(v))}>
+                            <SelectTrigger className="h-8 text-xs" data-testid="select-target-col">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {colHeaders.map((h, i) => (
+                                <SelectItem key={i} value={String(i)} className="text-xs">
+                                  {h || `Column ${i + 1}`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {colPreview && colPreview.length > 0 && (
+                        <div className="overflow-x-auto rounded-lg border border-teal-200/60 dark:border-teal-800/30">
+                          <table className="w-full text-[10px]">
+                            <thead>
+                              <tr className="bg-teal-100/60 dark:bg-teal-900/30">
+                                {colHeaders.map((h, i) => (
+                                  <th key={i} className={`px-2 py-1 text-left font-bold border-r last:border-r-0 border-teal-200/50 dark:border-teal-800/30 truncate max-w-[120px] ${i === sourceColIdx ? "text-teal-700 dark:text-teal-400 bg-teal-200/50 dark:bg-teal-800/20" : i === targetColIdx ? "text-emerald-700 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-900/20" : "text-muted-foreground/70"}`}>
+                                    {i === sourceColIdx ? "▶ " : i === targetColIdx ? "▶ " : ""}{h || `Col ${i + 1}`}
+                                    {i === sourceColIdx ? " (src)" : i === targetColIdx ? " (tgt)" : ""}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {colPreview.slice(0, 2).map((row, ri) => (
+                                <tr key={ri} className="border-t border-teal-200/40 dark:border-teal-800/20">
+                                  {colHeaders.map((_, ci) => (
+                                    <td key={ci} className={`px-2 py-1 border-r last:border-r-0 border-teal-200/40 dark:border-teal-800/20 truncate max-w-[120px] ${ci === sourceColIdx ? "bg-teal-50 dark:bg-teal-900/10 font-medium" : ci === targetColIdx ? "bg-emerald-50 dark:bg-emerald-900/10 font-medium" : "text-muted-foreground/50"}`}>
+                                      {(row[ci] || "").slice(0, 40)}{(row[ci] || "").length > 40 ? "…" : ""}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <div className="text-[11px] text-muted-foreground/60 mt-2.5 ml-1 space-y-1">
                   <p className="font-medium text-muted-foreground/80">Supported formats — pairs are loaded exactly as-is, no AI re-alignment:</p>
                   <ul className="list-disc ml-4 space-y-0.5">
-                    <li><span className="font-medium">Excel (.xlsx/.xls):</span> Column A = source, Column B = target — one pair per row</li>
-                    <li><span className="font-medium">CSV (.csv):</span> Source, Target — auto-detects comma/semicolon/tab delimiter; optional header row</li>
+                    <li><span className="font-medium">Excel (.xlsx/.xls):</span> Any layout — columns are auto-detected; use the picker above to choose source and target if needed</li>
+                    <li><span className="font-medium">CSV (.csv):</span> Auto-detects comma/semicolon/tab delimiter; optional header row</li>
                     <li><span className="font-medium">Tab-separated (.txt/.tsv):</span> source{"\t"}target on each line</li>
                     <li><span className="font-medium">Alternating lines (.txt/.docx):</span> source on odd lines, target on even lines</li>
                   </ul>

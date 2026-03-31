@@ -492,12 +492,76 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/bilingual/preview-aligned", upload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "No file provided" });
+
+      function parseDelimitedLine(line: string, delimiter: string): string[] {
+        if (!line.trim()) return [];
+        if (!line.includes('"')) return line.split(delimiter).map(s => s.trim());
+        const result: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          if (line[i] === '"') {
+            if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+            else { inQuotes = !inQuotes; }
+          } else if (line[i] === delimiter && !inQuotes) {
+            result.push(current.trim()); current = "";
+          } else {
+            current += line[i];
+          }
+        }
+        result.push(current.trim());
+        return result;
+      }
+
+      const ext = file.originalname.toLowerCase().split(".").pop() || "";
+
+      if (ext === "xlsx" || ext === "xls") {
+        const XLSX = await import("xlsx");
+        const workbook = XLSX.read(file.buffer, { type: "buffer" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as any[][];
+        if (!data.length) return res.json({ type: "excel", headers: [], previewRows: [] });
+        const headers = (data[0] as any[]).map(String);
+        const previewRows = data.slice(1, 4).map(row => (row as any[]).map(String));
+        return res.json({ type: "excel", headers, previewRows });
+      }
+
+      if (ext === "csv") {
+        const text = file.buffer.toString("utf-8");
+        const rawLines = text.split(/\r?\n/).filter(l => l.trim());
+        if (!rawLines.length) return res.json({ type: "csv", headers: [], previewRows: [] });
+        const sampleLine = rawLines[0];
+        const tabCount = (sampleLine.match(/\t/g) || []).length;
+        const semicolonCount = (sampleLine.match(/;/g) || []).length;
+        const commaCount = (sampleLine.match(/,/g) || []).length;
+        const delimiter = tabCount > 0 ? "\t" : semicolonCount > commaCount ? ";" : ",";
+        const firstRow = parseDelimitedLine(rawLines[0], delimiter);
+        const looksLikeHdr = firstRow.length >= 2 && /^(no|#|id|source|src|english|arabic|original|target|text|segment)/i.test((firstRow[0] || "").trim());
+        const headers = looksLikeHdr ? firstRow : firstRow.map((_, i) => `Column ${i + 1}`);
+        const startLine = looksLikeHdr ? 1 : 0;
+        const previewRows = rawLines.slice(startLine, startLine + 3).map(l => parseDelimitedLine(l, delimiter));
+        return res.json({ type: "csv", headers, previewRows });
+      }
+
+      return res.json({ type: "text", headers: null, previewRows: null });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to inspect file" });
+    }
+  });
+
   app.post("/api/bilingual/upload-aligned", upload.array("files", 10), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
       if (!files || !files.length) {
         return res.status(400).json({ error: "At least one file required" });
       }
+
+      const sourceColIdx = Math.max(0, parseInt((req.body?.sourceColIdx as string) ?? "0") || 0);
+      const targetColIdx = Math.max(0, parseInt((req.body?.targetColIdx as string) ?? "1") || 1);
 
       function parseDelimitedLine(line: string, delimiter: string): string[] {
         if (!line.trim()) return [];
@@ -522,7 +586,7 @@ export async function registerRoutes(
       function looksLikeHeader(row: string[]): boolean {
         if (!row || row.length < 2) return false;
         const first = (row[0] || "").toLowerCase().trim();
-        return /^(source|src|en|english|original|text.?a|segment|sentence)$/i.test(first);
+        return /^(no|#|id|source|src|en|english|arabic|original|text.?a|segment|sentence)$/i.test(first);
       }
 
       const allPairs: any[] = [];
@@ -540,8 +604,8 @@ export async function registerRoutes(
             const startRow = data.length > 0 && looksLikeHeader(data[0].map(String)) ? 1 : 0;
             for (let i = startRow; i < data.length; i++) {
               const row = data[i];
-              const src = String(row[0] ?? "").trim();
-              const tgt = String(row[1] ?? "").trim();
+              const src = String(row[sourceColIdx] ?? "").trim();
+              const tgt = String(row[targetColIdx] ?? "").trim();
               if (src || tgt) filePairs.push({ source: src, target: tgt, similarity: 1.0 });
             }
           }
@@ -556,9 +620,10 @@ export async function registerRoutes(
           const startLine = rawLines.length > 0 && looksLikeHeader(parseDelimitedLine(rawLines[0], delimiter)) ? 1 : 0;
           for (let i = startLine; i < rawLines.length; i++) {
             const parts = parseDelimitedLine(rawLines[i], delimiter);
-            if (parts.length >= 2) {
-              const src = parts[0].trim();
-              const tgt = parts[1].trim();
+            const maxIdx = Math.max(sourceColIdx, targetColIdx);
+            if (parts.length > maxIdx) {
+              const src = (parts[sourceColIdx] || "").trim();
+              const tgt = (parts[targetColIdx] || "").trim();
               if (src || tgt) filePairs.push({ source: src, target: tgt, similarity: 1.0 });
             }
           }
