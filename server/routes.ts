@@ -499,101 +499,93 @@ export async function registerRoutes(
         return res.status(400).json({ error: "At least one file required" });
       }
 
-      const allTexts: string[] = [];
+      function parseDelimitedLine(line: string, delimiter: string): string[] {
+        if (!line.trim()) return [];
+        if (!line.includes('"')) return line.split(delimiter).map(s => s.trim());
+        const result: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          if (line[i] === '"') {
+            if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+            else { inQuotes = !inQuotes; }
+          } else if (line[i] === delimiter && !inQuotes) {
+            result.push(current.trim()); current = "";
+          } else {
+            current += line[i];
+          }
+        }
+        result.push(current.trim());
+        return result;
+      }
+
+      function looksLikeHeader(row: string[]): boolean {
+        if (!row || row.length < 2) return false;
+        const first = (row[0] || "").toLowerCase().trim();
+        return /^(source|src|en|english|original|text.?a|segment|sentence)$/i.test(first);
+      }
+
+      const allPairs: any[] = [];
+
       for (const f of files) {
-        allTexts.push(await extractTextFromFile(f.buffer, f.originalname));
-      }
-      const fullText = allTexts.join("\n");
+        const ext = f.originalname.toLowerCase().split(".").pop() || "";
+        const filePairs: any[] = [];
 
-      const lines = fullText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-
-      const pairs: any[] = [];
-
-      const hasTabOrDelimiter = lines.some(l => l.includes("\t") || /\|\|/.test(l));
-      const looksAlternating = !hasTabOrDelimiter && lines.length >= 2;
-      let isAlternatingFormat = false;
-
-      if (looksAlternating) {
-        const arabicRe = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
-        const cjkRe = /[\u3000-\u9FFF\uAC00-\uD7AF]/;
-        const cyrillicRe = /[\u0400-\u04FF]/;
-        const hasNonLatin = (s: string) => arabicRe.test(s) || cjkRe.test(s) || cyrillicRe.test(s);
-
-        const line0NonLatin = hasNonLatin(lines[0]);
-        const line1NonLatin = hasNonLatin(lines[1]);
-
-        if (line0NonLatin !== line1NonLatin) {
-          isAlternatingFormat = true;
-        } else {
-          const line0HasMixed = /[a-zA-Z]/.test(lines[0]) && hasNonLatin(lines[0]);
-          if (!line0HasMixed) {
-            isAlternatingFormat = true;
-          }
-        }
-      }
-
-      if (hasTabOrDelimiter) {
-        const delimiter = lines[0].includes("\t") ? "\t" : "||";
-        for (const line of lines) {
-          const parts = line.split(delimiter).map(s => s.trim());
-          if (parts.length >= 2) {
-            pairs.push({ source: parts[0], target: parts[1], similarity: 1.0 });
-          }
-        }
-      } else if (isAlternatingFormat) {
-        for (let i = 0; i < lines.length - 1; i += 2) {
-          pairs.push({
-            source: lines[i],
-            target: lines[i + 1] || "",
-            similarity: 1.0,
-          });
-        }
-      } else {
-        const nonLatinRanges = [
-          /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/,
-          /[\u3000-\u9FFF\uAC00-\uD7AF\u30A0-\u30FF\u3040-\u309F]/,
-          /[\u0400-\u04FF\u0500-\u052F]/,
-          /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F]/,
-          /[\u0E00-\u0E7F]/,
-          /[\u1100-\u11FF]/,
-        ];
-
-        function findFirstNonLatinIndex(s: string): number {
-          for (let i = 0; i < s.length; i++) {
-            const ch = s[i];
-            for (const re of nonLatinRanges) {
-              if (re.test(ch)) return i;
+        if (ext === "xlsx" || ext === "xls") {
+          const XLSX = await import("xlsx");
+          const workbook = XLSX.read(f.buffer, { type: "buffer" });
+          for (const name of workbook.SheetNames) {
+            const sheet = workbook.Sheets[name];
+            const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as any[][];
+            const startRow = data.length > 0 && looksLikeHeader(data[0].map(String)) ? 1 : 0;
+            for (let i = startRow; i < data.length; i++) {
+              const row = data[i];
+              const src = String(row[0] ?? "").trim();
+              const tgt = String(row[1] ?? "").trim();
+              if (src || tgt) filePairs.push({ source: src, target: tgt, similarity: 1.0 });
             }
           }
-          return -1;
-        }
-
-        for (const line of lines) {
-          const idx = findFirstNonLatinIndex(line);
-
-          if (idx <= 0) {
-            pairs.push({ source: line, target: "", similarity: 1.0 });
-            continue;
+        } else if (ext === "csv") {
+          const text = f.buffer.toString("utf-8");
+          const rawLines = text.split(/\r?\n/).filter(l => l.trim());
+          const sampleLine = rawLines.find(l => l.trim()) || "";
+          const tabCount = (sampleLine.match(/\t/g) || []).length;
+          const semicolonCount = (sampleLine.match(/;/g) || []).length;
+          const commaCount = (sampleLine.match(/,/g) || []).length;
+          const delimiter = tabCount > 0 ? "\t" : semicolonCount > commaCount ? ";" : ",";
+          const startLine = rawLines.length > 0 && looksLikeHeader(parseDelimitedLine(rawLines[0], delimiter)) ? 1 : 0;
+          for (let i = startLine; i < rawLines.length; i++) {
+            const parts = parseDelimitedLine(rawLines[i], delimiter);
+            if (parts.length >= 2) {
+              const src = parts[0].trim();
+              const tgt = parts[1].trim();
+              if (src || tgt) filePairs.push({ source: src, target: tgt, similarity: 1.0 });
+            }
           }
-
-          let splitIdx = idx;
-          while (splitIdx > 0 && /[\s"'"\u201C\u201D\u0022([\-]/.test(line[splitIdx - 1])) {
-            splitIdx--;
-          }
-
-          const source = line.slice(0, splitIdx).trim();
-          const target = line.slice(idx).trim();
-
-          if (!source && target) {
-            pairs.push({ source: target, target: "", similarity: 1.0 });
+        } else {
+          const text = await extractTextFromFile(f.buffer, f.originalname);
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+          const hasTabOrPipe = lines.some(l => l.includes("\t") || /\|\|/.test(l));
+          if (hasTabOrPipe) {
+            const delimiter = lines[0]?.includes("\t") ? "\t" : "||";
+            for (const line of lines) {
+              const parts = line.split(delimiter).map(s => s.trim());
+              if (parts.length >= 2) filePairs.push({ source: parts[0], target: parts[1], similarity: 1.0 });
+            }
           } else {
-            pairs.push({ source, target, similarity: 1.0 });
+            for (let i = 0; i < lines.length; i += 2) {
+              filePairs.push({ source: lines[i], target: lines[i + 1] || "", similarity: 1.0 });
+            }
           }
         }
+
+        allPairs.push(...filePairs);
       }
 
+      const pairs = allPairs;
+
       if (pairs.length === 0) {
-        return res.status(400).json({ error: "Could not extract aligned pairs. Ensure alternating source/target lines." });
+        return res.status(400).json({ error: "Could not extract aligned pairs. Check that your file has source text in column A and target text in column B (for Excel/CSV), or alternating source/target lines (for TXT)." });
       }
 
       const finalPairs = pairs.map((p) => ({
