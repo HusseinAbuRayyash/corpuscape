@@ -103,7 +103,11 @@ export default function Bilingual() {
       setCorpusId(data.corpusId);
       setPairs(data.pairs);
       setMetrics(data.metrics);
-      toast({ title: "Alignment complete", description: `${data.pairs.length} pairs aligned` });
+      if (uploadMode === "separate") {
+        toast({ title: "Alignment complete", description: `${data.pairs.length} pairs aligned` });
+      } else {
+        toast({ title: "File loaded", description: `${data.pairs.length} pairs read from file` });
+      }
     },
     onError: () => toast({ title: "Processing failed", variant: "destructive" }),
   });
@@ -296,11 +300,12 @@ export default function Bilingual() {
                   />
                 </div>
                 <div className="text-[11px] text-muted-foreground/60 mt-2.5 ml-1 space-y-1">
-                  <p>Supported formats:</p>
+                  <p className="font-medium text-muted-foreground/80">Supported formats — pairs are loaded exactly as-is, no AI re-alignment:</p>
                   <ul className="list-disc ml-4 space-y-0.5">
-                    <li>Alternating lines: source sentence, then target sentence, repeating (works for all language pairs including French, Spanish, German, etc.)</li>
-                    <li>Tab-separated: source{"\t"}target on each line</li>
-                    <li>Mixed-script lines: English text followed by Arabic/Chinese/Cyrillic text on the same line</li>
+                    <li><span className="font-medium">Excel (.xlsx/.xls):</span> Column A = source, Column B = target — one pair per row</li>
+                    <li><span className="font-medium">CSV (.csv):</span> Source, Target — auto-detects comma/semicolon/tab delimiter; optional header row</li>
+                    <li><span className="font-medium">Tab-separated (.txt/.tsv):</span> source{"\t"}target on each line</li>
+                    <li><span className="font-medium">Alternating lines (.txt/.docx):</span> source on odd lines, target on even lines</li>
                   </ul>
                 </div>
               </motion.div>
