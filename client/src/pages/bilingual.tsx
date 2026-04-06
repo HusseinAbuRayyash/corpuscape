@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { SaveToLibrary } from "@/components/save-to-library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,27 @@ export default function Bilingual() {
   const [sourceColIdx, setSourceColIdx] = useState(0);
   const [targetColIdx, setTargetColIdx] = useState(1);
   const [isInspecting, setIsInspecting] = useState(false);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem("library_load");
+    if (!raw || !window.location.search.includes("libraryId")) return;
+    try {
+      const data = JSON.parse(raw);
+      sessionStorage.removeItem("library_load");
+      if (data.type === "bilingual" && data.pairs && data.corpusId) {
+        setCorpusId(data.corpusId);
+        setPairs(data.pairs);
+        const totalSim = data.pairs.reduce((s: number, p: any) => s + (p.similarity || 0), 0);
+        setMetrics({
+          alignedPairs: data.pairs.length,
+          avgSimilarity: data.pairs.length > 0 ? totalSim / data.pairs.length : 0,
+          strategiesLabeled: data.pairs.filter((p: any) => p.strategy).length,
+          lengthRatio: 1,
+        });
+        toast({ title: `"${data.name}" loaded from Library`, description: `${data.pairs.length} pairs ready for analysis` });
+      }
+    } catch {}
+  }, []);
 
   const clearAnalysisResults = () => {
     setUniversalsResult("");
@@ -514,6 +536,16 @@ export default function Bilingual() {
 
       {metrics && (
         <motion.div className="space-y-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="flex justify-end">
+            <SaveToLibrary
+              type="bilingual"
+              sourceTrack="bilingual"
+              samplePairs={pairs.slice(0, 50).map(p => ({ source: p.source, target: p.target, similarity: p.similarity, strategy: p.strategy }))}
+              sizeLabel={`${metrics.alignedPairs} pairs`}
+              defaultName={srcFiles.length > 0 ? `${srcFiles.map(f => f.name.replace(/\.[^.]+$/, "")).join(", ")} ↔ ${tgtFiles.map(f => f.name.replace(/\.[^.]+$/, "")).join(", ")}` : "Bilingual Corpus"}
+              accentClass="from-teal-500 to-emerald-600"
+            />
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard label="Aligned Pairs" value={metrics.alignedPairs} index={0} />
             <MetricCard label="Avg Similarity" value={metrics.avgSimilarity?.toFixed(3) || "0"} index={1} />

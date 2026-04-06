@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Home, BookOpen, Globe, Sun, Moon, Newspaper, Scale, Image, User } from "lucide-react";
+import { Home, BookOpen, Globe, Sun, Moon, Newspaper, Scale, Image, User, Library } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +23,7 @@ const navItems = [
   { title: "Web Scraper", url: "/scraper", icon: Newspaper },
   { title: "Compare", url: "/compare", icon: Scale },
   { title: "Figure Maker", url: "/figures", icon: Image },
+  { title: "Library", url: "/library", icon: Library },
   { title: "About", url: "/about", icon: User },
 ];
 

@@ -1,4 +1,25 @@
 import { z } from "zod";
+import { pgTable, serial, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+
+export const libraryCorpora = pgTable("library_corpora", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  origin: text("origin").notNull().default("user"),
+  sourceTrack: text("source_track"),
+  languagePair: text("language_pair"),
+  domain: text("domain"),
+  sizeLabel: text("size_label"),
+  license: text("license"),
+  externalUrl: text("external_url"),
+  samplePairs: jsonb("sample_pairs"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLibraryCorpusSchema = createInsertSchema(libraryCorpora).omit({ id: true, createdAt: true });
+export type InsertLibraryCorpus = typeof insertLibraryCorpusSchema._type;
+export type LibraryCorpus = typeof libraryCorpora.$inferSelect;
 
 export interface CorpusStats {
   characters: number;

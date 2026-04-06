@@ -15,6 +15,7 @@ import Scraper from "@/pages/scraper";
 import Compare from "@/pages/compare";
 import FigureMaker from "@/pages/figure-maker";
 import About from "@/pages/about";
+import Library from "@/pages/library";
 
 const SIDEBAR_LS_KEY = "corpuscape_sidebar_open";
 
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/scraper" component={Scraper} />
       <Route path="/compare" component={Compare} />
       <Route path="/figures" component={FigureMaker} />
+      <Route path="/library" component={Library} />
       <Route path="/about" component={About} />
       <Route component={NotFound} />
     </Switch>

@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { SaveToLibrary } from "@/components/save-to-library";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/file-upload";
@@ -37,6 +38,20 @@ export default function Compare() {
   const [aiComparison, setAiComparison] = useState("");
   const [cloudWordsA, setCloudWordsA] = useState<{text: string; value: number}[]>([]);
   const [cloudWordsB, setCloudWordsB] = useState<{text: string; value: number}[]>([]);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem("library_load");
+    if (!raw || !window.location.search.includes("libraryId")) return;
+    try {
+      const data = JSON.parse(raw);
+      sessionStorage.removeItem("library_load");
+      if (data.corpusId && data.stats) {
+        setCorpusIdA(data.corpusId);
+        setStatsA(data.stats);
+        toast({ title: `"${data.name}" loaded as Corpus A`, description: "Upload Corpus B to compare" });
+      }
+    } catch {}
+  }, []);
 
   const uploadA = useMutation({
     mutationFn: async (files: File[]) => {
@@ -213,6 +228,15 @@ export default function Compare() {
 
       {compareResult && (
         <motion.div className="space-y-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="flex justify-end gap-2">
+            <SaveToLibrary
+              type="monolingual"
+              sourceTrack="compare"
+              sizeLabel={`${compareResult.statsA.words.toLocaleString()} + ${compareResult.statsB.words.toLocaleString()} words`}
+              defaultName={filesA.length > 0 && filesB.length > 0 ? `Compare: ${filesA[0]?.name?.replace(/\.[^.]+$/, "")} vs ${filesB[0]?.name?.replace(/\.[^.]+$/, "")}` : "Compared Corpus"}
+              accentClass="from-violet-500 to-purple-600"
+            />
+          </div>
           <div className="polished-card p-6">
             <div className="section-header">
               <BarChart3 className="w-4 h-4 text-violet-500" />
