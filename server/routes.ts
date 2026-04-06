@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import {
@@ -47,6 +47,7 @@ import {
   seedLibraryIfEmpty,
 } from "./libraryStorage";
 import { ensureTablesExist } from "./db";
+import type { SamplePair } from "../shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -1047,42 +1048,43 @@ Format with clear headings and specific examples from each corpus.`);
     }
   });
 
-  const loadLibraryCorpusHandler = async (req: any, res: any) => {
+  const loadLibraryCorpusHandler = async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
       const corpus = await getLibraryCorpus(id);
       if (!corpus) return res.status(404).json({ error: "Corpus not found" });
 
-      const pairs = corpus.samplePairs as any[] | null;
+      const pairs = corpus.samplePairs as SamplePair[] | null;
       if (!pairs || pairs.length === 0) return res.status(400).json({ error: "No sample data available for this corpus" });
 
       const type = corpus.type;
       if (type === "monolingual") {
-        const text = pairs.map((p: any) => p.source || p.text || (typeof p === "string" ? p : "")).filter(Boolean).join("\n\n");
+        const text = pairs.map(p => p.source || "").filter(Boolean).join("\n\n");
         const corpusId = generateCorpusId();
         storeCorpus(corpusId, text);
         const stats = getStats(text);
         registerCorpus({ id: corpusId, name: corpus.name, source: "monolingual", words: stats.words, createdAt: Date.now() });
-        res.json({ type: "monolingual", corpusId, stats, name: corpus.name });
+        return res.json({ type: "monolingual", corpusId, stats, name: corpus.name });
       } else {
-        const bilingualPairs = pairs.map((p: any) => ({
+        const bilingualPairs = pairs.map(p => ({
           source: p.source || "",
           target: p.target || "",
-          similarity: p.similarity ?? 1,
-          strategy: p.strategy || "",
+          similarity: 1,
+          strategy: "",
         }));
         const corpusId = generateCorpusId();
-        const srcText = bilingualPairs.map((p: any) => p.source).join("\n");
-        const tgtText = bilingualPairs.map((p: any) => p.target).join("\n");
+        const srcText = bilingualPairs.map(p => p.source).join("\n");
+        const tgtText = bilingualPairs.map(p => p.target).join("\n");
         storeCorpus(`${corpusId}_src`, srcText);
         storeCorpus(`${corpusId}_tgt`, tgtText);
         storeCorpus(`${corpusId}_pairs`, JSON.stringify(bilingualPairs));
         registerCorpus({ id: corpusId, name: corpus.name, source: "bilingual", words: srcText.split(/\s+/).length + tgtText.split(/\s+/).length, createdAt: Date.now() });
-        res.json({ type: "bilingual", corpusId, pairs: bilingualPairs, name: corpus.name });
+        return res.json({ type: "bilingual", corpusId, pairs: bilingualPairs, name: corpus.name });
       }
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || "Failed to load corpus" });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to load corpus";
+      res.status(500).json({ error: msg });
     }
   };
 
