@@ -20,11 +20,8 @@ export async function deleteLibraryCorpus(id: number): Promise<void> {
   await db.delete(libraryCorpora).where(eq(libraryCorpora.id, id));
 }
 
-export async function ensureBuiltinSeeds(): Promise<void> {
-  const existing = await db.select().from(libraryCorpora).where(eq(libraryCorpora.origin, "builtin")).limit(1);
-  if (existing.length > 0) return;
-
-  const builtinSeeds: InsertLibraryCorpus[] = [
+function getAllBuiltinSeeds(): InsertLibraryCorpus[] {
+  return [
     {
       name: "Translation Strategies — Curated Sample",
       type: "bilingual",
@@ -69,9 +66,57 @@ export async function ensureBuiltinSeeds(): Promise<void> {
         { source: "Lexical bundles are multi-word sequences that recur with high frequency in disciplinary writing." },
       ],
     },
+    {
+      name: "LinkedIn Job Postings Corpus",
+      type: "monolingual",
+      origin: "builtin",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Professional / Job Ads",
+      sizeLabel: "~1,200 job postings",
+      license: "Built-in",
+      externalUrl: null,
+      samplePairs: [
+        { source: "We are seeking a highly motivated Software Engineer to join our dynamic team and contribute to the development of innovative solutions." },
+        { source: "The ideal candidate will have 3–5 years of experience in data analysis, a strong command of Python, and excellent communication skills." },
+        { source: "Responsibilities include managing cross-functional projects, coordinating with stakeholders, and delivering results on time and within budget." },
+        { source: "We offer a competitive salary, flexible working arrangements, health benefits, and opportunities for professional growth." },
+        { source: "Applicants must hold a bachelor's degree in a relevant field; a master's degree or equivalent professional experience is preferred." },
+        { source: "You will collaborate with product managers, UX designers, and senior engineers to define requirements and ship high-quality features." },
+        { source: "This role requires strong problem-solving abilities, attention to detail, and a proven track record of delivering under pressure." },
+        { source: "Our company is committed to fostering an inclusive and diverse workplace where every employee can thrive and make an impact." },
+        { source: "Key qualifications: proficiency in SQL, experience with cloud platforms (AWS/GCP/Azure), and familiarity with Agile methodologies." },
+        { source: "Please submit your resume and a cover letter explaining why you are the right fit for this position and our company culture." },
+      ],
+    },
+    {
+      name: "NYT Reviews of Translated Works",
+      type: "monolingual",
+      origin: "builtin",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Literary Criticism / Reviews",
+      sizeLabel: "~320 reviews",
+      license: "Built-in",
+      externalUrl: null,
+      samplePairs: [
+        { source: "The translation captures the lyrical intensity of the original without sacrificing the idiomatic naturalness English readers expect." },
+        { source: "This English rendering of the novel loses some of the wordplay inherent in the source language but compensates with a vivid, propulsive prose style." },
+        { source: "The translator has made bold choices in domesticating culturally specific references, and for the most part those choices pay off." },
+        { source: "Readers unfamiliar with the source culture will find the extensive translator's notes invaluable for appreciating the novel's deeper resonances." },
+        { source: "The dialogue feels slightly stiff in places, a reminder that spoken registers are among the most difficult aspects of literary translation." },
+        { source: "What emerges from this painstaking translation is a novel that reads as though it were written in English from the start." },
+        { source: "The translator's decision to keep certain untranslated terms in the original language adds authenticity without alienating the reader." },
+        { source: "This is a translation that wears its labor lightly, sustaining the original's dark irony across a full three hundred pages." },
+        { source: "Some passages reveal the seams of translation, where syntax feels imported rather than natural, yet the overall effect is remarkably immersive." },
+        { source: "The translation succeeds above all in preserving the moral ambiguity that makes this novel one of the most unsettling works of contemporary fiction." },
+      ],
+    },
   ];
+}
 
-  await db.insert(libraryCorpora).values(builtinSeeds);
+export async function ensureBuiltinSeeds(): Promise<void> {
+  await ensureMissingSeedsFromList(getAllBuiltinSeeds());
 }
 
 async function ensureMissingSeedsFromList(candidates: InsertLibraryCorpus[]): Promise<void> {
