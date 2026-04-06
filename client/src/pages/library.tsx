@@ -11,7 +11,8 @@ import {
   Loader2, ChevronDown, ChevronUp, Trash2, BookText, BarChart3,
   Library, Database, Users, Search, AreaChart,
 } from "lucide-react";
-import type { LibraryCorpus } from "@shared/schema";
+import type { LibraryCorpus, SamplePair } from "@shared/schema";
+import type { LucideIcon } from "lucide-react";
 
 interface GroupedCorpora {
   user: LibraryCorpus[];
@@ -19,7 +20,7 @@ interface GroupedCorpora {
   external: LibraryCorpus[];
 }
 
-const TRACK_ICONS: Record<string, any> = {
+const TRACK_ICONS: Record<string, LucideIcon> = {
   monolingual: BookOpen,
   bilingual: Globe,
   scraper: Newspaper,
@@ -66,9 +67,6 @@ function AnalyzePanel({
   onClose: () => void;
 }) {
   const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-
   const trackOptions = (() => {
     const t = corpus.type;
     if (t === "monolingual") return [
@@ -87,20 +85,9 @@ function AnalyzePanel({
     ];
   })();
 
-  async function handleTrack(path: string) {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/library/${corpus.id}/load`, { method: "POST" });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      sessionStorage.setItem("library_load", JSON.stringify(data));
-      navigate(`${path}?libraryId=${corpus.id}`);
-      onClose();
-    } catch (err: any) {
-      toast({ title: "Failed to load corpus", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+  function handleTrack(path: string) {
+    navigate(`${path}?libraryId=${corpus.id}`);
+    onClose();
   }
 
   return (
@@ -119,10 +106,9 @@ function AnalyzePanel({
             size="sm"
             className={`w-full justify-start gap-2 bg-gradient-to-r ${opt.color} text-white hover:opacity-90 transition-opacity`}
             onClick={() => handleTrack(opt.path)}
-            disabled={loading}
             data-testid={`button-analyze-${opt.key}`}
           >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <opt.icon className="w-3.5 h-3.5" />}
+            <opt.icon className="w-3.5 h-3.5" />
             {opt.label}
           </Button>
         ))}
@@ -151,10 +137,10 @@ function CorpusCard({
       toast({ title: "Corpus deleted from library" });
       qc.invalidateQueries({ queryKey: ["/api/library"] });
     },
-    onError: (err: any) => toast({ title: "Delete failed", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => toast({ title: "Delete failed", description: err.message, variant: "destructive" }),
   });
 
-  const pairs = corpus.samplePairs as any[] | null;
+  const pairs = corpus.samplePairs as SamplePair[] | null;
   const trackColor = TRACK_COLORS[corpus.sourceTrack || corpus.type] || "from-slate-500 to-slate-600";
   const typeColor = TYPE_COLORS[corpus.type] || TYPE_COLORS.external;
 
@@ -243,11 +229,10 @@ function CorpusCard({
                 className="overflow-hidden"
               >
                 <div className="mt-2 rounded-lg border border-border/40 overflow-hidden">
-                  {pairs.slice(0, 3).map((p: any, i: number) => (
+                  {pairs.slice(0, 3).map((p, i) => (
                     <div key={i} className={`px-3 py-2 text-xs ${i > 0 ? "border-t border-border/30" : ""}`}>
                       {p.source && <p className="font-medium text-foreground/80 mb-1">{p.source}</p>}
                       {p.target && <p className="text-muted-foreground">{p.target}</p>}
-                      {!p.target && <p className="text-foreground/70">{p.source || p.text || ""}</p>}
                     </div>
                   ))}
                 </div>
@@ -287,7 +272,7 @@ function SectionHeader({
   gradient,
   description,
 }: {
-  icon: any;
+  icon: LucideIcon;
   title: string;
   count: number;
   gradient: string;

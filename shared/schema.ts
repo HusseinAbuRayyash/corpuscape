@@ -53,12 +53,21 @@ export interface ConcordanceResult {
   right: string;
 }
 
+export interface SamplePair {
+  source: string;
+  target?: string;
+}
+
 export interface AlignedPair {
   source: string;
   target: string;
   similarity: number;
   strategy?: string;
 }
+
+export type LibraryLoadResponse =
+  | { type: "monolingual"; corpusId: string; stats: CorpusStats; name: string }
+  | { type: "bilingual"; corpusId: string; pairs: AlignedPair[]; name: string };
 
 export interface AnalysisCategory {
   name: string;

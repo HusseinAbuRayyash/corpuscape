@@ -24,7 +24,7 @@ import {
   Upload, BarChart3, Link2, Search, Hash, Brain, BookText, Download,
   Loader2, TrendingUp, BookOpen, Cloud, Layers, Table, ChevronDown, ChevronUp,
 } from "lucide-react";
-import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult } from "@shared/schema";
+import type { CorpusStats, KeywordResult, NgramResult, CollocationResult, ConcordanceResult, LibraryLoadResponse } from "@shared/schema";
 
 export default function Monolingual() {
   const { toast } = useToast();
@@ -67,17 +67,19 @@ export default function Monolingual() {
       return;
     }
 
-    const raw = sessionStorage.getItem("library_load");
-    if (!raw || !window.location.search.includes("libraryId")) return;
-    try {
-      const data = JSON.parse(raw);
-      sessionStorage.removeItem("library_load");
-      if (data.corpusId && data.stats) {
-        setCorpusId(data.corpusId);
-        setStats(data.stats);
-        toast({ title: `"${data.name}" loaded from Library`, description: "Ready for analysis" });
-      }
-    } catch {}
+    const params = new URLSearchParams(window.location.search);
+    const libraryId = params.get("libraryId");
+    if (!libraryId) return;
+    fetch(`/api/library/${libraryId}/load`)
+      .then(r => r.json())
+      .then((data: LibraryLoadResponse) => {
+        if (data.type === "monolingual") {
+          setCorpusId(data.corpusId);
+          setStats(data.stats);
+          toast({ title: `"${data.name}" loaded from Library`, description: "Ready for analysis" });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const uploadMutation = useMutation({
