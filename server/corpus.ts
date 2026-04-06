@@ -51,13 +51,15 @@ export function extractCollocations(
   text: string,
   nodeWord?: string,
   topN: number = 20,
-  minFreq: number = 2,
+  minFreq: number = 0,
   stopWords?: string[]
 ): CollocationResult[] {
   const stopSet = stopWords ? new Set(stopWords.map(w => w.toLowerCase().trim()).filter(Boolean)) : null;
   const words = text.split(/\s+/).filter((w) => w.length > 2).map((w) => w.toLowerCase()).filter(w => !stopSet || !stopSet.has(w));
   const nTotal = words.length;
   if (nTotal < 10) return [];
+  // Adaptive minimum frequency: scale with corpus size so small corpora still get results
+  const adaptiveMinFreq = minFreq > 0 ? minFreq : Math.max(1, Math.floor(nTotal / 800));
 
   const bigramFreq = new Map<string, number>();
   const wordFreq = new Map<string, number>();
@@ -73,7 +75,7 @@ export function extractCollocations(
 
   const results: CollocationResult[] = [];
   for (const [key, f] of bigramFreq.entries()) {
-    if (f < minFreq) continue;
+    if (f < adaptiveMinFreq) continue;
     const [a, b] = key.split("|||");
     if (nodeWord) {
       const node = nodeWord.toLowerCase();
