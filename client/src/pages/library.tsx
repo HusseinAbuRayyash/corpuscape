@@ -388,6 +388,7 @@ export default function LibraryPage() {
 
   const { data, isLoading, isError } = useQuery<GroupedCorpora>({
     queryKey: ["/api/library"],
+    staleTime: 0,
   });
 
   const filterCorpora = (list: LibraryCorpus[]) => {
