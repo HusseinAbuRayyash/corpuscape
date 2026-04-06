@@ -76,6 +76,7 @@ export default function Monolingual() {
         if (data.type === "monolingual") {
           setCorpusId(data.corpusId);
           setStats(data.stats);
+          if (data.columns) setColumns(data.columns);
           toast({ title: `"${data.name}" loaded from Library`, description: "Ready for analysis" });
         }
       })

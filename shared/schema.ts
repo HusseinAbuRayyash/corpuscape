@@ -67,9 +67,15 @@ export interface AlignedPair {
   strategy?: string;
 }
 
+export interface ColumnMeta {
+  headers: string[];
+  dateColumns: string[];
+  totalRows: number;
+}
+
 export type LibraryLoadResponse =
-  | { type: "monolingual"; corpusId: string; stats: CorpusStats; name: string }
-  | { type: "bilingual"; corpusId: string; pairs: AlignedPair[]; name: string };
+  | { type: "monolingual"; corpusId: string; stats: CorpusStats; name: string; columns?: ColumnMeta }
+  | { type: "bilingual"; corpusId: string; pairs: AlignedPair[]; name: string; columns?: ColumnMeta };
 
 export interface AnalysisCategory {
   name: string;
