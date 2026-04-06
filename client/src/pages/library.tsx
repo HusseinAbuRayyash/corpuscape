@@ -4,12 +4,13 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   BookMarked, Globe, BookOpen, Scale, Newspaper, ExternalLink,
   Loader2, ChevronDown, ChevronUp, Trash2, BookText, BarChart3,
-  Library, Database, Users, Search, AreaChart,
+  Library, Database, Users, Search, AreaChart, Maximize2,
 } from "lucide-react";
 import type { LibraryCorpus, SamplePair } from "@shared/schema";
 import type { LucideIcon } from "lucide-react";
@@ -125,7 +126,7 @@ function CorpusCard({
   showDelete?: boolean;
 }) {
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -210,36 +211,82 @@ function CorpusCard({
       </div>
 
       {pairs && pairs.length > 0 && (
-        <div>
+        <>
           <button
-            onClick={() => setPreviewOpen(!previewOpen)}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-medium"
+            onClick={() => setPreviewModalOpen(true)}
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-medium"
             data-testid={`button-preview-${corpus.id}`}
           >
-            {previewOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {previewOpen ? "Hide sample" : "Preview sample"}
+            <Maximize2 className="w-3 h-3" />
+            Preview sample ({pairs.length} entries)
           </button>
 
-          <AnimatePresence>
-            {previewOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-2 rounded-lg border border-border/40 overflow-hidden">
-                  {pairs.slice(0, 3).map((p, i) => (
-                    <div key={i} className={`px-3 py-2 text-xs ${i > 0 ? "border-t border-border/30" : ""}`}>
-                      {p.source && <p className="font-medium text-foreground/80 mb-1">{p.source}</p>}
-                      {p.target && <p className="text-muted-foreground">{p.target}</p>}
-                    </div>
-                  ))}
+          <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+            <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0 gap-0">
+              <DialogHeader className="px-6 py-4 border-b border-border/40 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className={`h-1 w-6 rounded-full bg-gradient-to-r ${trackColor}`} />
+                  <DialogTitle className="text-base font-bold">{corpus.name}</DialogTitle>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${typeColor}`}>
+                    {corpus.type}
+                  </span>
+                  {corpus.languagePair && (
+                    <span className="text-xs text-muted-foreground">{langFlags(corpus.languagePair)} {corpus.languagePair}</span>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground font-medium">{pairs.length} entries</span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                {corpus.domain && (
+                  <p className="text-xs text-muted-foreground mt-0.5 pl-9">{corpus.domain}</p>
+                )}
+              </DialogHeader>
+
+              <div className="overflow-y-auto flex-1 px-6 py-4">
+                {corpus.type === "bilingual" ? (
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="text-left text-xs text-muted-foreground uppercase tracking-wide border-b border-border/40">
+                        <th className="pb-2 font-semibold w-[40%]">Source</th>
+                        <th className="pb-2 font-semibold w-[40%] pl-4">Target</th>
+                        <th className="pb-2 font-semibold w-[10%] pl-4">Strategy</th>
+                        <th className="pb-2 font-semibold w-[10%] pl-4 text-right">#</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pairs.map((p, i) => (
+                        <tr key={i} className={`align-top ${i > 0 ? "border-t border-border/20" : ""}`}>
+                          <td className="py-2.5 pr-4 text-foreground/85 leading-relaxed">{p.source}</td>
+                          <td className="py-2.5 px-4 text-muted-foreground leading-relaxed">{p.target ?? "—"}</td>
+                          <td className="py-2.5 px-4">
+                            {p.strategy && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                                {p.strategy}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 pl-4 text-xs text-muted-foreground/60 text-right tabular-nums">{i + 1}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <ol className="space-y-2">
+                    {pairs.map((p, i) => (
+                      <li key={i} className="flex gap-3 text-sm leading-relaxed">
+                        <span className="shrink-0 text-xs text-muted-foreground/60 tabular-nums pt-0.5 w-6 text-right">{i + 1}.</span>
+                        <span className="text-foreground/85">{p.source}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+
+              <div className="px-6 py-3 border-t border-border/40 shrink-0 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{corpus.sizeLabel && <span className="font-medium">{corpus.sizeLabel}</span>}{corpus.license && <span className="ml-2 px-1.5 py-0.5 rounded bg-muted/60 font-mono">{corpus.license}</span>}</span>
+                <span>{pairs.length} entries shown</span>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       <div className="flex items-center justify-between pt-1">
