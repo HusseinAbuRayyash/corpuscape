@@ -397,6 +397,45 @@ export default function FigureMaker() {
     }
   }, []);
 
+  useEffect(() => {
+    const raw = sessionStorage.getItem("library_load");
+    if (!raw || !window.location.search.includes("libraryId")) return;
+    try {
+      const data = JSON.parse(raw);
+      sessionStorage.removeItem("library_load");
+      if (data.type === "bilingual" && data.pairs?.length > 0) {
+        const stratCounts: Record<string, number> = {};
+        data.pairs.forEach((p: any) => {
+          const s = p.strategy || "unlabeled";
+          stratCounts[s] = (stratCounts[s] || 0) + 1;
+        });
+        const chartItems = Object.entries(stratCounts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+        if (chartItems.length > 0) {
+          setChartData(chartItems);
+          setTitle(`Translation Strategies — ${data.name}`);
+          setXLabel("Strategy");
+          setYLabel("Count");
+          toast({ title: `"${data.name}" loaded`, description: "Strategy distribution ready for visualization" });
+        }
+      } else if (data.type === "monolingual" && data.corpusId) {
+        fetch("/api/corpus/keywords", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ corpusId: data.corpusId, topN: 20, stopWords: [] }),
+        }).then(r => r.json()).then(kw => {
+          if (kw?.keywords?.length > 0) {
+            const chartItems = kw.keywords.slice(0, 20).map((k: any) => ({ label: k.term, value: k.frequency }));
+            setChartData(chartItems);
+            setTitle(`Keyword Frequency — ${data.name}`);
+            setXLabel("Term");
+            setYLabel("Frequency");
+            toast({ title: `"${data.name}" loaded`, description: "Top 20 keywords ready for visualization" });
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
   const pushHistory = useCallback((newData: ChartDataItem[]) => {
     setHistoryStack(prev => {
       const trimmed = prev.slice(0, historyPtr + 1);

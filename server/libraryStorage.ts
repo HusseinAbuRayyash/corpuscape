@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { libraryCorpora, type InsertLibraryCorpus, type LibraryCorpus } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 
 export async function getLibraryCorpora(): Promise<LibraryCorpus[]> {
   return db.select().from(libraryCorpora).orderBy(desc(libraryCorpora.createdAt));
@@ -74,10 +74,81 @@ export async function ensureBuiltinSeeds(): Promise<void> {
   await db.insert(libraryCorpora).values(builtinSeeds);
 }
 
+function getLatestExternalSeeds(): InsertLibraryCorpus[] {
+  return [
+    {
+      name: "mC4 — Multilingual Cleaned Common Crawl",
+      type: "monolingual",
+      origin: "external",
+      sourceTrack: "monolingual",
+      languagePair: "multilingual (101 languages)",
+      domain: "Web / General",
+      sizeLabel: "~26.8B sentences (101 languages)",
+      license: "ODC-By 1.0",
+      externalUrl: "https://huggingface.co/datasets/mc4",
+      samplePairs: [
+        { source: "Researchers at the university have developed a new method for analyzing large-scale text data using deep learning." },
+        { source: "The city council approved the new infrastructure plan, which includes major improvements to public transportation." },
+        { source: "Scientists have discovered that certain plants can communicate distress through chemical signals released into the air." },
+        { source: "Economic analysts predict continued growth in the technology sector despite global supply chain disruptions." },
+        { source: "The festival brought together artists, musicians, and writers from more than forty countries around the world." },
+      ],
+    },
+    {
+      name: "Universal Dependencies — English (EWT)",
+      type: "monolingual",
+      origin: "external",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Syntax / Treebank",
+      sizeLabel: "~254K words",
+      license: "CC BY-SA 4.0",
+      externalUrl: "https://universaldependencies.org/",
+      samplePairs: [
+        { source: "I went to the store yesterday to buy some groceries for dinner." },
+        { source: "She smiled when she heard the good news about the promotion." },
+        { source: "The children played quietly in the garden while their parents talked inside." },
+        { source: "He had never seen anything quite like it before in his entire career." },
+        { source: "The old bridge was finally repaired after years of budget negotiations." },
+      ],
+    },
+    {
+      name: "Common Crawl — English Monolingual (C4)",
+      type: "monolingual",
+      origin: "external",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Web / General",
+      sizeLabel: "~745GB text",
+      license: "ODC-By 1.0",
+      externalUrl: "https://c4.ai.2gis.com/",
+      samplePairs: [
+        { source: "The latest advances in artificial intelligence are transforming how businesses operate across every industry." },
+        { source: "Climate scientists warn that without immediate action, sea levels could rise by several meters by 2100." },
+        { source: "The open-source community continues to drive innovation in software development through collaborative projects." },
+        { source: "Nutritional research suggests that a diverse diet rich in vegetables reduces the risk of chronic disease." },
+        { source: "Urban planners are increasingly turning to data analytics to improve city infrastructure and quality of life." },
+      ],
+    },
+  ];
+}
+
+async function ensureMissingSeedsFromList(candidates: InsertLibraryCorpus[]): Promise<void> {
+  const names = candidates.map(s => s.name);
+  const existing = await db.select({ name: libraryCorpora.name }).from(libraryCorpora).where(inArray(libraryCorpora.name, names));
+  const existingNames = new Set(existing.map(r => r.name));
+  const toInsert = candidates.filter(s => !existingNames.has(s.name));
+  if (toInsert.length > 0) {
+    await db.insert(libraryCorpora).values(toInsert);
+  }
+}
+
 export async function seedLibraryIfEmpty(): Promise<void> {
   const existing = await db.select().from(libraryCorpora).limit(1);
   if (existing.length > 0) {
     await ensureBuiltinSeeds();
+    const latestExternalSeeds = getLatestExternalSeeds();
+    await ensureMissingSeedsFromList(latestExternalSeeds);
     return;
   }
 
@@ -494,6 +565,60 @@ export async function seedLibraryIfEmpty(): Promise<void> {
         { source: "The preservation of endangered languages is vital for maintaining cultural diversity.", target: "يُعدّ الحفاظ على اللغات المهددة بالانقراض أمراً حيوياً للحفاظ على التنوع الثقافي." },
         { source: "Translation technology has made global communication more accessible than ever before.", target: "جعلت تقنية الترجمة التواصل العالمي أكثر سهولة من أي وقت مضى." },
         { source: "Indigenous languages carry unique knowledge about local ecosystems and traditions.", target: "تحمل اللغات الأصلية معرفة فريدة حول النظم البيئية المحلية والتقاليد." },
+      ],
+    },
+    {
+      name: "mC4 — Multilingual Cleaned Common Crawl",
+      type: "monolingual",
+      origin: "external",
+      sourceTrack: "monolingual",
+      languagePair: "multilingual (101 languages)",
+      domain: "Web / General",
+      sizeLabel: "~26.8B sentences (101 languages)",
+      license: "ODC-By 1.0",
+      externalUrl: "https://huggingface.co/datasets/mc4",
+      samplePairs: [
+        { source: "Researchers at the university have developed a new method for analyzing large-scale text data using deep learning." },
+        { source: "The city council approved the new infrastructure plan, which includes major improvements to public transportation." },
+        { source: "Scientists have discovered that certain plants can communicate distress through chemical signals released into the air." },
+        { source: "Economic analysts predict continued growth in the technology sector despite global supply chain disruptions." },
+        { source: "The festival brought together artists, musicians, and writers from more than forty countries around the world." },
+      ],
+    },
+    {
+      name: "Universal Dependencies — English (EWT)",
+      type: "monolingual",
+      origin: "external",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Syntax / Treebank",
+      sizeLabel: "~254K words",
+      license: "CC BY-SA 4.0",
+      externalUrl: "https://universaldependencies.org/",
+      samplePairs: [
+        { source: "I went to the store yesterday to buy some groceries for dinner." },
+        { source: "She smiled when she heard the good news about the promotion." },
+        { source: "The children played quietly in the garden while their parents talked inside." },
+        { source: "He had never seen anything quite like it before in his entire career." },
+        { source: "The old bridge was finally repaired after years of budget negotiations." },
+      ],
+    },
+    {
+      name: "Common Crawl — English Monolingual (C4)",
+      type: "monolingual",
+      origin: "external",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Web / General",
+      sizeLabel: "~745GB text",
+      license: "ODC-By 1.0",
+      externalUrl: "https://c4.ai.2gis.com/",
+      samplePairs: [
+        { source: "The latest advances in artificial intelligence are transforming how businesses operate across every industry." },
+        { source: "Climate scientists warn that without immediate action, sea levels could rise by several meters by 2100." },
+        { source: "The open-source community continues to drive innovation in software development through collaborative projects." },
+        { source: "Nutritional research suggests that a diverse diet rich in vegetables reduces the risk of chronic disease." },
+        { source: "Urban planners are increasingly turning to data analytics to improve city infrastructure and quality of life." },
       ],
     },
     {
