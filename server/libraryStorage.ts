@@ -20,9 +20,66 @@ export async function deleteLibraryCorpus(id: number): Promise<void> {
   await db.delete(libraryCorpora).where(eq(libraryCorpora.id, id));
 }
 
+export async function ensureBuiltinSeeds(): Promise<void> {
+  const existing = await db.select().from(libraryCorpora).where(eq(libraryCorpora.origin, "builtin")).limit(1);
+  if (existing.length > 0) return;
+
+  const builtinSeeds: InsertLibraryCorpus[] = [
+    {
+      name: "Translation Strategies — Curated Sample",
+      type: "bilingual",
+      origin: "builtin",
+      sourceTrack: "bilingual",
+      languagePair: "en↔ar",
+      domain: "Translation Studies",
+      sizeLabel: "8 pairs",
+      license: "Built-in",
+      externalUrl: null,
+      samplePairs: [
+        { source: "The government passed new legislation to tackle rising inflation.", target: "أصدرت الحكومة تشريعات جديدة لمعالجة ارتفاع التضخم.", strategy: "domestication" },
+        { source: "A stitch in time saves nine.", target: "الوقاية خير من العلاج.", strategy: "adaptation" },
+        { source: "She read between the lines of his ambiguous statement.", target: "قرأت ما بين سطور تصريحه الغامض.", strategy: "calque" },
+        { source: "The prime minister held a press conference regarding Brexit.", target: "عقد رئيس الوزراء مؤتمراً صحفياً بشأن خروج بريطانيا من الاتحاد الأوروبي.", strategy: "foreignization" },
+        { source: "Researchers have identified a novel biomarker for early cancer detection.", target: "حدد الباحثون علامة حيوية جديدة للكشف المبكر عن السرطان.", strategy: "equivalence" },
+        { source: "Children learn language through immersion and social interaction.", target: "يتعلم الأطفال اللغة من خلال الانغماس والتفاعل الاجتماعي.", strategy: "equivalence" },
+        { source: "The metaphor of the journey is central to Western literary tradition.", target: "تُعدّ استعارة الرحلة محورية في التقليد الأدبي الغربي.", strategy: "foreignization" },
+        { source: "Time flies when you're having fun.", target: "يمر الوقت بسرعة عندما تكون مستمتعاً.", strategy: "adaptation" },
+      ],
+    },
+    {
+      name: "Academic English — Corpus Linguistics Abstracts",
+      type: "monolingual",
+      origin: "builtin",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Academic / Linguistics",
+      sizeLabel: "~500 words",
+      license: "Built-in",
+      externalUrl: null,
+      samplePairs: [
+        { source: "This study investigates the use of hedging devices in academic writing across disciplines." },
+        { source: "Corpus linguistics provides empirical evidence for theoretical claims about language structure." },
+        { source: "The frequency of passive constructions varies significantly across academic genres." },
+        { source: "Collocation analysis reveals systematic patterns of co-occurrence in technical discourse." },
+        { source: "Keyness statistics identify words that are unusually frequent in a target corpus compared to a reference corpus." },
+        { source: "Phraseological patterns in learner language differ from those found in native speaker corpora." },
+        { source: "Semantic prosody refers to the consistent collocational environment of a word or phrase." },
+        { source: "Concordance lines provide qualitative context for quantitative frequency data." },
+        { source: "The development of large-scale corpora has transformed linguistic research methodology." },
+        { source: "Lexical bundles are multi-word sequences that recur with high frequency in disciplinary writing." },
+      ],
+    },
+  ];
+
+  await db.insert(libraryCorpora).values(builtinSeeds);
+}
+
 export async function seedLibraryIfEmpty(): Promise<void> {
   const existing = await db.select().from(libraryCorpora).limit(1);
-  if (existing.length > 0) return;
+  if (existing.length > 0) {
+    await ensureBuiltinSeeds();
+    return;
+  }
 
   const seeds: InsertLibraryCorpus[] = [
     {
@@ -437,6 +494,50 @@ export async function seedLibraryIfEmpty(): Promise<void> {
         { source: "The preservation of endangered languages is vital for maintaining cultural diversity.", target: "يُعدّ الحفاظ على اللغات المهددة بالانقراض أمراً حيوياً للحفاظ على التنوع الثقافي." },
         { source: "Translation technology has made global communication more accessible than ever before.", target: "جعلت تقنية الترجمة التواصل العالمي أكثر سهولة من أي وقت مضى." },
         { source: "Indigenous languages carry unique knowledge about local ecosystems and traditions.", target: "تحمل اللغات الأصلية معرفة فريدة حول النظم البيئية المحلية والتقاليد." },
+      ],
+    },
+    {
+      name: "Translation Strategies — Curated Sample",
+      type: "bilingual",
+      origin: "builtin",
+      sourceTrack: "bilingual",
+      languagePair: "en↔ar",
+      domain: "Translation Studies",
+      sizeLabel: "20 pairs",
+      license: "Built-in",
+      externalUrl: null,
+      samplePairs: [
+        { source: "The government passed new legislation to tackle rising inflation.", target: "أصدرت الحكومة تشريعات جديدة لمعالجة ارتفاع التضخم.", strategy: "domestication" },
+        { source: "A stitch in time saves nine.", target: "الوقاية خير من العلاج.", strategy: "adaptation" },
+        { source: "She read between the lines of his ambiguous statement.", target: "قرأت ما بين سطور تصريحه الغامض.", strategy: "calque" },
+        { source: "The prime minister held a press conference regarding Brexit.", target: "عقد رئيس الوزراء مؤتمراً صحفياً بشأن خروج بريطانيا من الاتحاد الأوروبي.", strategy: "foreignization" },
+        { source: "Researchers have identified a novel biomarker for early cancer detection.", target: "حدد الباحثون علامة حيوية جديدة للكشف المبكر عن السرطان.", strategy: "equivalence" },
+        { source: "The algorithm achieved state-of-the-art performance on benchmark datasets.", target: "حقق الخوارزمية أداءً متطوراً على مجموعات البيانات المرجعية.", strategy: "domestication" },
+        { source: "Children learn language through immersion and social interaction.", target: "يتعلم الأطفال اللغة من خلال الانغماس والتفاعل الاجتماعي.", strategy: "equivalence" },
+        { source: "The metaphor of the journey is central to Western literary tradition.", target: "تُعدّ استعارة الرحلة محورية في التقليد الأدبي الغربي.", strategy: "foreignization" },
+      ],
+    },
+    {
+      name: "Academic English — Corpus Linguistics Abstracts",
+      type: "monolingual",
+      origin: "builtin",
+      sourceTrack: "monolingual",
+      languagePair: "en",
+      domain: "Academic / Linguistics",
+      sizeLabel: "~500 words",
+      license: "Built-in",
+      externalUrl: null,
+      samplePairs: [
+        { source: "This study investigates the use of hedging devices in academic writing across disciplines." },
+        { source: "Corpus linguistics provides empirical evidence for theoretical claims about language structure." },
+        { source: "The frequency of passive constructions varies significantly across academic genres." },
+        { source: "Collocation analysis reveals systematic patterns of co-occurrence in technical discourse." },
+        { source: "Keyness statistics identify words that are unusually frequent in a target corpus compared to a reference corpus." },
+        { source: "Phraseological patterns in learner language differ from those found in native speaker corpora." },
+        { source: "Semantic prosody refers to the consistent collocational environment of a word or phrase." },
+        { source: "Concordance lines provide qualitative context for quantitative frequency data." },
+        { source: "The development of large-scale corpora has transformed linguistic research methodology." },
+        { source: "Lexical bundles are multi-word sequences that recur with high frequency in disciplinary writing." },
       ],
     },
   ];

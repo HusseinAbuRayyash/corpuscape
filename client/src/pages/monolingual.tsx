@@ -48,6 +48,7 @@ export default function Monolingual() {
   const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
   const [stopWords, setStopWords] = useState<string[]>([]);
   const [cloudWords, setCloudWords] = useState<{text: string; value: number}[]>([]);
+  const [sentenceSample, setSentenceSample] = useState<string[]>([]);
   const [kwChartExpanded, setKwChartExpanded] = useState(false);
   const [kwTableExpanded, setKwTableExpanded] = useState(false);
   const [ngChartExpanded, setNgChartExpanded] = useState(false);
@@ -96,6 +97,7 @@ export default function Monolingual() {
       setFilteredStats(null);
       setOriginalCorpusId(null);
       setOriginalStats(null);
+      if (data.sentenceSample) setSentenceSample(data.sentenceSample);
       toast({ title: "Corpus loaded", description: `${data.stats.words.toLocaleString()} words ready for analysis${data.columns ? ` · ${data.columns.headers.length} columns detected` : ""}` });
     },
     onError: () => toast({ title: "Upload failed", variant: "destructive" }),
@@ -342,6 +344,7 @@ export default function Monolingual() {
                 type="monolingual"
                 sourceTrack="monolingual"
                 sizeLabel={`${stats.words.toLocaleString()} words`}
+                samplePairs={sentenceSample.length > 0 ? sentenceSample.map(s => ({ source: s })) : keywords.slice(0, 50).map(k => ({ source: k.term }))}
                 defaultName={selectedFiles.length > 0 ? selectedFiles.map(f => f.name.replace(/\.[^.]+$/, "")).join(", ") : "Monolingual Corpus"}
                 accentClass="from-indigo-500 to-blue-600"
               />
