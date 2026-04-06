@@ -1069,16 +1069,33 @@ Format with clear headings and specific examples from each corpus.`);
         dateColumns: [] as string[],
       });
 
+      // Find the n columns with the longest average text length (used for generic bilingual detection)
+      const findTopTextColumns = (rows: Record<string, any>[], n: number): string[] => {
+        const keys = Object.keys(rows[0] || {});
+        const sample = rows.slice(0, Math.min(10, rows.length));
+        const scores = keys.map(k => {
+          const avg = sample.reduce((sum, r) => sum + String(r[k] || "").length, 0) / sample.length;
+          return { key: k, avg };
+        });
+        return scores.sort((a, b) => b.avg - a.avg).slice(0, n).map(x => x.key);
+      };
+
+      // Build full text from a row — joins ALL non-empty string values (not just the first)
+      const rowToText = (p: Record<string, any>): string => {
+        if (p.source) return String(p.source);
+        return Object.values(p)
+          .filter(v => typeof v === "string" && String(v).trim().length > 0)
+          .join(". ");
+      };
+
       const type = corpus.type;
       if (type === "monolingual") {
-        let columnsData: ReturnType<typeof buildColumnsData>;
-        if (isStandardMonolingual) {
-          const rows = pairs.map(p => ({ Text: p.source || "" }));
-          columnsData = buildColumnsData(["Text"], rows);
-        } else {
-          columnsData = buildColumnsData(rawKeys, pairs);
-        }
-        const text = pairs.map(p => (p.source || Object.values(p).find(v => typeof v === "string") || "")).filter(Boolean).join("\n\n");
+        const columnsData = isStandardMonolingual
+          ? buildColumnsData(["Text"], pairs.map(p => ({ Text: p.source || "" })))
+          : buildColumnsData(rawKeys, pairs);
+
+        // Use ALL text fields from every row — not just the first string value
+        const text = pairs.map(rowToText).filter(Boolean).join("\n\n");
         const corpusId = generateCorpusId();
         storeCorpus(corpusId, text);
         storeCorpus(`${corpusId}_columns`, JSON.stringify(columnsData));
@@ -1089,25 +1106,28 @@ Format with clear headings and specific examples from each corpus.`);
           columns: { headers: columnsData.headers, dateColumns: [], totalRows: columnsData.rows.length },
         });
       } else {
-        let columnsData: ReturnType<typeof buildColumnsData>;
+        // Always keep the raw original columns for the Dataset tab
+        const columnsData = buildColumnsData(rawKeys, pairs);
+
+        let bilingualPairs: { source: string; target: string; similarity: number; strategy: string }[];
         if (isStandardBilingual) {
-          const hasStrategy = rawKeys.includes("strategy");
-          const headers = ["Source", "Target", ...(hasStrategy ? ["Strategy"] : [])];
-          const rows = pairs.map(p => ({
-            Source: p.source || "",
-            Target: p.target || "",
-            ...(hasStrategy ? { Strategy: p.strategy || "" } : {}),
+          bilingualPairs = pairs.map(p => ({
+            source: String(p.source || ""),
+            target: String(p.target || ""),
+            similarity: typeof p.similarity === "number" ? p.similarity : 1,
+            strategy: String(p.strategy || ""),
           }));
-          columnsData = buildColumnsData(headers, rows);
         } else {
-          columnsData = buildColumnsData(rawKeys, pairs);
+          // Generic bilingual: detect the two longest-text columns as source and target
+          const [srcCol, tgtCol] = findTopTextColumns(pairs, 2);
+          bilingualPairs = pairs.map(p => ({
+            source: String(p[srcCol] || ""),
+            target: String(p[tgtCol] || ""),
+            similarity: 1,
+            strategy: "",
+          }));
         }
-        const bilingualPairs = pairs.map(p => ({
-          source: p.source || "",
-          target: p.target || "",
-          similarity: typeof p.similarity === "number" ? p.similarity : 1,
-          strategy: p.strategy || "",
-        }));
+
         const corpusId = generateCorpusId();
         const srcText = bilingualPairs.map(p => p.source).join("\n");
         const tgtText = bilingualPairs.map(p => p.target).join("\n");
