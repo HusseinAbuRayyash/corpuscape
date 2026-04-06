@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare, Table2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AlignedPair } from "@shared/schema";
+import type { AlignedPair, LibraryLoadResponse } from "@shared/schema";
 
 export default function Bilingual() {
   const { toast } = useToast();
@@ -47,24 +47,26 @@ export default function Bilingual() {
   const [isInspecting, setIsInspecting] = useState(false);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("library_load");
-    if (!raw || !window.location.search.includes("libraryId")) return;
-    try {
-      const data = JSON.parse(raw);
-      sessionStorage.removeItem("library_load");
-      if (data.type === "bilingual" && data.pairs && data.corpusId) {
-        setCorpusId(data.corpusId);
-        setPairs(data.pairs);
-        const totalSim = data.pairs.reduce((s: number, p: any) => s + (p.similarity || 0), 0);
-        setMetrics({
-          alignedPairs: data.pairs.length,
-          avgSimilarity: data.pairs.length > 0 ? totalSim / data.pairs.length : 0,
-          strategiesLabeled: data.pairs.filter((p: any) => p.strategy).length,
-          lengthRatio: 1,
-        });
-        toast({ title: `"${data.name}" loaded from Library`, description: `${data.pairs.length} pairs ready for analysis` });
-      }
-    } catch {}
+    const params = new URLSearchParams(window.location.search);
+    const libraryId = params.get("libraryId");
+    if (!libraryId) return;
+    fetch(`/api/library/${libraryId}/load`)
+      .then(r => r.json())
+      .then((data: LibraryLoadResponse) => {
+        if (data.type === "bilingual") {
+          setCorpusId(data.corpusId);
+          setPairs(data.pairs);
+          const totalSim = data.pairs.reduce((s, p) => s + (p.similarity || 0), 0);
+          setMetrics({
+            alignedPairs: data.pairs.length,
+            avgSimilarity: data.pairs.length > 0 ? totalSim / data.pairs.length : 0,
+            strategiesLabeled: data.pairs.filter(p => p.strategy).length,
+            lengthRatio: 1,
+          });
+          toast({ title: `"${data.name}" loaded from Library`, description: `${data.pairs.length} pairs ready for analysis` });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const clearAnalysisResults = () => {

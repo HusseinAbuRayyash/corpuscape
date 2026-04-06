@@ -14,7 +14,7 @@ import { AIResultDisplay } from "@/components/ai-result-display";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight, Cloud } from "lucide-react";
-import type { CorpusStats, KeywordResult } from "@shared/schema";
+import type { CorpusStats, KeywordResult, LibraryLoadResponse } from "@shared/schema";
 
 interface CompareResult {
   statsA: CorpusStats;
@@ -40,17 +40,19 @@ export default function Compare() {
   const [cloudWordsB, setCloudWordsB] = useState<{text: string; value: number}[]>([]);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("library_load");
-    if (!raw || !window.location.search.includes("libraryId")) return;
-    try {
-      const data = JSON.parse(raw);
-      sessionStorage.removeItem("library_load");
-      if (data.corpusId && data.stats) {
-        setCorpusIdA(data.corpusId);
-        setStatsA(data.stats);
-        toast({ title: `"${data.name}" loaded as Corpus A`, description: "Upload Corpus B to compare" });
-      }
-    } catch {}
+    const params = new URLSearchParams(window.location.search);
+    const libraryId = params.get("libraryId");
+    if (!libraryId) return;
+    fetch(`/api/library/${libraryId}/load`)
+      .then(r => r.json())
+      .then((data: LibraryLoadResponse) => {
+        if (data.type === "monolingual") {
+          setCorpusIdA(data.corpusId);
+          setStatsA(data.stats);
+          toast({ title: `"${data.name}" loaded as Corpus A`, description: "Upload Corpus B to compare" });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const uploadA = useMutation({

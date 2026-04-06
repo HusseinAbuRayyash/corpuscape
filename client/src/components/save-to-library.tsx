@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { BookMarked, Loader2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { SamplePair } from "@shared/schema";
 
 interface SaveToLibraryProps {
   type: "monolingual" | "bilingual" | "multilingual";
@@ -13,7 +14,7 @@ interface SaveToLibraryProps {
   languagePair?: string;
   domain?: string;
   sizeLabel?: string;
-  samplePairs?: any[];
+  samplePairs?: SamplePair[];
   defaultName?: string;
   accentClass?: string;
   showLanguagePairInput?: boolean;
@@ -54,7 +55,7 @@ export function SaveToLibrary({
       qc.invalidateQueries({ queryKey: ["/api/library"] });
       setOpen(false);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
     },
   });

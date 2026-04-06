@@ -25,6 +25,8 @@ import {
   Minus, BarChart2, Columns,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { LibraryLoadResponse, KeywordResult } from "@shared/schema";
+import type { LucideIcon } from "lucide-react";
 
 const FIGURE_MAKER_FONTS_URL =
   "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,700;1,100;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,400;0,700;1,100;1,400;1,700&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap";
@@ -48,7 +50,7 @@ type FormatPreset = "default" | "apa" | "ieee" | "chicago" | "presentation" | "p
 type ExportResolution = "1x" | "2x" | "3x" | "4x";
 type ExportCodeLang = "python" | "r";
 
-const CHART_TYPES: { type: ChartType; label: string; icon: any; group?: string }[] = [
+const CHART_TYPES: { type: ChartType; label: string; icon: LucideIcon; group?: string }[] = [
   { type: "bar", label: "Bar", icon: BarChart3, group: "Basic" },
   { type: "barHorizontal", label: "Horizontal", icon: BarChartHorizontal, group: "Basic" },
   { type: "stackedBar", label: "Stacked Bar", icon: Layers, group: "Basic" },
@@ -398,42 +400,44 @@ export default function FigureMaker() {
   }, []);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("library_load");
-    if (!raw || !window.location.search.includes("libraryId")) return;
-    try {
-      const data = JSON.parse(raw);
-      sessionStorage.removeItem("library_load");
-      if (data.type === "bilingual" && data.pairs?.length > 0) {
-        const stratCounts: Record<string, number> = {};
-        data.pairs.forEach((p: any) => {
-          const s = p.strategy || "unlabeled";
-          stratCounts[s] = (stratCounts[s] || 0) + 1;
-        });
-        const chartItems = Object.entries(stratCounts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-        if (chartItems.length > 0) {
-          setChartData(chartItems);
-          setTitle(`Translation Strategies — ${data.name}`);
-          setXLabel("Strategy");
-          setYLabel("Count");
-          toast({ title: `"${data.name}" loaded`, description: "Strategy distribution ready for visualization" });
-        }
-      } else if (data.type === "monolingual" && data.corpusId) {
-        fetch("/api/corpus/keywords", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ corpusId: data.corpusId, topN: 20, stopWords: [] }),
-        }).then(r => r.json()).then(kw => {
-          if (kw?.keywords?.length > 0) {
-            const chartItems = kw.keywords.slice(0, 20).map((k: any) => ({ label: k.term, value: k.frequency }));
+    const params = new URLSearchParams(window.location.search);
+    const libraryId = params.get("libraryId");
+    if (!libraryId) return;
+    fetch(`/api/library/${libraryId}/load`)
+      .then(r => r.json())
+      .then((data: LibraryLoadResponse) => {
+        if (data.type === "bilingual") {
+          const stratCounts: Record<string, number> = {};
+          data.pairs.forEach(p => {
+            const s = p.strategy || "unlabeled";
+            stratCounts[s] = (stratCounts[s] || 0) + 1;
+          });
+          const chartItems = Object.entries(stratCounts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+          if (chartItems.length > 0) {
             setChartData(chartItems);
-            setTitle(`Keyword Frequency — ${data.name}`);
-            setXLabel("Term");
-            setYLabel("Frequency");
-            toast({ title: `"${data.name}" loaded`, description: "Top 20 keywords ready for visualization" });
+            setTitle(`Translation Strategies — ${data.name}`);
+            setXLabel("Strategy");
+            setYLabel("Count");
+            toast({ title: `"${data.name}" loaded`, description: "Strategy distribution ready for visualization" });
           }
-        }).catch(() => {});
-      }
-    } catch {}
+        } else if (data.type === "monolingual") {
+          fetch("/api/corpus/keywords", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ corpusId: data.corpusId, topN: 20, stopWords: [] }),
+          }).then(r => r.json()).then((kw: { keywords: KeywordResult[] }) => {
+            if (kw?.keywords?.length > 0) {
+              const chartItems = kw.keywords.slice(0, 20).map(k => ({ label: k.term, value: k.frequency }));
+              setChartData(chartItems);
+              setTitle(`Keyword Frequency — ${data.name}`);
+              setXLabel("Term");
+              setYLabel("Frequency");
+              toast({ title: `"${data.name}" loaded`, description: "Top 20 keywords ready for visualization" });
+            }
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const pushHistory = useCallback((newData: ChartDataItem[]) => {
