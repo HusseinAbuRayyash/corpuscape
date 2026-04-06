@@ -1055,18 +1055,53 @@ Format with clear headings and specific examples from each corpus.`);
       const corpus = await getLibraryCorpus(id);
       if (!corpus) return res.status(404).json({ error: "Corpus not found" });
 
-      const pairs = corpus.samplePairs as SamplePair[] | null;
+      const pairs = corpus.samplePairs as Record<string, any>[] | null;
       if (!pairs || pairs.length === 0) return res.status(400).json({ error: "No sample data available for this corpus" });
+
+      const firstPair = pairs[0] as Record<string, any>;
+      const rawKeys = Object.keys(firstPair);
+      const isStandardBilingual = rawKeys.includes("source") && rawKeys.includes("target") && rawKeys.length <= 5;
+      const isStandardMonolingual = !rawKeys.includes("target") && rawKeys.includes("source") && rawKeys.length <= 3;
+
+      const buildColumnsData = (headers: string[], rows: Record<string, any>[]) => ({
+        headers,
+        rows,
+        dateColumns: [] as string[],
+      });
 
       const type = corpus.type;
       if (type === "monolingual") {
-        const text = pairs.map(p => p.source || "").filter(Boolean).join("\n\n");
+        let columnsData: ReturnType<typeof buildColumnsData>;
+        if (isStandardMonolingual) {
+          const rows = pairs.map(p => ({ Text: p.source || "" }));
+          columnsData = buildColumnsData(["Text"], rows);
+        } else {
+          columnsData = buildColumnsData(rawKeys, pairs);
+        }
+        const text = pairs.map(p => (p.source || Object.values(p).find(v => typeof v === "string") || "")).filter(Boolean).join("\n\n");
         const corpusId = generateCorpusId();
         storeCorpus(corpusId, text);
+        storeCorpus(`${corpusId}_columns`, JSON.stringify(columnsData));
         const stats = getStats(text);
         registerCorpus({ id: corpusId, name: corpus.name, source: "monolingual", words: stats.words, createdAt: Date.now() });
-        return res.json({ type: "monolingual", corpusId, stats, name: corpus.name });
+        return res.json({
+          type: "monolingual", corpusId, stats, name: corpus.name,
+          columns: { headers: columnsData.headers, dateColumns: [], totalRows: columnsData.rows.length },
+        });
       } else {
+        let columnsData: ReturnType<typeof buildColumnsData>;
+        if (isStandardBilingual) {
+          const hasStrategy = rawKeys.includes("strategy");
+          const headers = ["Source", "Target", ...(hasStrategy ? ["Strategy"] : [])];
+          const rows = pairs.map(p => ({
+            Source: p.source || "",
+            Target: p.target || "",
+            ...(hasStrategy ? { Strategy: p.strategy || "" } : {}),
+          }));
+          columnsData = buildColumnsData(headers, rows);
+        } else {
+          columnsData = buildColumnsData(rawKeys, pairs);
+        }
         const bilingualPairs = pairs.map(p => ({
           source: p.source || "",
           target: p.target || "",
@@ -1079,8 +1114,12 @@ Format with clear headings and specific examples from each corpus.`);
         storeCorpus(`${corpusId}_src`, srcText);
         storeCorpus(`${corpusId}_tgt`, tgtText);
         storeCorpus(`${corpusId}_pairs`, JSON.stringify(bilingualPairs));
+        storeCorpus(`${corpusId}_columns`, JSON.stringify(columnsData));
         registerCorpus({ id: corpusId, name: corpus.name, source: "bilingual", words: srcText.split(/\s+/).length + tgtText.split(/\s+/).length, createdAt: Date.now() });
-        return res.json({ type: "bilingual", corpusId, pairs: bilingualPairs, name: corpus.name });
+        return res.json({
+          type: "bilingual", corpusId, pairs: bilingualPairs, name: corpus.name,
+          columns: { headers: columnsData.headers, dateColumns: [], totalRows: columnsData.rows.length },
+        });
       }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to load corpus";

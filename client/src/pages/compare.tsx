@@ -13,8 +13,9 @@ import { MarkdownRender } from "@/components/markdown-render";
 import { AIResultDisplay } from "@/components/ai-result-display";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight, Cloud } from "lucide-react";
-import type { CorpusStats, KeywordResult, LibraryLoadResponse } from "@shared/schema";
+import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight, Cloud, Table2 } from "lucide-react";
+import { DatasetViewer } from "@/components/dataset-viewer";
+import type { CorpusStats, KeywordResult, LibraryLoadResponse, ColumnMeta } from "@shared/schema";
 
 interface CompareResult {
   statsA: CorpusStats;
@@ -32,6 +33,8 @@ export default function Compare() {
   const [filesB, setFilesB] = useState<File[]>([]);
   const [corpusIdA, setCorpusIdA] = useState<string | null>(null);
   const [corpusIdB, setCorpusIdB] = useState<string | null>(null);
+  const [columnsA, setColumnsA] = useState<ColumnMeta | null>(null);
+  const [columnsB, setColumnsB] = useState<ColumnMeta | null>(null);
   const [statsA, setStatsA] = useState<CorpusStats | null>(null);
   const [statsB, setStatsB] = useState<CorpusStats | null>(null);
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
@@ -49,6 +52,7 @@ export default function Compare() {
         if (data.type === "monolingual") {
           setCorpusIdA(data.corpusId);
           setStatsA(data.stats);
+          if (data.columns) setColumnsA(data.columns);
           toast({ title: `"${data.name}" loaded as Corpus A`, description: "Upload Corpus B to compare" });
         }
       })
@@ -66,6 +70,7 @@ export default function Compare() {
     onSuccess: (data) => {
       setCorpusIdA(data.corpusId);
       setStatsA(data.stats);
+      if (data.columns) setColumnsA(data.columns);
       toast({ title: "Corpus A loaded", description: `${data.stats.words.toLocaleString()} words` });
     },
     onError: () => toast({ title: "Upload A failed", variant: "destructive" }),
@@ -82,6 +87,7 @@ export default function Compare() {
     onSuccess: (data) => {
       setCorpusIdB(data.corpusId);
       setStatsB(data.stats);
+      if (data.columns) setColumnsB(data.columns);
       toast({ title: "Corpus B loaded", description: `${data.stats.words.toLocaleString()} words` });
     },
     onError: () => toast({ title: "Upload B failed", variant: "destructive" }),
@@ -207,6 +213,29 @@ export default function Compare() {
           </div>
         </motion.div>
       </div>
+
+      {(columnsA || columnsB) && (
+        <motion.div className="space-y-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex items-center gap-2 px-1">
+            <Table2 className="w-4 h-4 text-violet-500" />
+            <h3 className="text-sm font-semibold text-foreground">Dataset Preview</h3>
+          </div>
+          <div className={columnsA && columnsB ? "grid md:grid-cols-2 gap-5" : ""}>
+            {columnsA && corpusIdA && (
+              <div>
+                <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-2 px-1">Corpus A</p>
+                <DatasetViewer corpusId={corpusIdA} theme={{ gradient: "from-indigo-500 to-violet-600", accent: "text-indigo-500", text: "text-indigo-600 dark:text-indigo-400" }} />
+              </div>
+            )}
+            {columnsB && corpusIdB && (
+              <div>
+                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 px-1">Corpus B</p>
+                <DatasetViewer corpusId={corpusIdB} theme={{ gradient: "from-amber-500 to-orange-600", accent: "text-amber-500", text: "text-amber-600 dark:text-amber-400" }} />
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {corpusIdA && corpusIdB && !compareResult && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">

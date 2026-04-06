@@ -13,15 +13,17 @@ import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { TableDownload } from "@/components/table-download";
 import { ReportGenerator } from "@/components/report-generator";
 import { BilingualFilter } from "@/components/corpus-filter";
+import { DatasetViewer } from "@/components/dataset-viewer";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare, Table2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AlignedPair, LibraryLoadResponse } from "@shared/schema";
+import type { AlignedPair, LibraryLoadResponse, ColumnMeta } from "@shared/schema";
 
 export default function Bilingual() {
   const { toast } = useToast();
   const [corpusId, setCorpusId] = useState<string | null>(null);
+  const [columns, setColumns] = useState<ColumnMeta | null>(null);
   const [pairs, setPairs] = useState<AlignedPair[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const [srcFiles, setSrcFiles] = useState<File[]>([]);
@@ -56,6 +58,7 @@ export default function Bilingual() {
         if (data.type === "bilingual") {
           setCorpusId(data.corpusId);
           setPairs(data.pairs);
+          if (data.columns) setColumns(data.columns);
           const totalSim = data.pairs.reduce((s, p) => s + (p.similarity || 0), 0);
           setMetrics({
             alignedPairs: data.pairs.length,
@@ -570,6 +573,7 @@ export default function Bilingual() {
 
           <Tabs defaultValue="pairs" className="space-y-5">
             <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-bilingual">
+              <TabsTrigger value="dataset" disabled={!columns} className="shrink-0" data-testid="tab-dataset"><Table2 className="w-3.5 h-3.5 mr-1.5" />Dataset</TabsTrigger>
               <TabsTrigger value="pairs" className="shrink-0" data-testid="tab-pairs"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Pairs</TabsTrigger>
               <TabsTrigger value="concordance" className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
               <TabsTrigger value="quality" className="shrink-0" data-testid="tab-quality"><ArrowLeftRight className="w-3.5 h-3.5 mr-1.5" />Quality</TabsTrigger>
@@ -577,6 +581,15 @@ export default function Bilingual() {
               <TabsTrigger value="export" className="shrink-0" data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
               <TabsTrigger value="ai" className="shrink-0" data-testid="tab-ai-insights"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="dataset" className="space-y-5">
+              {corpusId && columns && (
+                <DatasetViewer
+                  corpusId={corpusId}
+                  theme={{ gradient: "from-teal-500 to-emerald-600", accent: "text-teal-500", text: "text-teal-600 dark:text-teal-400" }}
+                />
+              )}
+            </TabsContent>
 
             <TabsContent value="pairs" className="space-y-5">
               <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
