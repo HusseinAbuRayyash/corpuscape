@@ -233,6 +233,11 @@ export default function Compare() {
               type="monolingual"
               sourceTrack="compare"
               sizeLabel={`${compareResult.statsA.words.toLocaleString()} + ${compareResult.statsB.words.toLocaleString()} words`}
+              samplePairs={[
+                ...compareResult.uniqueA.slice(0, 15).map(k => ({ source: k.term })),
+                ...compareResult.uniqueB.slice(0, 15).map(k => ({ source: k.term })),
+                ...compareResult.shared.slice(0, 10).map(k => ({ source: k.term })),
+              ]}
               defaultName={filesA.length > 0 && filesB.length > 0 ? `Compare: ${filesA[0]?.name?.replace(/\.[^.]+$/, "")} vs ${filesB[0]?.name?.replace(/\.[^.]+$/, "")}` : "Compared Corpus"}
               accentClass="from-violet-500 to-purple-600"
             />

@@ -99,7 +99,8 @@ export async function registerRoutes(
       const fileNames = files.map((f: Express.Multer.File) => f.originalname).join(", ");
       registerCorpus({ id: corpusId, name: fileNames, source: "monolingual", words: stats.words, createdAt: Date.now() });
 
-      res.json({ corpusId, stats, wordCount: stats.words, columns: fullStructure ? { headers: fullStructure.headers, dateColumns: fullStructure.dateColumns, totalRows: fullStructure.totalRows } : null });
+      const sentenceSample = combined.split(/(?<=[.!?؟])\s+/).slice(0, 30).filter(s => s.trim().length > 10);
+      res.json({ corpusId, stats, wordCount: stats.words, columns: fullStructure ? { headers: fullStructure.headers, dateColumns: fullStructure.dateColumns, totalRows: fullStructure.totalRows } : null, sentenceSample });
     } catch (error: any) {
       console.error("Upload error:", error);
       res.status(500).json({ error: error.message || "Upload failed" });
@@ -1040,7 +1041,7 @@ Format with clear headings and specific examples from each corpus.`);
     }
   });
 
-  app.post("/api/library/:id/load", async (req, res) => {
+  const loadLibraryCorpusHandler = async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -1077,7 +1078,10 @@ Format with clear headings and specific examples from each corpus.`);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to load corpus" });
     }
-  });
+  };
+
+  app.post("/api/library/:id/load", loadLibraryCorpusHandler);
+  app.get("/api/library/:id/load", loadLibraryCorpusHandler);
 
   app.delete("/api/library/:id", async (req, res) => {
     try {
