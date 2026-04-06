@@ -46,6 +46,7 @@ import {
   deleteLibraryCorpus,
   seedLibraryIfEmpty,
 } from "./libraryStorage";
+import { ensureTablesExist } from "./db";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -62,6 +63,13 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  try {
+    await ensureTablesExist();
+    await seedLibraryIfEmpty();
+  } catch (err) {
+    console.error("[Library] DB init error:", err);
+  }
+
   app.post("/api/corpus/upload", upload.array("files", 20), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
@@ -990,8 +998,6 @@ Format with clear headings and specific examples from each corpus.`);
   app.get("/api/corpora", (_req, res) => {
     res.json({ corpora: listCorpora() });
   });
-
-  await seedLibraryIfEmpty();
 
   app.get("/api/library", async (_req, res) => {
     try {

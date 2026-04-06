@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   BookMarked, Globe, BookOpen, Scale, Newspaper, ExternalLink,
   Loader2, ChevronDown, ChevronUp, Trash2, BookText, BarChart3,
-  Library, Database, Users, Search,
+  Library, Database, Users, Search, AreaChart,
 } from "lucide-react";
 import type { LibraryCorpus } from "@shared/schema";
 
@@ -74,13 +74,16 @@ function AnalyzePanel({
     if (t === "monolingual") return [
       { key: "monolingual", label: "Monolingual Track", path: "/monolingual", icon: BookOpen, color: "from-indigo-500 to-blue-600" },
       { key: "compare", label: "Compare (as Corpus A)", path: "/compare", icon: Scale, color: "from-violet-500 to-purple-600" },
+      { key: "figures", label: "Figure Maker", path: "/figures", icon: AreaChart, color: "from-rose-500 to-pink-600" },
     ];
     if (t === "bilingual") return [
       { key: "bilingual", label: "Bilingual Track", path: "/bilingual", icon: Globe, color: "from-teal-500 to-emerald-600" },
+      { key: "figures", label: "Figure Maker", path: "/figures", icon: AreaChart, color: "from-rose-500 to-pink-600" },
     ];
     return [
       { key: "bilingual", label: "Bilingual Track", path: "/bilingual", icon: Globe, color: "from-teal-500 to-emerald-600" },
       { key: "monolingual", label: "Monolingual Track (source only)", path: "/monolingual", icon: BookOpen, color: "from-indigo-500 to-blue-600" },
+      { key: "figures", label: "Figure Maker", path: "/figures", icon: AreaChart, color: "from-rose-500 to-pink-600" },
     ];
   })();
 

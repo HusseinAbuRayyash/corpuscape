@@ -16,6 +16,7 @@ interface SaveToLibraryProps {
   samplePairs?: any[];
   defaultName?: string;
   accentClass?: string;
+  showLanguagePairInput?: boolean;
 }
 
 export function SaveToLibrary({
@@ -27,11 +28,13 @@ export function SaveToLibrary({
   samplePairs,
   defaultName = "",
   accentClass = "from-indigo-500 to-blue-600",
+  showLanguagePairInput = false,
 }: SaveToLibraryProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(defaultName);
+  const [langPairInput, setLangPairInput] = useState(languagePair || "");
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -39,7 +42,7 @@ export function SaveToLibrary({
         name: name.trim() || defaultName || "My Corpus",
         type,
         sourceTrack,
-        languagePair: languagePair || null,
+        languagePair: langPairInput.trim() || languagePair || null,
         domain: domain || null,
         sizeLabel: sizeLabel || null,
         samplePairs: samplePairs || null,
@@ -102,7 +105,20 @@ export function SaveToLibrary({
               />
             </div>
 
-            {languagePair && (
+            {showLanguagePairInput && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Language pair <span className="normal-case font-normal">(optional)</span></label>
+                <Input
+                  value={langPairInput}
+                  onChange={e => setLangPairInput(e.target.value)}
+                  placeholder="e.g. en↔ar"
+                  className="h-8 text-sm font-mono"
+                  data-testid="input-language-pair"
+                />
+              </div>
+            )}
+
+            {!showLanguagePairInput && languagePair && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="px-1.5 py-0.5 rounded bg-muted font-mono">{languagePair}</span>
                 {domain && <span>· {domain}</span>}
