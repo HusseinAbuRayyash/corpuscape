@@ -74,65 +74,6 @@ export async function ensureBuiltinSeeds(): Promise<void> {
   await db.insert(libraryCorpora).values(builtinSeeds);
 }
 
-function getLatestExternalSeeds(): InsertLibraryCorpus[] {
-  return [
-    {
-      name: "mC4 — Multilingual Cleaned Common Crawl",
-      type: "monolingual",
-      origin: "external",
-      sourceTrack: "monolingual",
-      languagePair: "multilingual (101 languages)",
-      domain: "Web / General",
-      sizeLabel: "~26.8B sentences (101 languages)",
-      license: "ODC-By 1.0",
-      externalUrl: "https://huggingface.co/datasets/mc4",
-      samplePairs: [
-        { source: "Researchers at the university have developed a new method for analyzing large-scale text data using deep learning." },
-        { source: "The city council approved the new infrastructure plan, which includes major improvements to public transportation." },
-        { source: "Scientists have discovered that certain plants can communicate distress through chemical signals released into the air." },
-        { source: "Economic analysts predict continued growth in the technology sector despite global supply chain disruptions." },
-        { source: "The festival brought together artists, musicians, and writers from more than forty countries around the world." },
-      ],
-    },
-    {
-      name: "Universal Dependencies — English (EWT)",
-      type: "monolingual",
-      origin: "external",
-      sourceTrack: "monolingual",
-      languagePair: "en",
-      domain: "Syntax / Treebank",
-      sizeLabel: "~254K words",
-      license: "CC BY-SA 4.0",
-      externalUrl: "https://universaldependencies.org/",
-      samplePairs: [
-        { source: "I went to the store yesterday to buy some groceries for dinner." },
-        { source: "She smiled when she heard the good news about the promotion." },
-        { source: "The children played quietly in the garden while their parents talked inside." },
-        { source: "He had never seen anything quite like it before in his entire career." },
-        { source: "The old bridge was finally repaired after years of budget negotiations." },
-      ],
-    },
-    {
-      name: "Common Crawl — English Monolingual (C4)",
-      type: "monolingual",
-      origin: "external",
-      sourceTrack: "monolingual",
-      languagePair: "en",
-      domain: "Web / General",
-      sizeLabel: "~745GB text",
-      license: "ODC-By 1.0",
-      externalUrl: "https://c4.ai.2gis.com/",
-      samplePairs: [
-        { source: "The latest advances in artificial intelligence are transforming how businesses operate across every industry." },
-        { source: "Climate scientists warn that without immediate action, sea levels could rise by several meters by 2100." },
-        { source: "The open-source community continues to drive innovation in software development through collaborative projects." },
-        { source: "Nutritional research suggests that a diverse diet rich in vegetables reduces the risk of chronic disease." },
-        { source: "Urban planners are increasingly turning to data analytics to improve city infrastructure and quality of life." },
-      ],
-    },
-  ];
-}
-
 async function ensureMissingSeedsFromList(candidates: InsertLibraryCorpus[]): Promise<void> {
   const names = candidates.map(s => s.name);
   const existing = await db.select({ name: libraryCorpora.name }).from(libraryCorpora).where(inArray(libraryCorpora.name, names));
@@ -144,15 +85,12 @@ async function ensureMissingSeedsFromList(candidates: InsertLibraryCorpus[]): Pr
 }
 
 export async function seedLibraryIfEmpty(): Promise<void> {
-  const existing = await db.select().from(libraryCorpora).limit(1);
-  if (existing.length > 0) {
-    await ensureBuiltinSeeds();
-    const latestExternalSeeds = getLatestExternalSeeds();
-    await ensureMissingSeedsFromList(latestExternalSeeds);
-    return;
-  }
+  await ensureBuiltinSeeds();
+  await ensureMissingSeedsFromList(getAllExternalSeeds());
+}
 
-  const seeds: InsertLibraryCorpus[] = [
+function getAllExternalSeeds(): InsertLibraryCorpus[] {
+  return [
     {
       name: "Europarl — English↔Arabic",
       type: "bilingual",
@@ -621,51 +559,5 @@ export async function seedLibraryIfEmpty(): Promise<void> {
         { source: "Urban planners are increasingly turning to data analytics to improve city infrastructure and quality of life." },
       ],
     },
-    {
-      name: "Translation Strategies — Curated Sample",
-      type: "bilingual",
-      origin: "builtin",
-      sourceTrack: "bilingual",
-      languagePair: "en↔ar",
-      domain: "Translation Studies",
-      sizeLabel: "20 pairs",
-      license: "Built-in",
-      externalUrl: null,
-      samplePairs: [
-        { source: "The government passed new legislation to tackle rising inflation.", target: "أصدرت الحكومة تشريعات جديدة لمعالجة ارتفاع التضخم.", strategy: "domestication" },
-        { source: "A stitch in time saves nine.", target: "الوقاية خير من العلاج.", strategy: "adaptation" },
-        { source: "She read between the lines of his ambiguous statement.", target: "قرأت ما بين سطور تصريحه الغامض.", strategy: "calque" },
-        { source: "The prime minister held a press conference regarding Brexit.", target: "عقد رئيس الوزراء مؤتمراً صحفياً بشأن خروج بريطانيا من الاتحاد الأوروبي.", strategy: "foreignization" },
-        { source: "Researchers have identified a novel biomarker for early cancer detection.", target: "حدد الباحثون علامة حيوية جديدة للكشف المبكر عن السرطان.", strategy: "equivalence" },
-        { source: "The algorithm achieved state-of-the-art performance on benchmark datasets.", target: "حقق الخوارزمية أداءً متطوراً على مجموعات البيانات المرجعية.", strategy: "domestication" },
-        { source: "Children learn language through immersion and social interaction.", target: "يتعلم الأطفال اللغة من خلال الانغماس والتفاعل الاجتماعي.", strategy: "equivalence" },
-        { source: "The metaphor of the journey is central to Western literary tradition.", target: "تُعدّ استعارة الرحلة محورية في التقليد الأدبي الغربي.", strategy: "foreignization" },
-      ],
-    },
-    {
-      name: "Academic English — Corpus Linguistics Abstracts",
-      type: "monolingual",
-      origin: "builtin",
-      sourceTrack: "monolingual",
-      languagePair: "en",
-      domain: "Academic / Linguistics",
-      sizeLabel: "~500 words",
-      license: "Built-in",
-      externalUrl: null,
-      samplePairs: [
-        { source: "This study investigates the use of hedging devices in academic writing across disciplines." },
-        { source: "Corpus linguistics provides empirical evidence for theoretical claims about language structure." },
-        { source: "The frequency of passive constructions varies significantly across academic genres." },
-        { source: "Collocation analysis reveals systematic patterns of co-occurrence in technical discourse." },
-        { source: "Keyness statistics identify words that are unusually frequent in a target corpus compared to a reference corpus." },
-        { source: "Phraseological patterns in learner language differ from those found in native speaker corpora." },
-        { source: "Semantic prosody refers to the consistent collocational environment of a word or phrase." },
-        { source: "Concordance lines provide qualitative context for quantitative frequency data." },
-        { source: "The development of large-scale corpora has transformed linguistic research methodology." },
-        { source: "Lexical bundles are multi-word sequences that recur with high frequency in disciplinary writing." },
-      ],
-    },
   ];
-
-  await db.insert(libraryCorpora).values(seeds);
 }
