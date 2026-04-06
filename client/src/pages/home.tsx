@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, Newspaper, Scale, Image, Sparkles, Zap, FileText, BarChart3, Brain, Search, ArrowRight, CheckCircle2, ChevronDown } from "lucide-react";
+import { BookOpen, Globe, Newspaper, Scale, Image, Sparkles, Zap, FileText, BarChart3, Brain, Search, ArrowRight, CheckCircle2, ChevronDown, Library } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,18 @@ const tracks = [
     bgFrom: "from-rose-500",
     bgTo: "to-pink-500",
     glowColor: "rgba(225, 29, 72, 0.35)",
+  },
+  {
+    title: "Corpus Library",
+    description: "Browse, save & reload corpora — built-in datasets, external collections & your own saved work",
+    features: ["30+ datasets", "Save & reload", "Full preview", "One-click analysis", "Bilingual & mono"],
+    icon: Library,
+    href: "/library",
+    color: "#0891b2",
+    colorEnd: "#22d3ee",
+    bgFrom: "from-cyan-600",
+    bgTo: "to-sky-400",
+    glowColor: "rgba(8, 145, 178, 0.35)",
   },
 ];
 
@@ -455,7 +467,7 @@ export default function Home() {
               style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.5px" }}
               data-testid="text-tracks-title"
             >
-              Five Specialized <span className="text-gradient">Research Tracks</span>
+              Six Specialized <span className="text-gradient">Research Tracks</span>
             </h2>
             <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
               Each track is purpose-built for a specific workflow in translation studies and corpus linguistics.
@@ -472,7 +484,7 @@ export default function Home() {
               <motion.div
                 key={track.title}
                 variants={cardVariants}
-                className={i === 4 ? "md:col-span-2 lg:col-span-1" : ""}
+                className=""
               >
                 <Link href={track.href}>
                   <motion.div
