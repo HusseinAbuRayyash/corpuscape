@@ -544,6 +544,7 @@ export default function Bilingual() {
               sizeLabel={`${metrics.alignedPairs} pairs`}
               defaultName={srcFiles.length > 0 ? `${srcFiles.map(f => f.name.replace(/\.[^.]+$/, "")).join(", ")} ↔ ${tgtFiles.map(f => f.name.replace(/\.[^.]+$/, "")).join(", ")}` : "Bilingual Corpus"}
               accentClass="from-teal-500 to-emerald-600"
+              showLanguagePairInput
             />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
