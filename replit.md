@@ -1,230 +1,62 @@
 # Corpuscape
 
-AI-powered corpus linguistics lab for translation studies, rebuilt from Python/Streamlit to React/Express/TypeScript. Brand: **Corpuscape** by Hussein Abu-Rayyash. Domain: corpuscape.com.
+## Overview
+Corpuscape is an AI-powered corpus linguistics lab for translation studies. It provides a comprehensive suite of tools for monolingual and bilingual corpus analysis, web scraping, corpus comparison, and advanced figure creation. The platform aims to serve researchers, students, and professionals in translation studies by offering sophisticated analytical capabilities, AI-driven insights, and professional reporting features. The project is rebuilt using a modern React/Express/TypeScript stack.
 
-## Architecture
+## User Preferences
+Not specified.
 
-- **Frontend:** React + TypeScript, Vite, shadcn/ui, Tailwind CSS, wouter routing, TanStack Query, Recharts, Framer Motion
-- **Backend:** Express + TypeScript, multer for file uploads, cheerio for web scraping, in-memory corpus storage
-- **AI:** Google Gemini via Replit AI Integration (`@google/genai`), hardcoded — no user API key needed
-- **Theme:** Teal primary (168 76%) with gradient mesh background, dark sidebar, indigo/teal/amber track accents
+## System Architecture
 
-## Key Directories
+**Frontend:**
+-   **Framework:** React + TypeScript, Vite
+-   **UI Library:** shadcn/ui, Tailwind CSS
+-   **Routing:** wouter
+-   **State Management/Data Fetching:** TanStack Query
+-   **Charting:** Recharts
+-   **Animations:** Framer Motion
+-   **Key Pages:** Home, Monolingual, Bilingual, Scraper, Compare, FigureMaker, Library
+-   **Theming:** Teal primary (168 76%) with gradient mesh background, dark sidebar, indigo/teal/amber track accents. Font: Playfair Display (titles), Inter (body).
+-   **Reusable Components:**
+    -   `AIAnalysisPanel`: Embeddable AI analysis with 31 specialized analyses, Chart Generator, Domain Classification, Comparative Metrics, Term Clusters, Corpus Chat.
+    -   `CorpusChat`: Multi-turn conversational AI about corpus content.
+    -   `WordCloud`: Canvas-based, proportional sizing, 12 palettes, PNG download.
+    -   `ReportGenerator`: Comprehensive Word/PDF report generation with branded styling.
+    -   `StopListManager`: Manages stop words (manual, file upload, presets).
+    -   `CorpusFilter`: Filters corpora by keyword, column, or date range.
+    -   `MarkdownRender`: Enhanced markdown renderer with download options.
+    -   `EditableChart`: 8 chart types with editable elements and PNG download.
+    -   `TableDownload`: Excel/Word download for table data.
 
-```
-client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare, FigureMaker, Library pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, AIResultDisplay, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter, SaveToLibrary
-server/                 - Express routes, corpus processing, AI integration, scraper, storage, libraryStorage
-shared/schema.ts        - Shared types, analysis category definitions, library_corpora table
-```
+**Backend:**
+-   **Framework:** Express + TypeScript
+-   **File Uploads:** multer
+-   **Web Scraping:** cheerio
+-   **Corpus Storage:** In-memory `Corpus Registry` (`server/corpusStorage.ts`) for managing corpus data and metadata.
+-   **Library Storage:** PostgreSQL `library_corpora` table using Drizzle ORM.
+-   **AI Integration:** Google Gemini via Replit AI Integration (`@google/genai`)—hardcoded, no user API key needed.
 
-## Features (5 Tracks + Figure Maker)
+**Core Features:**
 
-### Monolingual Track
-- File upload (TXT, DOCX, PDF, Excel) + sample corpus
-- **Dataset Viewer** — paginated table view of uploaded Excel data with column headers, row numbers, text highlighting, column click-to-highlight, pagination, and export
-- Corpus statistics (words, unique, sentences, TTR)
-- **Stop List Manager** — manual word entry, file upload, English/Arabic presets, export; filters keywords/ngrams/collocations
-- Keyword extraction with bar chart visualization (own tab, separate from Stats), expand/collapse for chart (top 15 / all) and table (compact / expanded)
-- Collocation analysis (frequency, MI, Dice) with expand/collapse table
-- KWIC concordance search
-- N-gram extraction (bigrams, trigrams, 4-grams) with expand/collapse for chart (top 12 / all) and table
-- **Word Cloud** — canvas-based word cloud from keywords, 12 color palettes, PNG download, shuffle layout
-- **Sub-corpus Segments** — splits corpus by paragraphs, shows word/char counts per segment
-- AI corpus summary & terminology extraction
-- **AI Insights tab** — 31 specialized analyses, domain classification, comparative metrics, term clusters, **Chart Generator**, **Corpus Chat**
-- Export: Research report (Word+PDF via ReportGenerator), Keywords CSV
+1.  **Monolingual Track:** File upload (TXT, DOCX, PDF, Excel), Dataset Viewer, corpus statistics, Stop List Manager, keyword extraction with visualization, collocation analysis, KWIC concordance, N-gram extraction, Word Cloud, Sub-corpus Segments, AI summary and terminology, AI Insights (31 analyses, Chart Generator, Corpus Chat), Research report export.
+2.  **Bilingual Track:** Source/target file upload with AI sentence alignment, pre-aligned file mode, translation strategy/universals analysis, Back-Translation Check (AI semantic drift), Bilingual Concordance, AI Glossary Builder, Annotation Mode, AI Insights, multiple export formats (CSV, TMX, Report).
+3.  **Web Scraper:** URL scraping, content viewing/editing/cleaning, Word Cloud, full research report, direct analysis integration, send to Monolingual track.
+4.  **Corpus Comparison:** Side-by-side corpus upload, statistics comparison, keyword overlap analysis, side-by-side visualizations (bar charts, word clouds), AI comparative analysis, ReportGenerator.
+5.  **Corpus Library:** Centralized management of "My Corpora" (user-saved), "Sample Corpora" (developer-seeded), and "Public Datasets" (20+ real corpora). Features search, filter, preview, analyze, and save functionalities.
+6.  **Figure Maker:** Standalone tool for creating 18 types of charts from user data (paste/CSV/TSV). Offers 47 color palettes, 14 font families, 9 academic format presets, extensive styling, annotations, and export options (PNG, PDF, Word, SVG, Python/R code). Includes AI tools for caption generation, chart recommendation, and results paragraph writing.
 
-### Bilingual Track
-- Source/target file upload with AI sentence alignment
-- Pre-aligned file mode (alternating source/target lines)
-- **Tab-organized analysis**: Pairs, Concordance, Quality, Theory, Export, AI Insights
-- Translation strategy labeling (domestication, foreignization, etc.)
-- Translation universals analysis, Strategy analysis (Theory tab)
-- **Back-Translation Check** — AI back-translates target segments, shows semantic drift assessment (Quality tab)
-- **Bilingual Concordance** — search source text, see aligned target in KWIC format (Concordance tab)
-- **AI Glossary Builder** — extracts bilingual glossary with definitions and examples (Quality tab)
-- **Annotation Mode** — editable comment column on aligned pairs, exportable as annotated CSV
-- **AI Insights tab** — full AI analysis panel with Chat tab
-- Export: CSV, TMX (CAT tool format), ReportGenerator, Annotated CSV
+**AI Processing Philosophy:**
+-   **No Truncation Policy:** All AI functions process full corpus data.
+-   **Smart Chunking:** For large texts (>180K chars), text is split into overlapping chunks, processed independently, and then synthesized.
+-   **Pair Batching:** For translation pairs, batches are processed independently and synthesized.
 
-### Web Scraper
-- Add multiple URLs to scrape
-- Extract article text with cheerio + Gemini AI fallback
-- View, edit, and clean scraped content
-- Remove individual articles or clear all
-- **Word Cloud** — visualize scraped corpus keywords
-- **Full Research Report** — Word and PDF export via ReportGenerator
-- **Analyze Here** — create corpus and run AI analysis directly in scraper
-- Send cleaned text to Monolingual analysis pipeline
+## External Dependencies
 
-### Corpus Comparison
-- Two side-by-side upload zones (Corpus A / Corpus B)
-- Statistics comparison table (characters, words, TTR, etc.)
-- Keyword overlap analysis (shared keywords, unique to A, unique to B)
-- Side-by-side keyword bar charts with distinct color schemes (indigo/amber)
-- **Word Cloud Comparison** — side-by-side word clouds for both corpora
-- **ReportGenerator** — downloadable comparison report with stats, keywords, shared terms
-- AI comparative analysis via Gemini
-
-### Corpus Library (`/library`, cyan/blue)
-- **My Corpora**: Corpora saved from analysis sessions via "Save to Library" button on each track
-- **Sample Corpora**: Developer-seeded built-in datasets (origin: "builtin")
-- **Public Datasets**: 20+ real publicly available corpora seeded at startup (origin: "external") — Europarl en↔ar/de/fr, OpenSubtitles, UN Parallel, TED2020, WikiMatrix, WMT, EUR-Lex, Bible, FLORES-200, GlobalVoices, News-Commentary, CCAligned, JW300, NLLB, CC-100, Arabic Wikipedia
-- Search by name, language pair, domain; filter by type (monolingual/bilingual)
-- Each card: type badge, language flags, domain, size label, license, external link, preview sample pairs, delete (user corpora), "Analyze →" panel
-- **Analyze panel**: sends corpus to the correct track via `/api/library/:id/load` → sessionStorage → `?libraryId` URL param; track reads on mount
-- **Save to Library**: inline dropdown button shown on Monolingual, Bilingual, Scraper, Compare tracks after analysis
-- Database: PostgreSQL `library_corpora` table (Drizzle ORM); seed runs at startup if table empty
-- Routes: `GET /api/library`, `GET/POST /api/library/:id`, `POST /api/library/save`, `POST /api/library/:id/load`, `DELETE /api/library/:id`
-
-### Figure Maker (Comprehensive Upgrade)
-- Standalone chart/figure creation tool — users bring their own data
-- **Data input**: Paste/type any format (AI parses), upload CSV/TSV; smart multi-series and matrix detection
-- **18 chart types**: Bar, Horizontal Bar, Stacked Bar, Grouped Bar (multi-series), Line, Area, Pie, Donut, Half Donut, Radar, Scatter, Lollipop (dot-on-stick), Error Bar, Box Plot (custom SVG), Heatmap (CSS grid), Word Bubble, Funnel, Treemap
-- **47 color palettes**: Academic journals (Nature, Science, Lancet, JAMA, NEJM), colorblind-safe (CB Safe 1, CB Safe 2, Okabe), High Contrast, Grayscale + 40 others
-- **14 font families**: System, Playfair Display, Times New Roman, Arial, Georgia, Roboto, Lato, Source Serif 4, IBM Plex Sans, Merriweather, Montserrat, Outfit, Space Grotesk, Open Sans
-- **9 academic format presets**: Default, APA 7th, IEEE, Chicago/MLA, Nature/Science, Thesis/Dissertation, Accessible (WCAG), Presentation, Poster
-- **Styling panel**: Figure background color, aspect ratio (auto/square/wide 16:9/narrow/double col), grid toggle, bar radius slider (0–16px), line thickness slider (1–6px), error bar percentage
-- **Annotations**: Reference line (mean/median/custom value) with label and custom color
-- **Export options**: PNG, PDF, Word/DOCX, SVG (vector), Copy to Clipboard, Python matplotlib code (.py), R ggplot2 code (.R)
-- **Export resolution**: 1x–4x (72–288 DPI)
-- **AI Tools panel**: AI generate figure caption (format-aware), AI chart type recommendation, AI write Results section paragraph (copyable)
-- **Undo/Redo**: 25-step history stack for data edits
-- **Templates**: 5 pre-built academic templates (Translation Strategies, Keyword Frequency, Translation Universals, Pre/Post Shift, Language Pair Distribution)
-- Full editable features: title, caption, figure number, axis labels, data labels (values/percentages/both), legend toggle
-- Inline data editing: modify labels/values, add/remove data points
-- **New server routes**: POST /api/ai/figure-caption, /api/ai/chart-recommend, /api/ai/results-paragraph
-- Track color: rose/pink
-
-## Reusable Components
-
-### AIAnalysisPanel (`client/src/components/ai-analysis-panel.tsx`)
-- Embeddable AI analysis component used by all tracks
-- Accepts `corpusId` and `theme` (gradient, accent, text color) props
-- 6 tabs: Specialized Analysis (31 types), **Chart Generator**, Domain Classification, Comparative Metrics, Term Clusters, **Corpus Chat**
-- Chart Generator: user types a prompt, AI returns JSON chart data, rendered as interactive EditableChart
-- Multiple charts can be generated and stacked; each is removable
-- Corpus Chat: multi-turn conversational AI about the corpus content
-
-### CorpusChat (`client/src/components/corpus-chat.tsx`)
-- Chat-style UI with message bubbles (user right-aligned, assistant left-aligned)
-- Multi-turn conversation with history, calls `/api/ai/chat`
-- MarkdownRender for AI responses, loading indicators, clear chat button
-- Theme-aware styling via `theme` prop
-
-### WordCloud (`client/src/components/word-cloud.tsx`)
-- Canvas-based word cloud with proportional sizing, spiral layout, collision avoidance
-- 12 preset color palettes, palette picker, shuffle button
-- PNG download (3x scale), hover tooltips, dark mode aware
-- Props: `words: {text: string, value: number}[]`
-
-### ReportGenerator (`client/src/components/report-generator.tsx`)
-- Comprehensive Word (.docx) and PDF report generation
-- Accepts stats, keywords, collocations, ngrams, aiResults, pairs, extraSections
-- Branded Traduxa header/footer, styled tables, professional formatting
-
-### StopListManager (`client/src/components/stop-list-manager.tsx`)
-- Stop word management: manual word entry, file upload (.txt), English/Arabic presets
-- Export stop list, clear all
-- Connected to keywords/ngrams/collocations mutations via `stopWords` state
-- Theme-aware styling via `theme` prop
-
-### CorpusFilter (`client/src/components/corpus-filter.tsx`)
-- Dataset filtering component — filter corpus to analyze only matching subset
-- Two variants: `CorpusFilter` (monolingual/scraper) and `BilingualFilter` (bilingual pairs)
-- CorpusFilter: include/exclude paragraphs by keyword, creates new server-side corpus via `/api/corpus/filter`
-- **Column-aware filtering**: when Excel files are uploaded, detects column headers and allows filtering by specific column
-- **Date range filtering**: auto-detects date/year columns and provides From/To range inputs
-- BilingualFilter: filter pairs by source/target text and/or strategy via `/api/bilingual/filter`
-- Shows original vs filtered stats comparison with percentage
-- Clear filter reverts to original corpus; all analysis results reset on filter change
-- Integrated into all 3 tracks: Monolingual (indigo), Bilingual (teal), Scraper (amber)
-- `extractExcelStructure()` in `server/corpus.ts` handles duplicate headers and date column detection
-
-### MarkdownRender (`client/src/components/markdown-render.tsx`)
-- Enhanced markdown renderer with custom table styling
-- Word, PDF, and Excel downloads
-- `showDownload` prop to hide download buttons (used in chat context)
-
-### EditableChart (`client/src/components/editable-chart.tsx`)
-- 8 chart types, 18 monochromatic color palettes (incl. B&W)
-- Editable title, axes labels, data labels (None/Values/%/Both)
-- PNG download via html2canvas
-
-### TableDownload (`client/src/components/table-download.tsx`)
-- Excel (.xlsx) and Word (.docx) download for structured table data
-
-### Corpus Registry (`server/corpusStorage.ts`)
-- In-memory corpus storage with metadata registry
-- `resolveCorpusText()` helper resolves text for both monolingual and bilingual corpora
-
-## API Endpoints
-
-### Core
-- `POST /api/corpus/upload` — upload and process corpus files
-- `POST /api/corpus/sample` — load sample corpus
-- `POST /api/corpus/keywords` — extract keywords
-- `POST /api/corpus/ngrams` — extract n-grams
-- `POST /api/corpus/collocations` — extract collocations
-- `POST /api/corpus/concordance` — KWIC concordance search
-- `POST /api/corpus/compare` — compare two corpora stats + keywords
-- `POST /api/corpus/segment` — split corpus into paragraph segments
-- `POST /api/corpus/filter` — filter corpus paragraphs by keyword (include/exclude), returns new filtered corpusId + stats
-- `POST /api/corpus/dataset` — fetch paginated Excel dataset rows for display (page, pageSize)
-
-### Bilingual
-- `POST /api/bilingual/upload` — upload source/target for alignment
-- `POST /api/bilingual/upload-aligned` — upload pre-aligned files
-- `POST /api/bilingual/universals` — translation universals analysis
-- `POST /api/bilingual/strategies` — strategy analysis
-- `POST /api/bilingual/back-translate` — AI back-translation check
-- `POST /api/bilingual/concordance` — bilingual concordance search
-- `POST /api/bilingual/glossary` — AI bilingual glossary extraction
-- `POST /api/bilingual/filter` — filter aligned pairs by text content and/or strategy, returns new filtered corpusId + filtered pairs
-- `POST /api/export/tmx` — export TMX
-
-### AI
-- `POST /api/ai/summarize` — corpus summary
-- `POST /api/ai/terminology` — terminology extraction
-- `POST /api/ai/analyze` — specialized analysis (31 types)
-- `POST /api/ai/topics` — domain classification
-- `POST /api/ai/chart` — AI chart data generation
-- `POST /api/ai/chat` — multi-turn corpus chat
-
-### Scraper
-- `POST /api/scrape` — scrape URLs
-- `POST /api/scrape/to-corpus` — convert scraped text to corpus
-
-## Design System
-
-- **Name:** Traduxa (one-word brand name evoking translation)
-- Gradient mesh background (teal/indigo/purple radials)
-- Dark sidebar (slate-900) with text-gradient brand name
-- Custom CSS classes: `.metric-card`, `.polished-card`, `.polished-table`, `.section-header`, `.empty-state`, `.page-header-icon`, `.upload-zone`
-- Track colors: Monolingual=indigo/blue, Bilingual=teal/emerald, Web Scraper=amber/orange, Compare=violet/purple, Figure Maker=rose/pink
-- Font: Playfair Display (italic, bold) for page/card titles, Inter for body
-- CSS + Framer Motion animations
-
-## AI Processing
-
-- **No truncation policy**: All AI functions process full corpus data without artificial limits
-- **Smart chunking** (`generateContentChunked`): texts >180K chars are split at newline boundaries into overlapping chunks, each processed independently, then synthesized into one unified report via a second AI call
-- **Pair batching** (`analyzeChunkedPairs`): >60 translation pairs are split into batches, each analyzed independently, then synthesized into a unified analysis
-- Pair-based structured functions use batching: `labelStrategies` (50/batch), `backTranslate` (30/batch), `generateGlossary` (40/batch with dedup)
-- `alignSentences`: 100K char limit per side
-- **AIResultDisplay component**: wraps all AI text results with show-less/show-full toggle (fade gradient), edit mode (textarea), copy-to-clipboard, and download via MarkdownRender
-
-## Environment
-
-- `AI_INTEGRATIONS_GEMINI_API_KEY` and `AI_INTEGRATIONS_GEMINI_BASE_URL` provided by Replit integration
-- `SESSION_SECRET` for session management
-- Port 5000
-
-## Dependencies
-
-- `@google/genai`, `multer`, `mammoth`, `pdf-parse`, `xlsx`
-- `react-markdown`, `remark-gfm`, `recharts`, `framer-motion`
-- `cheerio` (web scraping)
-- `p-limit`, `p-retry`
-- `docx`, `file-saver`, `jspdf`, `html2canvas` (report generation)
+-   **AI:** Google Gemini (`@google/genai`)
+-   **File Processing:** multer, mammoth, pdf-parse, xlsx
+-   **Web Scraping:** cheerio
+-   **PDF/Image Generation:** jspdf, html2canvas
+-   **Utility:** p-limit, p-retry
+-   **UI/Charting:** react-markdown, remark-gfm, recharts, framer-motion
+-   **Document Generation:** docx, file-saver
+-   **Database:** PostgreSQL (via Drizzle ORM)
