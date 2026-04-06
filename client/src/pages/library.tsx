@@ -203,9 +203,21 @@ function CorpusCard({
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
         {corpus.sizeLabel && <span className="font-medium">{corpus.sizeLabel}</span>}
         {corpus.origin === "external" && (
-          <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 font-medium" data-testid={`badge-sample-only-${corpus.id}`}>
-            sample preview only
-          </span>
+          corpus.externalUrl ? (
+            <a
+              href={corpus.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 font-medium hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+              data-testid={`badge-sample-only-${corpus.id}`}
+            >
+              sample preview only · download ↗
+            </a>
+          ) : (
+            <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 font-medium" data-testid={`badge-sample-only-${corpus.id}`}>
+              sample preview only
+            </span>
+          )
         )}
         {corpus.license && (
           <span className="px-1.5 py-0.5 rounded bg-muted/60 font-mono">{corpus.license}</span>
