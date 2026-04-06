@@ -74,8 +74,8 @@ export interface ColumnMeta {
 }
 
 export type LibraryLoadResponse =
-  | { type: "monolingual"; corpusId: string; stats: CorpusStats; name: string; columns?: ColumnMeta }
-  | { type: "bilingual"; corpusId: string; pairs: AlignedPair[]; name: string; columns?: ColumnMeta };
+  | { type: "monolingual"; corpusId: string; stats: CorpusStats; name: string; columns?: ColumnMeta; sampleOnly?: boolean; sampleCount?: number; externalUrl?: string }
+  | { type: "bilingual"; corpusId: string; pairs: AlignedPair[]; name: string; columns?: ColumnMeta; sampleOnly?: boolean; sampleCount?: number; externalUrl?: string };
 
 export interface AnalysisCategory {
   name: string;

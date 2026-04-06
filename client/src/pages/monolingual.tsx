@@ -15,6 +15,7 @@ import { EditableChart } from "@/components/editable-chart";
 import { TableDownload } from "@/components/table-download";
 import { CorpusFilter, type ColumnMeta } from "@/components/corpus-filter";
 import { DatasetViewer } from "@/components/dataset-viewer";
+import { SampleOnlyBanner } from "@/components/sample-only-banner";
 import { StopListManager } from "@/components/stop-list-manager";
 import { ReportGenerator } from "@/components/report-generator";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +46,9 @@ export default function Monolingual() {
   const [filteredStats, setFilteredStats] = useState<CorpusStats | null>(null);
   const [columns, setColumns] = useState<ColumnMeta | null>(null);
   const [originalColumns, setOriginalColumns] = useState<ColumnMeta | null>(null);
+  const [sampleOnly, setSampleOnly] = useState(false);
+  const [sampleCount, setSampleCount] = useState(0);
+  const [externalUrl, setExternalUrl] = useState<string | undefined>();
   const [segments, setSegments] = useState<{ index: number; preview: string; text: string; wordCount: number; charCount: number }[]>([]);
   const [stopWords, setStopWords] = useState<string[]>([]);
   const [cloudWords, setCloudWords] = useState<{text: string; value: number}[]>([]);
@@ -77,7 +81,8 @@ export default function Monolingual() {
           setCorpusId(data.corpusId);
           setStats(data.stats);
           if (data.columns) setColumns(data.columns);
-          toast({ title: `"${data.name}" loaded from Library`, description: "Ready for analysis" });
+          if (data.sampleOnly) { setSampleOnly(true); setSampleCount(data.sampleCount ?? 0); setExternalUrl(data.externalUrl); }
+          toast({ title: `"${data.name}" loaded from Library`, description: data.sampleOnly ? `${data.sampleCount} sample sentences — not the full corpus` : "Ready for analysis" });
         }
       })
       .catch(() => {});
@@ -266,6 +271,10 @@ export default function Monolingual() {
           onChange={setStopWords}
           theme={{ gradient: "from-indigo-500 to-blue-600", text: "text-indigo-600 dark:text-indigo-400" }}
         />
+      )}
+
+      {sampleOnly && corpusId && (
+        <SampleOnlyBanner sampleCount={sampleCount} externalUrl={externalUrl} />
       )}
 
       <Tabs defaultValue="upload" className="space-y-5">

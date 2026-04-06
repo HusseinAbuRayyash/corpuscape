@@ -14,6 +14,7 @@ import { TableDownload } from "@/components/table-download";
 import { ReportGenerator } from "@/components/report-generator";
 import { BilingualFilter } from "@/components/corpus-filter";
 import { DatasetViewer } from "@/components/dataset-viewer";
+import { SampleOnlyBanner } from "@/components/sample-only-banner";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare, Table2 } from "lucide-react";
@@ -47,6 +48,9 @@ export default function Bilingual() {
   const [sourceColIdx, setSourceColIdx] = useState(0);
   const [targetColIdx, setTargetColIdx] = useState(1);
   const [isInspecting, setIsInspecting] = useState(false);
+  const [sampleOnly, setSampleOnly] = useState(false);
+  const [sampleCount, setSampleCount] = useState(0);
+  const [externalUrl, setExternalUrl] = useState<string | undefined>();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -59,6 +63,7 @@ export default function Bilingual() {
           setCorpusId(data.corpusId);
           setPairs(data.pairs);
           if (data.columns) setColumns(data.columns);
+          if (data.sampleOnly) { setSampleOnly(true); setSampleCount(data.sampleCount ?? 0); setExternalUrl(data.externalUrl); }
           const totalSim = data.pairs.reduce((s, p) => s + (p.similarity || 0), 0);
           setMetrics({
             alignedPairs: data.pairs.length,
@@ -569,6 +574,10 @@ export default function Bilingual() {
               onFilterApplied={handleFilterApplied}
               onFilterCleared={handleFilterCleared}
             />
+          )}
+
+          {sampleOnly && corpusId && (
+            <SampleOnlyBanner sampleCount={sampleCount} externalUrl={externalUrl} />
           )}
 
           <Tabs defaultValue="pairs" className="space-y-5">
