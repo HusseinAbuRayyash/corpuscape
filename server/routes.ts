@@ -1088,6 +1088,12 @@ Format with clear headings and specific examples from each corpus.`);
           .join(". ");
       };
 
+      const isExternal = corpus.origin === "external";
+      // External corpora only have a few sample pairs — flag this so the UI can warn the user
+      const sampleOnly = isExternal && pairs.length <= 10;
+      const sampleCount = pairs.length;
+      const externalUrl = corpus.externalUrl ?? undefined;
+
       const type = corpus.type;
       if (type === "monolingual") {
         const columnsData = isStandardMonolingual
@@ -1104,6 +1110,7 @@ Format with clear headings and specific examples from each corpus.`);
         return res.json({
           type: "monolingual", corpusId, stats, name: corpus.name,
           columns: { headers: columnsData.headers, dateColumns: [], totalRows: columnsData.rows.length },
+          sampleOnly, sampleCount, externalUrl,
         });
       } else {
         // Always keep the raw original columns for the Dataset tab
@@ -1139,6 +1146,7 @@ Format with clear headings and specific examples from each corpus.`);
         return res.json({
           type: "bilingual", corpusId, pairs: bilingualPairs, name: corpus.name,
           columns: { headers: columnsData.headers, dateColumns: [], totalRows: columnsData.rows.length },
+          sampleOnly, sampleCount, externalUrl,
         });
       }
     } catch (error: unknown) {

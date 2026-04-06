@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Scale, Upload, Loader2, BarChart3, Brain, ArrowLeftRight, Cloud, Table2 } from "lucide-react";
 import { DatasetViewer } from "@/components/dataset-viewer";
+import { SampleOnlyBanner } from "@/components/sample-only-banner";
 import type { CorpusStats, KeywordResult, LibraryLoadResponse, ColumnMeta } from "@shared/schema";
 
 interface CompareResult {
@@ -41,6 +42,12 @@ export default function Compare() {
   const [aiComparison, setAiComparison] = useState("");
   const [cloudWordsA, setCloudWordsA] = useState<{text: string; value: number}[]>([]);
   const [cloudWordsB, setCloudWordsB] = useState<{text: string; value: number}[]>([]);
+  const [sampleOnlyA, setSampleOnlyA] = useState(false);
+  const [sampleCountA, setSampleCountA] = useState(0);
+  const [externalUrlA, setExternalUrlA] = useState<string | undefined>();
+  const [sampleOnlyB, setSampleOnlyB] = useState(false);
+  const [sampleCountB, setSampleCountB] = useState(0);
+  const [externalUrlB, setExternalUrlB] = useState<string | undefined>();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -53,7 +60,8 @@ export default function Compare() {
           setCorpusIdA(data.corpusId);
           setStatsA(data.stats);
           if (data.columns) setColumnsA(data.columns);
-          toast({ title: `"${data.name}" loaded as Corpus A`, description: "Upload Corpus B to compare" });
+          if (data.sampleOnly) { setSampleOnlyA(true); setSampleCountA(data.sampleCount ?? 0); setExternalUrlA(data.externalUrl); }
+          toast({ title: `"${data.name}" loaded as Corpus A`, description: data.sampleOnly ? `${data.sampleCount} sample sentences only` : "Upload Corpus B to compare" });
         }
       })
       .catch(() => {});
@@ -213,6 +221,13 @@ export default function Compare() {
           </div>
         </motion.div>
       </div>
+
+      {(sampleOnlyA || sampleOnlyB) && (
+        <div className="space-y-2">
+          {sampleOnlyA && <SampleOnlyBanner sampleCount={sampleCountA} externalUrl={externalUrlA} />}
+          {sampleOnlyB && <SampleOnlyBanner sampleCount={sampleCountB} externalUrl={externalUrlB} />}
+        </div>
+      )}
 
       {(columnsA || columnsB) && (
         <motion.div className="space-y-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
