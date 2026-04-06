@@ -56,6 +56,8 @@ export interface ConcordanceResult {
 export interface SamplePair {
   source: string;
   target?: string;
+  similarity?: number;
+  strategy?: string;
 }
 
 export interface AlignedPair {

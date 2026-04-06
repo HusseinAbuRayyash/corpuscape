@@ -1070,8 +1070,8 @@ Format with clear headings and specific examples from each corpus.`);
         const bilingualPairs = pairs.map(p => ({
           source: p.source || "",
           target: p.target || "",
-          similarity: 1,
-          strategy: "",
+          similarity: typeof p.similarity === "number" ? p.similarity : 1,
+          strategy: p.strategy || "",
         }));
         const corpusId = generateCorpusId();
         const srcText = bilingualPairs.map(p => p.source).join("\n");
