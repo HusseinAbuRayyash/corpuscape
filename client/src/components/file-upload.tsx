@@ -1,6 +1,12 @@
 import { useCallback, useState, useId } from "react";
-import { Upload, FileText, X, FileSpreadsheet, FileType } from "lucide-react";
+import { Upload, FileText, X, FileSpreadsheet, FileType, FileCode, FileJson, FileVolume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+export const ACCEPTED_FORMATS =
+  ".txt,.text,.md,.markdown,.csv,.tsv,.json,.rtf,.srt,.vtt,.conllu,.conll,.po,.pot,.html,.htm,.xml,.tmx,.xliff,.xlf,.odt,.docx,.doc,.pdf,.xlsx,.xls";
+
+export const FORMAT_DESCRIPTION =
+  "TXT · MD · CSV · TSV · JSON · RTF · SRT · HTML · XML · TMX · XLIFF · ODT · DOCX · PDF · XLSX";
 
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
@@ -12,10 +18,10 @@ interface FileUploadProps {
 
 export function FileUpload({
   onFilesSelected,
-  accept = ".txt,.docx,.pdf,.xlsx,.xls",
+  accept = ACCEPTED_FORMATS,
   multiple = true,
   label = "Upload corpus files",
-  description = "Supports TXT, DOCX, PDF, Excel",
+  description = FORMAT_DESCRIPTION,
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -44,9 +50,13 @@ export function FileUpload({
   };
 
   const getFileIcon = (name: string) => {
-    const ext = name.split(".").pop()?.toLowerCase();
-    if (ext === "xlsx" || ext === "xls") return FileSpreadsheet;
-    if (ext === "pdf" || ext === "docx") return FileType;
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    if (["xlsx", "xls", "csv", "tsv", "ods"].includes(ext)) return FileSpreadsheet;
+    if (["pdf", "docx", "doc", "odt"].includes(ext)) return FileType;
+    if (["json", "xml", "html", "htm", "tmx", "xliff", "xlf"].includes(ext)) return FileJson;
+    if (["md", "markdown", "rtf"].includes(ext)) return FileCode;
+    if (["srt", "vtt"].includes(ext)) return FileVolume2;
+    if (["conllu", "conll", "po", "pot"].includes(ext)) return FileCode;
     return FileText;
   };
 
@@ -73,7 +83,7 @@ export function FileUpload({
           <Upload className="w-6 h-6 text-primary/50" />
         </div>
         <p className="text-sm font-semibold tracking-tight">{label}</p>
-        <p className="text-[11px] text-muted-foreground/50 mt-1.5">{description}</p>
+        <p className="text-[11px] text-muted-foreground/50 mt-1.5 leading-relaxed">{description}</p>
       </div>
 
       {files.length > 0 && (

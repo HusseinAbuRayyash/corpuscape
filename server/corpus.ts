@@ -152,11 +152,212 @@ export async function extractTextFromFile(
 ): Promise<string> {
   const ext = filename.toLowerCase().split(".").pop();
 
-  if (ext === "txt") {
+  // ── Plain text ────────────────────────────────────────────────────────────
+  if (ext === "txt" || ext === "text") {
     return buffer.toString("utf-8");
   }
 
-  if (ext === "docx") {
+  // ── Markdown ──────────────────────────────────────────────────────────────
+  if (ext === "md" || ext === "markdown") {
+    const raw = buffer.toString("utf-8");
+    return raw
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/__(.+?)__/g, "$1")
+      .replace(/_(.+?)_/g, "$1")
+      .replace(/~~(.+?)~~/g, "$1")
+      .replace(/`{1,3}[^`]*`{1,3}/g, "")
+      .replace(/!\[.*?\]\(.*?\)/g, "")
+      .replace(/\[(.+?)\]\(.*?\)/g, "$1")
+      .replace(/^\s*[-*+]\s+/gm, "")
+      .replace(/^\s*\d+\.\s+/gm, "")
+      .replace(/^\s*>\s+/gm, "")
+      .replace(/^---+$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  // ── CSV / TSV ─────────────────────────────────────────────────────────────
+  if (ext === "csv") {
+    const raw = buffer.toString("utf-8");
+    return raw
+      .split(/\r?\n/)
+      .map((line) =>
+        line
+          .split(",")
+          .map((cell) => cell.replace(/^["']|["']$/g, "").trim())
+          .filter(Boolean)
+          .join(" ")
+      )
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (ext === "tsv") {
+    const raw = buffer.toString("utf-8");
+    return raw
+      .split(/\r?\n/)
+      .map((line) =>
+        line
+          .split("\t")
+          .map((cell) => cell.trim())
+          .filter(Boolean)
+          .join(" ")
+      )
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  // ── JSON ──────────────────────────────────────────────────────────────────
+  if (ext === "json") {
+    try {
+      const data = JSON.parse(buffer.toString("utf-8"));
+      const strings: string[] = [];
+      const collect = (val: unknown): void => {
+        if (typeof val === "string" && val.trim().length > 2) strings.push(val.trim());
+        else if (Array.isArray(val)) val.forEach(collect);
+        else if (val && typeof val === "object") Object.values(val).forEach(collect);
+      };
+      collect(data);
+      return strings.join("\n");
+    } catch {
+      return buffer.toString("utf-8");
+    }
+  }
+
+  // ── RTF ───────────────────────────────────────────────────────────────────
+  if (ext === "rtf") {
+    const raw = buffer.toString("utf-8");
+    return raw
+      .replace(/\{\\[^}]*\}/g, "")
+      .replace(/\\[a-z]+\d*\s?/gi, "")
+      .replace(/[{}\\]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // ── SRT (subtitles) ───────────────────────────────────────────────────────
+  if (ext === "srt" || ext === "vtt") {
+    const raw = buffer.toString("utf-8");
+    return raw
+      .split(/\r?\n/)
+      .filter((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return false;
+        if (/^\d+$/.test(trimmed)) return false;
+        if (/\d{2}:\d{2}:\d{2}[,\.]\d{3}\s*-->\s*/.test(trimmed)) return false;
+        if (/^WEBVTT/.test(trimmed)) return false;
+        return true;
+      })
+      .map((l) => l.replace(/<[^>]+>/g, "").trim())
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  // ── CoNLL-U (linguistic annotations) ─────────────────────────────────────
+  if (ext === "conllu" || ext === "conll") {
+    const raw = buffer.toString("utf-8");
+    const words: string[] = [];
+    for (const line of raw.split(/\r?\n/)) {
+      if (!line || line.startsWith("#")) continue;
+      const cols = line.split("\t");
+      if (cols.length >= 2 && /^\d+$/.test(cols[0])) {
+        words.push(cols[1]);
+        if (cols[7] === "punct" || cols[3] === "PUNCT") words.push(" ");
+      }
+    }
+    return words.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  // ── PO / POT (gettext translation files) ─────────────────────────────────
+  if (ext === "po" || ext === "pot") {
+    const raw = buffer.toString("utf-8");
+    const texts: string[] = [];
+    for (const line of raw.split(/\r?\n/)) {
+      const m = line.match(/^msg(?:id|str)\s+"(.+)"$/);
+      if (m && m[1] && m[1] !== "") texts.push(m[1]);
+    }
+    return texts.join("\n");
+  }
+
+  // ── HTML / HTM ────────────────────────────────────────────────────────────
+  if (ext === "html" || ext === "htm") {
+    try {
+      const cheerio = await import("cheerio");
+      const $ = cheerio.load(buffer.toString("utf-8"));
+      $("script, style, nav, header, footer, aside").remove();
+      return $("body").text().replace(/\s+/g, " ").trim() || $.text().replace(/\s+/g, " ").trim();
+    } catch {
+      return buffer.toString("utf-8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // ── XML (generic) ─────────────────────────────────────────────────────────
+  if (ext === "xml") {
+    try {
+      const cheerio = await import("cheerio");
+      const $ = cheerio.load(buffer.toString("utf-8"), { xmlMode: true });
+      return $.root().text().replace(/\s+/g, " ").trim();
+    } catch {
+      return buffer.toString("utf-8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // ── TMX (Translation Memory eXchange) ────────────────────────────────────
+  if (ext === "tmx") {
+    try {
+      const cheerio = await import("cheerio");
+      const $ = cheerio.load(buffer.toString("utf-8"), { xmlMode: true });
+      const segments: string[] = [];
+      $("tu").each((_, tu) => {
+        $(tu).find("seg").each((_, seg) => {
+          const t = $(seg).text().trim();
+          if (t) segments.push(t);
+        });
+      });
+      return segments.join("\n");
+    } catch {
+      return buffer.toString("utf-8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // ── XLIFF / XLF (localization) ────────────────────────────────────────────
+  if (ext === "xliff" || ext === "xlf") {
+    try {
+      const cheerio = await import("cheerio");
+      const $ = cheerio.load(buffer.toString("utf-8"), { xmlMode: true });
+      const segments: string[] = [];
+      $("source, target").each((_, el) => {
+        const t = $(el).text().trim();
+        if (t) segments.push(t);
+      });
+      return segments.join("\n");
+    } catch {
+      return buffer.toString("utf-8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // ── ODT (OpenDocument Text) ───────────────────────────────────────────────
+  if (ext === "odt" || ext === "ods" || ext === "odp") {
+    try {
+      const AdmZip = (await import("adm-zip")).default;
+      const zip = new AdmZip(buffer);
+      const contentEntry = zip.getEntry("content.xml");
+      if (contentEntry) {
+        const xml = contentEntry.getData().toString("utf-8");
+        const cheerio = await import("cheerio");
+        const $ = cheerio.load(xml, { xmlMode: true });
+        return $.root().text().replace(/\s+/g, " ").trim();
+      }
+    } catch {
+      // fall through to utf-8 fallback
+    }
+    return buffer.toString("utf-8");
+  }
+
+  // ── DOCX ──────────────────────────────────────────────────────────────────
+  if (ext === "docx" || ext === "doc") {
     try {
       const mammoth = await import("mammoth");
       const result = await mammoth.default.extractRawText({ buffer });
@@ -166,6 +367,7 @@ export async function extractTextFromFile(
     }
   }
 
+  // ── PDF ───────────────────────────────────────────────────────────────────
   if (ext === "pdf") {
     let text = "";
     try {
@@ -226,7 +428,8 @@ IMPORTANT RULES:
     return text;
   }
 
-  if (ext === "xlsx" || ext === "xls") {
+  // ── Excel ─────────────────────────────────────────────────────────────────
+  if (ext === "xlsx" || ext === "xls" || ext === "ods") {
     try {
       const XLSX = await import("xlsx");
       const workbook = XLSX.read(buffer, { type: "buffer" });
@@ -244,6 +447,7 @@ IMPORTANT RULES:
     }
   }
 
+  // ── Fallback: treat as UTF-8 text ─────────────────────────────────────────
   return buffer.toString("utf-8");
 }
 

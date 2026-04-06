@@ -1349,8 +1349,8 @@ export default function FigureMaker() {
               <div className="relative rounded-xl border-2 border-dashed border-rose-200 dark:border-rose-800/40 bg-rose-50/30 dark:bg-rose-950/10 p-6 text-center">
                 <Upload className="w-8 h-8 text-rose-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Upload a data file</p>
-                <p className="text-[11px] text-muted-foreground mb-3">CSV, TSV, or text files — AI will extract the data automatically</p>
-                <input type="file" accept=".csv,.tsv,.txt" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" data-testid="input-file-upload" />
+                <p className="text-[11px] text-muted-foreground mb-3">CSV · TSV · JSON · XML · TXT · MD — AI will extract the data automatically</p>
+                <input type="file" accept=".csv,.tsv,.txt,.json,.xml,.md,.markdown,.html,.htm" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" data-testid="input-file-upload" />
                 <Button size="sm" variant="outline" className="pointer-events-none"><Upload className="w-3.5 h-3.5 mr-1.5" />Choose File</Button>
               </div>
             </TabsContent>
