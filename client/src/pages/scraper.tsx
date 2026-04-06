@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { SaveToLibrary } from "@/components/save-to-library";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -531,6 +532,16 @@ export default function Scraper() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
+          <div className="flex justify-end">
+            <SaveToLibrary
+              type="monolingual"
+              sourceTrack="scraper"
+              sizeLabel={`${corpusStats.words.toLocaleString()} words`}
+              samplePairs={articles.slice(0, 20).map(a => ({ source: a.title + "\n\n" + a.content.slice(0, 200) }))}
+              defaultName={`Web Corpus (${articles.length} articles)`}
+              accentClass="from-amber-500 to-orange-600"
+            />
+          </div>
           <div className="polished-card overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500" />
             <div className="p-6">

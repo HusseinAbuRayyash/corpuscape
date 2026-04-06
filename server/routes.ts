@@ -39,6 +39,13 @@ import {
   listCorpora,
 } from "./corpusStorage";
 import { scrapeUrl, scrapeMultipleUrls } from "./scraper";
+import {
+  getLibraryCorpora,
+  getLibraryCorpus,
+  saveLibraryCorpus,
+  deleteLibraryCorpus,
+  seedLibraryIfEmpty,
+} from "./libraryStorage";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -981,6 +988,106 @@ Format with clear headings and specific examples from each corpus.`);
 
   app.get("/api/corpora", (_req, res) => {
     res.json({ corpora: listCorpora() });
+  });
+
+  await seedLibraryIfEmpty();
+
+  app.get("/api/library", async (_req, res) => {
+    try {
+      const corpora = await getLibraryCorpora();
+      const grouped = {
+        user: corpora.filter(c => c.origin === "user"),
+        builtin: corpora.filter(c => c.origin === "builtin"),
+        external: corpora.filter(c => c.origin === "external"),
+      };
+      res.json(grouped);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to load library" });
+    }
+  });
+
+  app.get("/api/library/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      const corpus = await getLibraryCorpus(id);
+      if (!corpus) return res.status(404).json({ error: "Corpus not found" });
+      res.json(corpus);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to load corpus" });
+    }
+  });
+
+  app.post("/api/library/save", async (req, res) => {
+    try {
+      const { name, type, sourceTrack, languagePair, domain, sizeLabel, samplePairs } = req.body;
+      if (!name || !type) return res.status(400).json({ error: "name and type are required" });
+      const saved = await saveLibraryCorpus({
+        name,
+        type,
+        origin: "user",
+        sourceTrack: sourceTrack || null,
+        languagePair: languagePair || null,
+        domain: domain || null,
+        sizeLabel: sizeLabel || null,
+        license: null,
+        externalUrl: null,
+        samplePairs: samplePairs || null,
+      });
+      res.json(saved);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to save corpus" });
+    }
+  });
+
+  app.post("/api/library/:id/load", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      const corpus = await getLibraryCorpus(id);
+      if (!corpus) return res.status(404).json({ error: "Corpus not found" });
+
+      const pairs = corpus.samplePairs as any[] | null;
+      if (!pairs || pairs.length === 0) return res.status(400).json({ error: "No sample data available for this corpus" });
+
+      const type = corpus.type;
+      if (type === "monolingual") {
+        const text = pairs.map((p: any) => p.source || p.text || (typeof p === "string" ? p : "")).filter(Boolean).join("\n\n");
+        const corpusId = generateCorpusId();
+        storeCorpus(corpusId, text);
+        const stats = getStats(text);
+        registerCorpus({ id: corpusId, name: corpus.name, source: "monolingual", words: stats.words, createdAt: Date.now() });
+        res.json({ type: "monolingual", corpusId, stats, name: corpus.name });
+      } else {
+        const bilingualPairs = pairs.map((p: any) => ({
+          source: p.source || "",
+          target: p.target || "",
+          similarity: p.similarity ?? 1,
+          strategy: p.strategy || "",
+        }));
+        const corpusId = generateCorpusId();
+        const srcText = bilingualPairs.map((p: any) => p.source).join("\n");
+        const tgtText = bilingualPairs.map((p: any) => p.target).join("\n");
+        storeCorpus(`${corpusId}_src`, srcText);
+        storeCorpus(`${corpusId}_tgt`, tgtText);
+        storeCorpus(`${corpusId}_pairs`, JSON.stringify(bilingualPairs));
+        registerCorpus({ id: corpusId, name: corpus.name, source: "bilingual", words: srcText.split(/\s+/).length + tgtText.split(/\s+/).length, createdAt: Date.now() });
+        res.json({ type: "bilingual", corpusId, pairs: bilingualPairs, name: corpus.name });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to load corpus" });
+    }
+  });
+
+  app.delete("/api/library/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      await deleteLibraryCorpus(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete corpus" });
+    }
   });
 
   return httpServer;

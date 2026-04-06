@@ -12,10 +12,10 @@ AI-powered corpus linguistics lab for translation studies, rebuilt from Python/S
 ## Key Directories
 
 ```
-client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare, FigureMaker pages
-client/src/components/  - AppSidebar, FileUpload, MarkdownRender, AIResultDisplay, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter
-server/                 - Express routes, corpus processing, AI integration, scraper, storage
-shared/schema.ts        - Shared types and analysis category definitions
+client/src/pages/       - Home, Monolingual, Bilingual, Scraper, Compare, FigureMaker, Library pages
+client/src/components/  - AppSidebar, FileUpload, MarkdownRender, AIResultDisplay, ThemeProvider, Logo, AIAnalysisPanel, WordCloud, CorpusChat, ReportGenerator, DatasetViewer, CorpusFilter, SaveToLibrary
+server/                 - Express routes, corpus processing, AI integration, scraper, storage, libraryStorage
+shared/schema.ts        - Shared types, analysis category definitions, library_corpora table
 ```
 
 ## Features (5 Tracks + Figure Maker)
@@ -66,6 +66,17 @@ shared/schema.ts        - Shared types and analysis category definitions
 - **Word Cloud Comparison** — side-by-side word clouds for both corpora
 - **ReportGenerator** — downloadable comparison report with stats, keywords, shared terms
 - AI comparative analysis via Gemini
+
+### Corpus Library (`/library`, cyan/blue)
+- **My Corpora**: Corpora saved from analysis sessions via "Save to Library" button on each track
+- **Sample Corpora**: Developer-seeded built-in datasets (origin: "builtin")
+- **Public Datasets**: 20+ real publicly available corpora seeded at startup (origin: "external") — Europarl en↔ar/de/fr, OpenSubtitles, UN Parallel, TED2020, WikiMatrix, WMT, EUR-Lex, Bible, FLORES-200, GlobalVoices, News-Commentary, CCAligned, JW300, NLLB, CC-100, Arabic Wikipedia
+- Search by name, language pair, domain; filter by type (monolingual/bilingual)
+- Each card: type badge, language flags, domain, size label, license, external link, preview sample pairs, delete (user corpora), "Analyze →" panel
+- **Analyze panel**: sends corpus to the correct track via `/api/library/:id/load` → sessionStorage → `?libraryId` URL param; track reads on mount
+- **Save to Library**: inline dropdown button shown on Monolingual, Bilingual, Scraper, Compare tracks after analysis
+- Database: PostgreSQL `library_corpora` table (Drizzle ORM); seed runs at startup if table empty
+- Routes: `GET /api/library`, `GET/POST /api/library/:id`, `POST /api/library/save`, `POST /api/library/:id/load`, `DELETE /api/library/:id`
 
 ### Figure Maker (Comprehensive Upgrade)
 - Standalone chart/figure creation tool — users bring their own data

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { SaveToLibrary } from "@/components/save-to-library";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +63,20 @@ export default function Monolingual() {
       sessionStorage.removeItem("scraped_corpus_id");
       sessionStorage.removeItem("scraped_corpus_stats");
       toast({ title: "Scraped corpus loaded", description: "Ready for analysis" });
+      return;
     }
+
+    const raw = sessionStorage.getItem("library_load");
+    if (!raw || !window.location.search.includes("libraryId")) return;
+    try {
+      const data = JSON.parse(raw);
+      sessionStorage.removeItem("library_load");
+      if (data.corpusId && data.stats) {
+        setCorpusId(data.corpusId);
+        setStats(data.stats);
+        toast({ title: `"${data.name}" loaded from Library`, description: "Ready for analysis" });
+      }
+    } catch {}
   }, []);
 
   const uploadMutation = useMutation({
@@ -321,6 +335,18 @@ export default function Monolingual() {
               </motion.div>
             </div>
           </motion.div>
+
+          {stats && (
+            <div className="flex justify-end">
+              <SaveToLibrary
+                type="monolingual"
+                sourceTrack="monolingual"
+                sizeLabel={`${stats.words.toLocaleString()} words`}
+                defaultName={selectedFiles.length > 0 ? selectedFiles.map(f => f.name.replace(/\.[^.]+$/, "")).join(", ") : "Monolingual Corpus"}
+                accentClass="from-indigo-500 to-blue-600"
+              />
+            </div>
+          )}
 
           {stats && (
             <motion.div
