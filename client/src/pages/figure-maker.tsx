@@ -425,9 +425,9 @@ export default function FigureMaker() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ corpusId: data.corpusId, topN: 20, stopWords: [] }),
-          }).then(r => r.json()).then((kw: { keywords: KeywordResult[] }) => {
-            if (kw?.keywords?.length > 0) {
-              const chartItems = kw.keywords.slice(0, 20).map(k => ({ label: k.term, value: k.frequency }));
+          }).then(r => r.json()).then((kw: KeywordResult[]) => {
+            if (Array.isArray(kw) && kw.length > 0) {
+              const chartItems = kw.slice(0, 20).map(k => ({ label: k.term, value: k.frequency }));
               setChartData(chartItems);
               setTitle(`Keyword Frequency — ${data.name}`);
               setXLabel("Term");
