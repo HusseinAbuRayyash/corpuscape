@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -235,54 +235,95 @@ function CorpusCard({
                   )}
                   <span className="ml-auto text-xs text-muted-foreground font-medium">{pairs.length} entries</span>
                 </div>
-                {corpus.domain && (
-                  <p className="text-xs text-muted-foreground mt-0.5 pl-9">{corpus.domain}</p>
-                )}
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5 pl-9">
+                  {corpus.domain ?? "Corpus preview — all rows and columns"}
+                </DialogDescription>
               </DialogHeader>
 
-              <div className="overflow-y-auto flex-1 px-6 py-4">
-                {corpus.type === "bilingual" ? (
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="text-left text-xs text-muted-foreground uppercase tracking-wide border-b border-border/40">
-                        <th className="pb-2 font-semibold w-[40%]">Source</th>
-                        <th className="pb-2 font-semibold w-[40%] pl-4">Target</th>
-                        <th className="pb-2 font-semibold w-[10%] pl-4">Strategy</th>
-                        <th className="pb-2 font-semibold w-[10%] pl-4 text-right">#</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+              <div className="overflow-auto flex-1">
+                {(() => {
+                  const firstRow = pairs[0] as Record<string, unknown>;
+                  const isGenericTable = firstRow && !("source" in firstRow);
+                  const isBilingual = !isGenericTable && corpus.type === "bilingual";
+
+                  if (isGenericTable) {
+                    const columns = Object.keys(firstRow);
+                    return (
+                      <table className="text-xs border-collapse min-w-full">
+                        <thead className="sticky top-0 z-10 bg-background">
+                          <tr className="text-left text-[10px] text-muted-foreground uppercase tracking-wide">
+                            <th className="py-2 px-3 font-semibold border-b border-border/50 w-8 text-right">#</th>
+                            {columns.map(col => (
+                              <th key={col} className="py-2 px-3 font-semibold border-b border-border/50 whitespace-nowrap">{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(pairs as Record<string, unknown>[]).map((row, i) => (
+                            <tr key={i} className={`align-top ${i % 2 === 0 ? "bg-muted/20" : ""} hover:bg-muted/40 transition-colors`}>
+                              <td className="py-1.5 px-3 text-muted-foreground/50 tabular-nums text-right border-r border-border/20">{i + 1}</td>
+                              {columns.map(col => (
+                                <td key={col} className="py-1.5 px-3 text-foreground/80 border-r border-border/10 max-w-[220px]">
+                                  <span className="block truncate" title={String(row[col] ?? "")}>
+                                    {String(row[col] ?? "—")}
+                                  </span>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  }
+
+                  if (isBilingual) {
+                    return (
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="text-left text-xs text-muted-foreground uppercase tracking-wide border-b border-border/40">
+                            <th className="py-2 px-3 font-semibold w-[40%]">Source</th>
+                            <th className="py-2 px-3 font-semibold w-[40%]">Target</th>
+                            <th className="py-2 px-3 font-semibold w-[12%]">Strategy</th>
+                            <th className="py-2 px-3 font-semibold w-8 text-right">#</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pairs.map((p, i) => (
+                            <tr key={i} className={`align-top ${i > 0 ? "border-t border-border/20" : ""}`}>
+                              <td className="py-2.5 px-3 text-foreground/85 leading-relaxed">{p.source}</td>
+                              <td className="py-2.5 px-3 text-muted-foreground leading-relaxed">{p.target ?? "—"}</td>
+                              <td className="py-2.5 px-3">
+                                {p.strategy && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{p.strategy}</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-xs text-muted-foreground/60 text-right tabular-nums">{i + 1}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  }
+
+                  return (
+                    <ol className="space-y-2 px-6 py-4">
                       {pairs.map((p, i) => (
-                        <tr key={i} className={`align-top ${i > 0 ? "border-t border-border/20" : ""}`}>
-                          <td className="py-2.5 pr-4 text-foreground/85 leading-relaxed">{p.source}</td>
-                          <td className="py-2.5 px-4 text-muted-foreground leading-relaxed">{p.target ?? "—"}</td>
-                          <td className="py-2.5 px-4">
-                            {p.strategy && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                                {p.strategy}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 pl-4 text-xs text-muted-foreground/60 text-right tabular-nums">{i + 1}</td>
-                        </tr>
+                        <li key={i} className="flex gap-3 text-sm leading-relaxed">
+                          <span className="shrink-0 text-xs text-muted-foreground/60 tabular-nums pt-0.5 w-6 text-right">{i + 1}.</span>
+                          <span className="text-foreground/85">{p.source}</span>
+                        </li>
                       ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <ol className="space-y-2">
-                    {pairs.map((p, i) => (
-                      <li key={i} className="flex gap-3 text-sm leading-relaxed">
-                        <span className="shrink-0 text-xs text-muted-foreground/60 tabular-nums pt-0.5 w-6 text-right">{i + 1}.</span>
-                        <span className="text-foreground/85">{p.source}</span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+                    </ol>
+                  );
+                })()}
               </div>
 
               <div className="px-6 py-3 border-t border-border/40 shrink-0 flex items-center justify-between text-xs text-muted-foreground">
-                <span>{corpus.sizeLabel && <span className="font-medium">{corpus.sizeLabel}</span>}{corpus.license && <span className="ml-2 px-1.5 py-0.5 rounded bg-muted/60 font-mono">{corpus.license}</span>}</span>
-                <span>{pairs.length} entries shown</span>
+                <span>
+                  {corpus.sizeLabel && <span className="font-medium">{corpus.sizeLabel}</span>}
+                  {corpus.license && <span className="ml-2 px-1.5 py-0.5 rounded bg-muted/60 font-mono">{corpus.license}</span>}
+                </span>
+                <span>{pairs.length} rows shown</span>
               </div>
             </DialogContent>
           </Dialog>
