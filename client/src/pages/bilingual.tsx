@@ -396,7 +396,7 @@ export default function Bilingual() {
                   <FileUpload
                     onFilesSelected={handleAlignedFilesSelected}
                     label="Upload pre-aligned file(s)"
-                    description="Excel, CSV, or alternating-line TXT/DOCX"
+                    description="TMX · XLIFF · CSV · TSV · Excel · DOCX · TXT and more"
                   />
                 </div>
 
@@ -488,10 +488,12 @@ export default function Bilingual() {
                 <div className="text-[11px] text-muted-foreground/60 mt-2.5 ml-1 space-y-1">
                   <p className="font-medium text-muted-foreground/80">Supported formats — pairs are loaded exactly as-is, no AI re-alignment:</p>
                   <ul className="list-disc ml-4 space-y-0.5">
+                    <li><span className="font-medium">TMX / XLIFF:</span> Translation Memory Exchange and localization files — source/target pairs extracted automatically</li>
                     <li><span className="font-medium">Excel (.xlsx/.xls):</span> Any layout — columns are auto-detected; use the picker above to choose source and target if needed</li>
-                    <li><span className="font-medium">CSV (.csv):</span> Auto-detects comma/semicolon/tab delimiter; optional header row</li>
+                    <li><span className="font-medium">CSV / TSV (.csv/.tsv):</span> Auto-detects delimiter; optional header row</li>
                     <li><span className="font-medium">Tab-separated (.txt/.tsv):</span> source{"\t"}target on each line</li>
-                    <li><span className="font-medium">Alternating lines (.txt/.docx):</span> source on odd lines, target on even lines</li>
+                    <li><span className="font-medium">Alternating lines (.txt/.docx/.md/.rtf):</span> source on odd lines, target on even lines</li>
+                    <li><span className="font-medium">PO / Gettext (.po/.pot):</span> msgid / msgstr pairs extracted as source / target</li>
                   </ul>
                 </div>
               </motion.div>
