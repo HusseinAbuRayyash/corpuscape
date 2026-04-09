@@ -22,7 +22,7 @@ export function getStats(text: string): CorpusStats {
 
 export function extractKeywords(text: string, topN: number = 30, stopWords?: string[]): KeywordResult[] {
   const stopSet = stopWords ? new Set(stopWords.map(w => w.toLowerCase().trim()).filter(Boolean)) : null;
-  const words = text.split(/\s+/).filter((w) => w.length > 3).map((w) => w.toLowerCase().replace(/[^a-zA-Z\u0600-\u06FF]/g, "")).filter((w) => w.length > 3).filter(w => !stopSet || !stopSet.has(w));
+  const words = text.split(/\s+/).filter((w) => w.length > 1).map((w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")).filter((w) => w.length > 1).filter(w => !stopSet || !stopSet.has(w));
   const freq = new Map<string, number>();
   for (const w of words) {
     freq.set(w, (freq.get(w) || 0) + 1);
