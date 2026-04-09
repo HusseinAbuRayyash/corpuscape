@@ -17,7 +17,7 @@ import { DatasetViewer } from "@/components/dataset-viewer";
 import { SampleOnlyBanner } from "@/components/sample-only-banner";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare, Table2 } from "lucide-react";
+import { Loader2, Download, Globe, FileText, Brain, BarChart3, SplitSquareHorizontal, FileStack, AlertCircle, ArrowLeftRight, Search, BookOpen, MessageSquare, Table2, Landmark, Puzzle, Fingerprint, ChevronDown, ChevronUp } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AlignedPair, LibraryLoadResponse, ColumnMeta } from "@shared/schema";
 
@@ -52,6 +52,10 @@ export default function Bilingual() {
   const [sampleCount, setSampleCount] = useState(0);
   const [externalUrl, setExternalUrl] = useState<string | undefined>();
   const [biTab, setBiTab] = useState("pairs");
+  const [culturalRefs, setCulturalRefs] = useState<any[]>([]);
+  const [lexicalGaps, setLexicalGaps] = useState<any[]>([]);
+  const [styleProfile, setStyleProfile] = useState("");
+  const [expandedGap, setExpandedGap] = useState<number | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -254,6 +258,33 @@ export default function Bilingual() {
     },
     onSuccess: (data) => setGlossaryResults(data.glossary || []),
     onError: () => toast({ title: "Glossary generation failed", variant: "destructive" }),
+  });
+
+  const culturalRefsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bilingual/cultural-references", { corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setCulturalRefs(data.references || []),
+    onError: () => toast({ title: "Cultural reference detection failed", variant: "destructive" }),
+  });
+
+  const lexicalGapsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bilingual/lexical-gaps", { corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setLexicalGaps(data.gaps || []),
+    onError: () => toast({ title: "Lexical gap analysis failed", variant: "destructive" }),
+  });
+
+  const styleProfileMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/bilingual/style-profile", { corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setStyleProfile(data.profile || ""),
+    onError: () => toast({ title: "Style profiling failed", variant: "destructive" }),
   });
 
   const exportAnnotations = () => {
@@ -624,6 +655,10 @@ export default function Bilingual() {
                   <BiNavItem value="theory" icon={Brain} label="Theory" hasResult={!!universalsResult || !!strategiesResult} />
                   <BiNavGroup label="AI" />
                   <BiNavItem value="ai" icon={Brain} label="AI Insights" />
+                  <BiNavGroup label="Research" />
+                  <BiNavItem value="cultural" icon={Landmark} label="Cultural Refs" hasResult={culturalRefs.length > 0} />
+                  <BiNavItem value="lexgaps" icon={Puzzle} label="Lexical Gaps" hasResult={lexicalGaps.length > 0} />
+                  <BiNavItem value="styleprofile" icon={Fingerprint} label="Style Profiler" hasResult={!!styleProfile} />
                   <BiNavGroup label="Export" />
                   <BiNavItem value="export" icon={Download} label="Export" />
                 </nav>
@@ -962,6 +997,245 @@ export default function Bilingual() {
                   )}
                 </motion.div>
               </div>
+            </div>}
+
+            {biTab === "cultural" && <div className="space-y-5">
+              <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+                  <div className="section-header mb-0">
+                    <Landmark className="w-4 h-4 text-teal-500" />
+                    <h3>Cultural Reference Detector</h3>
+                  </div>
+                  {culturalRefs.length > 0 && (
+                    <TableDownload
+                      data={culturalRefs.map((r, i) => ({ rank: i + 1, term: r.term, category: r.category, source: r.sourceTerm, target: r.targetRendering, strategy: r.strategy, notes: r.notes }))}
+                      columns={[
+                        { header: "#", key: "rank", align: "left" },
+                        { header: "Term", key: "term", align: "left" },
+                        { header: "Category", key: "category", align: "left" },
+                        { header: "Source Text", key: "source", align: "left" },
+                        { header: "Target Rendering", key: "target", align: "left" },
+                        { header: "Strategy", key: "strategy", align: "left" },
+                        { header: "Notes", key: "notes", align: "left" },
+                      ]}
+                      filename="Cultural_References"
+                    />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">AI identifies proper nouns, idioms, and culture-specific items, then classifies how the translator handled each one.</p>
+                <Button
+                  size="sm"
+                  onClick={() => culturalRefsMutation.mutate()}
+                  disabled={culturalRefsMutation.isPending || !corpusId}
+                  data-testid="button-cultural-refs"
+                >
+                  {culturalRefsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Landmark className="w-4 h-4 mr-2" />}
+                  {culturalRefs.length > 0 ? "Re-run Detection" : "Detect Cultural References"}
+                </Button>
+                {culturalRefsMutation.isPending && (
+                  <div className="mt-4 space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-4 w-full" />)}</div>
+                )}
+                {culturalRefs.length > 0 && (
+                  <motion.div className="mt-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <span className="text-xs text-muted-foreground">{culturalRefs.length} reference{culturalRefs.length !== 1 ? "s" : ""} found</span>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {["proper_noun","idiom","culture_specific","religious","historical","food_custom"].map(cat => {
+                          const count = culturalRefs.filter(r => r.category === cat).length;
+                          if (!count) return null;
+                          const colors: Record<string, string> = {
+                            proper_noun: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                            idiom: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                            culture_specific: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+                            religious: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                            historical: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                            food_custom: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+                          };
+                          return <span key={cat} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[cat] || "bg-muted text-muted-foreground"}`}>{cat.replace("_"," ")} ×{count}</span>;
+                        })}
+                      </div>
+                    </div>
+                    <div className="max-h-[480px] overflow-auto rounded-lg border">
+                      <table className="w-full text-sm polished-table" data-testid="table-cultural-refs">
+                        <thead className="sticky top-0 z-10">
+                          <tr>
+                            <th className="py-2 px-3 text-left text-xs">#</th>
+                            <th className="py-2 px-3 text-left text-xs">Term</th>
+                            <th className="py-2 px-3 text-left text-xs">Category</th>
+                            <th className="py-2 px-3 text-left text-xs">Source Text</th>
+                            <th className="py-2 px-3 text-left text-xs">Target Rendering</th>
+                            <th className="py-2 px-3 text-left text-xs">Strategy</th>
+                            <th className="py-2 px-3 text-left text-xs">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {culturalRefs.map((ref, i) => {
+                            const catColors: Record<string, string> = {
+                              proper_noun: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                              idiom: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                              culture_specific: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+                              religious: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                              historical: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                              food_custom: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+                            };
+                            const stratColors: Record<string, string> = {
+                              retained: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                              adapted: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                              domesticated: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                              footnoted: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                              omitted: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                              explained: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+                              transliterated: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+                            };
+                            return (
+                              <tr key={i} className="border-b border-border/30">
+                                <td className="py-2 px-3 text-muted-foreground text-xs">{i + 1}</td>
+                                <td className="py-2 px-3 text-xs font-semibold max-w-[100px]">{ref.term}</td>
+                                <td className="py-2 px-3 text-xs">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${catColors[ref.category] || "bg-muted text-muted-foreground"}`}>
+                                    {(ref.category || "").replace("_", " ")}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-xs max-w-[160px] italic text-muted-foreground">{ref.sourceTerm}</td>
+                                <td className="py-2 px-3 text-xs max-w-[160px] font-medium">{ref.targetRendering}</td>
+                                <td className="py-2 px-3 text-xs">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${stratColors[ref.strategy] || "bg-muted text-muted-foreground"}`}>
+                                    {ref.strategy}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-xs text-muted-foreground max-w-[200px]">{ref.notes}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>}
+
+            {biTab === "lexgaps" && <div className="space-y-5">
+              <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+                  <div className="section-header mb-0">
+                    <Puzzle className="w-4 h-4 text-violet-500" />
+                    <h3>Lexical Gap Finder</h3>
+                  </div>
+                  {lexicalGaps.length > 0 && (
+                    <TableDownload
+                      data={lexicalGaps.map((g, i) => ({ rank: i + 1, concept: g.sourceConcept, sourceExample: g.sourceExample, targetAttempt: g.targetAttempt, type: g.gapType, discussion: g.discussion }))}
+                      columns={[
+                        { header: "#", key: "rank", align: "left" },
+                        { header: "Source Concept", key: "concept", align: "left" },
+                        { header: "Source Example", key: "sourceExample", align: "left" },
+                        { header: "Target Attempt", key: "targetAttempt", align: "left" },
+                        { header: "Gap Type", key: "type", align: "left" },
+                        { header: "Discussion", key: "discussion", align: "left" },
+                      ]}
+                      filename="Lexical_Gaps"
+                    />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">AI identifies source-language concepts that have no direct single-word equivalent in the target language and analyses how the translator coped.</p>
+                <Button
+                  size="sm"
+                  onClick={() => lexicalGapsMutation.mutate()}
+                  disabled={lexicalGapsMutation.isPending || !corpusId}
+                  data-testid="button-lexical-gaps"
+                >
+                  {lexicalGapsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Puzzle className="w-4 h-4 mr-2" />}
+                  {lexicalGaps.length > 0 ? "Re-run Analysis" : "Find Lexical Gaps"}
+                </Button>
+                {lexicalGapsMutation.isPending && (
+                  <div className="mt-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}</div>
+                )}
+                {lexicalGaps.length > 0 && (
+                  <motion.div className="mt-5 space-y-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                    <p className="text-xs text-muted-foreground">{lexicalGaps.length} lexical gap{lexicalGaps.length !== 1 ? "s" : ""} identified</p>
+                    {lexicalGaps.map((gap, i) => {
+                      const gapTypeColors: Record<string, string> = {
+                        single_word: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                        conceptual: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+                        cultural: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                        grammatical: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                      };
+                      const isExpanded = expandedGap === i;
+                      return (
+                        <div key={i} className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden" data-testid={`card-lexgap-${i}`}>
+                          <button
+                            type="button"
+                            className="w-full flex items-start gap-3 p-4 text-left hover:bg-muted/40 transition-colors"
+                            onClick={() => setExpandedGap(isExpanded ? null : i)}
+                          >
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[11px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="font-semibold text-sm text-foreground">{gap.sourceConcept}</span>
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${gapTypeColors[gap.gapType] || "bg-muted text-muted-foreground"}`}>
+                                  {(gap.gapType || "").replace("_", " ")}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span className="italic">"{gap.sourceExample}"</span>
+                                <span className="text-muted-foreground/50">→</span>
+                                <span className="font-medium text-foreground/70">"{gap.targetAttempt}"</span>
+                              </div>
+                            </div>
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-1" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />}
+                          </button>
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-4 pb-4 pt-1 border-t border-border/30 bg-muted/10">
+                                  <p className="text-xs text-foreground/80 leading-relaxed">{gap.discussion}</p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>}
+
+            {biTab === "styleprofile" && <div className="space-y-5">
+              <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+                  <div className="section-header mb-0">
+                    <Fingerprint className="w-4 h-4 text-pink-500" />
+                    <h3>Translator Style Profiler</h3>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">AI analyses recurring patterns in the translator's choices — synonym preferences, sentence restructuring, borrowing tendency, explicitation vs. implicitation — and produces a comprehensive stylometric profile.</p>
+                <Button
+                  size="sm"
+                  onClick={() => styleProfileMutation.mutate()}
+                  disabled={styleProfileMutation.isPending || !corpusId}
+                  data-testid="button-style-profile"
+                >
+                  {styleProfileMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Fingerprint className="w-4 h-4 mr-2" />}
+                  {styleProfile ? "Re-run Profiling" : "Generate Style Profile"}
+                </Button>
+                {styleProfileMutation.isPending && (
+                  <div className="mt-4 space-y-2">
+                    {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-4 w-full" style={{ width: `${70 + (i % 3) * 10}%` }} />)}
+                  </div>
+                )}
+                {styleProfile && (
+                  <motion.div className="mt-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} data-testid="text-style-profile">
+                    <AIResultDisplay content={styleProfile} onContentChange={setStyleProfile} downloadFilename="Translator_Style_Profile" />
+                  </motion.div>
+                )}
+              </motion.div>
             </div>}
 
             {biTab === "export" && <div className="space-y-5">
