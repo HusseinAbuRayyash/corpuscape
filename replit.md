@@ -42,7 +42,7 @@ Not specified.
 2.  **Bilingual Track:** Source/target file upload with AI sentence alignment, pre-aligned file mode, translation strategy/universals analysis, Back-Translation Check (AI semantic drift), Bilingual Concordance, AI Glossary Builder, Annotation Mode, AI Insights, multiple export formats (CSV, TMX, Report).
 3.  **Web Scraper:** URL scraping, content viewing/editing/cleaning, Word Cloud, full research report, direct analysis integration, send to Monolingual track.
 4.  **Corpus Comparison:** Side-by-side corpus upload, statistics comparison, keyword overlap analysis, side-by-side visualizations (bar charts, word clouds), AI comparative analysis, ReportGenerator.
-5.  **Corpus Library:** Centralized management of "My Corpora" (user-saved), "Sample Corpora" (developer-seeded), and "Public Datasets" (20+ real corpora). Features search, filter, preview, analyze, and save functionalities.
+5.  **Corpus Library:** Centralized management of "My Corpora" (user-saved), "Sample Corpora" (23 developer-seeded built-in corpora covering 11 bilingual en↔ar domains + 7 monolingual en/ar domains), and "Public Datasets" (36 external corpora). Features search, filter, preview, analyze, and save functionalities.
 6.  **Figure Maker:** Standalone tool for creating 18 types of charts from user data (paste/CSV/TSV). Offers 47 color palettes, 14 font families, 9 academic format presets, extensive styling, annotations, and export options (PNG, PDF, Word, SVG, Python/R code). Includes AI tools for caption generation, chart recommendation, and results paragraph writing.
 
 **AI Processing Philosophy:**
