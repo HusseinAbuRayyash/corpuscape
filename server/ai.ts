@@ -359,10 +359,22 @@ Format as a market analysis report with key findings.`,
 
 export async function runAnalysis(
   text: string,
-  analysisType: string,
+  analysisTypes: string | string[],
   customInstructions?: string,
 ): Promise<string> {
-  let prompt = ANALYSIS_PROMPTS[analysisType] || ANALYSIS_PROMPTS["Custom"];
+  const types = Array.isArray(analysisTypes) ? analysisTypes : [analysisTypes];
+  let prompt: string;
+  if (types.length === 1) {
+    prompt = ANALYSIS_PROMPTS[types[0]] || ANALYSIS_PROMPTS["Custom"];
+  } else {
+    const sections = types
+      .map((t, i) => {
+        const base = ANALYSIS_PROMPTS[t] || ANALYSIS_PROMPTS["Custom"];
+        return `## Focus ${i + 1}: ${t}\n${base}`;
+      })
+      .join("\n\n");
+    prompt = `You are performing a MULTI-FOCUS corpus analysis. Address each of the following perspectives in a clearly organized response with its own heading:\n\n${sections}\n\nProvide a structured, thorough response for each focus area.`;
+  }
   if (customInstructions && customInstructions.trim()) {
     prompt += `\n\nAdditional instructions: ${customInstructions}`;
   }

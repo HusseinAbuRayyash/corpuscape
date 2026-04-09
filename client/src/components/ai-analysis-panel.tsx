@@ -66,7 +66,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<AiTab>("analysis");
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["All"]);
-  const [analysisType, setAnalysisType] = useState("Translation Strategies");
+  const [selectedAnalysisTypes, setSelectedAnalysisTypes] = useState<string[]>(["Translation Strategies"]);
   const [customInstructions, setCustomInstructions] = useState("");
   const [analysisResult, setAnalysisResult] = useState("");
   const [topicsResult, setTopicsResult] = useState("");
@@ -91,27 +91,43 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
   const toggleCategory = (cat: string) => {
     if (cat === "All") {
       setSelectedCategories(["All"]);
-      setAnalysisType(allTypes[0]);
+      setSelectedAnalysisTypes([allTypes[0]]);
       return;
     }
     if (cat === "None") {
       setSelectedCategories(["None"]);
-      setAnalysisType("Custom");
+      setSelectedAnalysisTypes(["Custom"]);
       return;
     }
     setSelectedCategories(prev => {
       const base = prev.filter(c => c !== "All" && c !== "None");
       const next = base.includes(cat) ? base.filter(c => c !== cat) : [...base, cat];
-      if (next.length === 0) { setAnalysisType(allTypes[0]); return ["All"]; }
+      if (next.length === 0) { setSelectedAnalysisTypes([allTypes[0]]); return ["All"]; }
       const available = AI_ANALYSIS_CATEGORIES.filter(c => next.includes(c.name)).flatMap(c => c.types);
-      if (!available.includes(analysisType)) setAnalysisType(available[0] || allTypes[0]);
+      setSelectedAnalysisTypes(prev2 => {
+        const kept = prev2.filter(t => available.includes(t));
+        return kept.length > 0 ? kept : [available[0] || allTypes[0]];
+      });
       return next;
+    });
+  };
+
+  const toggleAnalysisType = (type: string) => {
+    setSelectedAnalysisTypes(prev => {
+      const next = prev.includes(type)
+        ? prev.filter(t => t !== type)
+        : [...prev, type];
+      return next.length === 0 ? [type] : next;
     });
   };
 
   const analysisMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/ai/analyze", { corpusId, analysisType, customInstructions: customInstructions || undefined });
+      const res = await apiRequest("POST", "/api/ai/analyze", {
+        corpusId,
+        analysisTypes: selectedAnalysisTypes,
+        customInstructions: customInstructions || undefined,
+      });
       return res.json();
     },
     onSuccess: (data) => setAnalysisResult(data.result),
@@ -325,20 +341,37 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                         )}
                       </div>
 
-                      {/* Analysis Type — hidden in custom mode */}
+                      {/* Analysis Type chips — hidden in custom mode */}
                       {!isCustomMode && (
                         <div>
-                          <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">Analysis Type</label>
-                          <Select value={analysisType} onValueChange={setAnalysisType}>
-                            <SelectTrigger data-testid="select-ai-analysis-type" className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl h-11">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {filteredTypes.map((t) => (
-                                <SelectItem key={t} value={t}>{t}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2.5 block">
+                            Analysis Type
+                            <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">— pick one or more</span>
+                          </label>
+                          <div className="flex flex-wrap gap-1.5" data-testid="analysis-type-chips">
+                            {filteredTypes.map((t) => {
+                              const on = selectedAnalysisTypes.includes(t);
+                              return (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => toggleAnalysisType(t)}
+                                  data-testid={`chip-type-${t.replace(/\s+/g, "-").toLowerCase()}`}
+                                  className={cn(
+                                    "px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-150",
+                                    on
+                                      ? `bg-gradient-to-r ${theme.gradient} text-white border-transparent shadow-sm`
+                                      : "bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 hover:text-foreground"
+                                  )}
+                                >{t}</button>
+                              );
+                            })}
+                          </div>
+                          {selectedAnalysisTypes.length > 1 && (
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">
+                              {selectedAnalysisTypes.length} types selected — AI will address each in a structured multi-focus response.
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -351,96 +384,117 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                         </div>
                       )}
 
-                      {!isCustomMode && AI_ANALYSIS_PRESETS[analysisType] && (
+                      {/* Preset description — only when exactly one type is selected */}
+                      {!isCustomMode && selectedAnalysisTypes.length === 1 && AI_ANALYSIS_PRESETS[selectedAnalysisTypes[0]] && (
                         <p className="text-xs text-slate-400 dark:text-slate-500 italic leading-relaxed">
-                          {AI_ANALYSIS_PRESETS[analysisType].description}
+                          {AI_ANALYSIS_PRESETS[selectedAnalysisTypes[0]].description}
                         </p>
                       )}
                     </div>
 
                     {/* Right col */}
                     <div>
-                      <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">
-                        {isCustomMode
-                          ? "Your Analysis Instructions (required)"
-                          : analysisType === "Custom"
-                            ? "Custom Instructions (required)"
-                            : "Additional Instructions (optional)"}
-                      </label>
-                      <Textarea
-                        value={customInstructions}
-                        onChange={(e) => setCustomInstructions(e.target.value)}
-                        placeholder={
-                          isCustomMode
-                            ? "Describe exactly what you want AI to analyse — e.g. 'Identify all passive constructions and explain their effect on formality level.'"
-                            : analysisType === "Custom"
-                              ? "Enter your full analysis prompt here..."
-                              : "e.g. Focus on feminist strategies in literary texts..."
-                        }
-                        className={cn(
-                          "resize-none bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl text-sm",
-                          isCustomMode ? "min-h-[178px]" : "min-h-[148px]",
-                          isCustomMode && !customInstructions.trim() && "border-amber-300 dark:border-amber-600"
-                        )}
-                        data-testid="textarea-ai-instructions"
-                      />
-                      {isCustomMode && !customInstructions.trim() && (
-                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">Instructions are required when no preset is selected.</p>
-                      )}
+                      {(() => {
+                        const needsInstructions = isCustomMode || selectedAnalysisTypes.includes("Custom");
+                        return (
+                          <>
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">
+                              {isCustomMode
+                                ? "Your Analysis Instructions (required)"
+                                : selectedAnalysisTypes.includes("Custom")
+                                  ? "Custom Instructions (required)"
+                                  : "Additional Instructions (optional)"}
+                            </label>
+                            <Textarea
+                              value={customInstructions}
+                              onChange={(e) => setCustomInstructions(e.target.value)}
+                              placeholder={
+                                isCustomMode
+                                  ? "Describe exactly what you want AI to analyse — e.g. 'Identify all passive constructions and explain their effect on formality level.'"
+                                  : selectedAnalysisTypes.includes("Custom")
+                                    ? "Enter your full analysis prompt here..."
+                                    : "e.g. Focus on feminist strategies in literary texts..."
+                              }
+                              className={cn(
+                                "resize-none bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl text-sm",
+                                needsInstructions ? "min-h-[178px]" : "min-h-[148px]",
+                                needsInstructions && !customInstructions.trim() && "border-amber-300 dark:border-amber-600"
+                              )}
+                              data-testid="textarea-ai-instructions"
+                            />
+                            {needsInstructions && !customInstructions.trim() && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">Instructions are required when no preset is selected.</p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
                   {/* CTA */}
-                  <button
-                    onClick={() => analysisMutation.mutate()}
-                    disabled={analysisMutation.isPending || ((analysisType === "Custom" || isCustomMode) && !customInstructions.trim())}
-                    data-testid="button-run-ai-analysis"
-                    className={cn(
-                      "flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-semibold transition-all duration-200",
-                      "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md",
-                      "hover:shadow-lg hover:from-emerald-400 hover:to-teal-400 hover:scale-[1.02] active:scale-[0.98]",
-                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-md"
-                    )}
-                  >
-                    {analysisMutation.isPending
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <Brain className="w-4 h-4" />}
-                    {analysisMutation.isPending ? "Analysing…" : "Run Analysis"}
-                  </button>
+                  {(() => {
+                    const needsInstructions = isCustomMode || selectedAnalysisTypes.includes("Custom");
+                    const analysisLabel = isCustomMode
+                      ? "Custom"
+                      : selectedAnalysisTypes.length === 1
+                        ? selectedAnalysisTypes[0]
+                        : `${selectedAnalysisTypes.length} Types`;
+                    const filenameLabel = analysisLabel.replace(/\s/g, "_");
+                    return (
+                      <>
+                        <button
+                          onClick={() => analysisMutation.mutate()}
+                          disabled={analysisMutation.isPending || (needsInstructions && !customInstructions.trim())}
+                          data-testid="button-run-ai-analysis"
+                          className={cn(
+                            "flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-semibold transition-all duration-200",
+                            "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md",
+                            "hover:shadow-lg hover:from-emerald-400 hover:to-teal-400 hover:scale-[1.02] active:scale-[0.98]",
+                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-md"
+                          )}
+                        >
+                          {analysisMutation.isPending
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Brain className="w-4 h-4" />}
+                          {analysisMutation.isPending ? "Analysing…" : "Run Analysis"}
+                        </button>
 
-                  {/* Loading */}
-                  {analysisMutation.isPending && (
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 p-5">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
-                          <Loader2 className="w-4 h-4 text-white animate-spin" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold">Running {analysisType}…</p>
-                          <p className="text-xs text-muted-foreground">Composing a research-grade analysis</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">{[100,88,75,63,50].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
-                    </div>
-                  )}
+                        {/* Loading */}
+                        {analysisMutation.isPending && (
+                          <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
+                                <Loader2 className="w-4 h-4 text-white animate-spin" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold">Running {analysisLabel}…</p>
+                                <p className="text-xs text-muted-foreground">Composing a research-grade analysis</p>
+                              </div>
+                            </div>
+                            <div className="space-y-2">{[100,88,75,63,50].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                          </div>
+                        )}
 
-                  {/* Result */}
-                  {analysisResult && !analysisMutation.isPending && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden"
-                      data-testid="card-ai-analysis-result"
-                    >
-                      <div className={`h-1 bg-gradient-to-r ${theme.gradient}`} />
-                      <div className="p-5 bg-slate-50/50 dark:bg-slate-700/30">
-                        <div className="flex items-center gap-2 mb-4">
-                          <Brain className={`w-4 h-4 ${theme.accent}`} />
-                          <span className="text-sm font-semibold">{analysisType} — Results</span>
-                        </div>
-                        <AIResultDisplay content={analysisResult} onContentChange={setAnalysisResult} downloadFilename={`AI_${analysisType.replace(/\s/g, "_")}`} />
-                      </div>
-                    </motion.div>
-                  )}
+                        {/* Result */}
+                        {analysisResult && !analysisMutation.isPending && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                            className="rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden"
+                            data-testid="card-ai-analysis-result"
+                          >
+                            <div className={`h-1 bg-gradient-to-r ${theme.gradient}`} />
+                            <div className="p-5 bg-slate-50/50 dark:bg-slate-700/30">
+                              <div className="flex items-center gap-2 mb-4">
+                                <Brain className={`w-4 h-4 ${theme.accent}`} />
+                                <span className="text-sm font-semibold">{analysisLabel} — Results</span>
+                              </div>
+                              <AIResultDisplay content={analysisResult} onContentChange={setAnalysisResult} downloadFilename={`AI_${filenameLabel}`} />
+                            </div>
+                          </motion.div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
