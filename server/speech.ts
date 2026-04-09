@@ -99,18 +99,38 @@ export async function fetchYouTubeTranscript(url: string): Promise<{
   const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
     headers: YT_BROWSER_HEADERS,
   });
+  console.log(`[yt] page fetch: ${pageRes.status}`);
   if (!pageRes.ok) throw new Error(`Could not load YouTube page (HTTP ${pageRes.status})`);
 
   const cookies = pageRes.headers.getSetCookie?.() ?? [];
   const cookieHeader = cookies.map((c) => c.split(";")[0]).join("; ");
 
   const html = await pageRes.text();
+  const hasCaptionTracks = html.includes('"captionTracks"');
+  const hasPlayerResponse = html.includes("ytInitialPlayerResponse");
+  const hasConsent = html.includes("consent.youtube.com") || html.includes("CONSENT");
+  console.log(`[yt] html=${html.length}B hasCaptionTracks=${hasCaptionTracks} hasPlayerResponse=${hasPlayerResponse} hasConsent=${hasConsent}`);
+
+  // Check playabilityStatus for unavailable/private/region-locked videos
+  const playabilityMatch = html.match(/"playabilityStatus"\s*:\s*\{"status"\s*:\s*"([^"]+)"(?:,"reason"\s*:\s*"([^"]*)")?/);
+  const playStatus = playabilityMatch?.[1];
+  const playReason = playabilityMatch?.[2];
+  console.log(`[yt] playabilityStatus=${playStatus} reason=${playReason}`);
+  if (playStatus && playStatus !== "OK" && playStatus !== "LIVE_STREAM_OFFLINE") {
+    if (playStatus === "LOGIN_REQUIRED") throw new Error("This video requires sign-in (age-restricted). Try another video or use Paste Text mode.");
+    if (playStatus === "UNPLAYABLE") throw new Error(`Video unplayable: ${playReason || "content not available"}. Try Paste Text mode.`);
+    throw new Error(`Video unavailable from server (${playReason || playStatus}). This may be region-restricted. Use Paste Text mode — open YouTube, click "…" under the video, then "Open transcript", and paste it here.`);
+  }
 
   const playerData = extractJsonFromHtml(html, "captionTracks");
   const captions = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks
     ?? playerData?.captionTracks;
+  console.log(`[yt] captionTracks found: ${captions?.length ?? 0}`);
 
   if (!captions || captions.length === 0) {
+    // Try InnerTube API as alternative
+    const innerTube = await tryInnerTubeTranscript(videoId);
+    if (innerTube) return innerTube;
     const directXml = await tryDirectTimedText(videoId, cookieHeader);
     if (directXml) return directXml;
     throw new Error("This video has no available captions. Try a video with auto-generated or manual subtitles enabled.");
@@ -119,23 +139,95 @@ export async function fetchYouTubeTranscript(url: string): Promise<{
   const preferred = captions.find((t: any) => t.languageCode?.startsWith("en")) || captions[0];
   const detectedLang: string = preferred.languageCode || "auto-detected";
   const baseUrl: string = preferred.baseUrl;
+  console.log(`[yt] fetching caption baseUrl lang=${detectedLang}`);
 
   const captionRes = await fetch(baseUrl, {
     headers: { ...YT_BROWSER_HEADERS, ...(cookieHeader ? { Cookie: cookieHeader } : {}) },
   });
+  console.log(`[yt] captionRes status=${captionRes.status}`);
 
   if (captionRes.ok) {
     const raw = await captionRes.text();
+    console.log(`[yt] caption raw length=${raw.length} starts=${raw.slice(0, 60)}`);
     const segments = raw.trim().startsWith("{") ? parseJsonCaptions(raw) : parseXmlCaptions(raw);
+    console.log(`[yt] parsed segments=${segments.length}`);
     if (segments.length > 0) {
       return { text: segments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim(), language: detectedLang, videoId, segments };
     }
   }
 
+  const innerTube = await tryInnerTubeTranscript(videoId);
+  if (innerTube) return innerTube;
+
   const fallback = await tryDirectTimedText(videoId, cookieHeader);
   if (fallback) return fallback;
 
-  throw new Error("No transcript segments found. The video may have captions disabled or only auto-generated captions in an unsupported format.");
+  throw new Error("YOUTUBE_BLOCKED:YouTube restricts server-side caption access from cloud servers. To get this transcript: open the video on YouTube → click the three-dot menu (…) below the video → choose 'Open transcript' → copy all the text → paste it in the Paste Text tab.");
+}
+
+async function tryInnerTubeTranscript(videoId: string): Promise<{ text: string; language: string; videoId: string; segments: TranscriptSegment[] } | null> {
+  try {
+    const videoIdBuf = Buffer.from(videoId, "utf8");
+    const params = Buffer.concat([
+      Buffer.from([0x0a, videoIdBuf.length]),
+      videoIdBuf,
+    ]).toString("base64");
+
+    const res = await fetch(
+      "https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": YT_BROWSER_HEADERS["User-Agent"],
+          "Accept-Language": "en-US,en;q=0.9",
+          "X-YouTube-Client-Name": "1",
+          "X-YouTube-Client-Version": "2.20240101.00.00",
+          "Origin": "https://www.youtube.com",
+          "Referer": `https://www.youtube.com/watch?v=${videoId}`,
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: "WEB",
+              clientVersion: "2.20240101.00.00",
+              hl: "en",
+              gl: "US",
+            },
+          },
+          params,
+        }),
+      },
+    );
+    console.log(`[yt/innertube] status=${res.status}`);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const actions = data?.actions ?? [];
+    const segments: TranscriptSegment[] = [];
+
+    for (const action of actions) {
+      const runs =
+        action?.updateEngagementPanelAction?.content?.transcriptRenderer
+          ?.content?.transcriptSearchPanelRenderer?.body
+          ?.transcriptSegmentListRenderer?.initialSegments ?? [];
+      for (const seg of runs) {
+        const r = seg?.transcriptSegmentRenderer;
+        if (!r) continue;
+        const text = (r.snippet?.runs ?? []).map((x: any) => x.text ?? "").join("").trim();
+        const offset = parseInt(r.startMs ?? "0", 10);
+        const duration = parseInt(r.endMs ?? "0", 10) - offset;
+        if (text) segments.push({ text, offset, duration });
+      }
+    }
+
+    console.log(`[yt/innertube] segments=${segments.length}`);
+    if (segments.length === 0) return null;
+    return { text: segments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim(), language: "en", videoId, segments };
+  } catch (e: any) {
+    console.log(`[yt/innertube] error: ${e.message}`);
+    return null;
+  }
 }
 
 async function tryDirectTimedText(videoId: string, cookieHeader: string): Promise<{ text: string; language: string; videoId: string; segments: TranscriptSegment[] } | null> {

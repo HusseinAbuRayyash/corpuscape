@@ -112,11 +112,49 @@ function StatPill({ label, value, sub }: { label: string; value: string | number
   );
 }
 
+function YoutubeBlockedBanner({ message, onSwitch }: { message: string; onSwitch: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3"
+    >
+      <div className="flex items-start gap-2.5">
+        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center shrink-0">
+          <Info className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">YouTube captions unavailable from server</p>
+          <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+            YouTube blocks server-side caption requests. Get the transcript directly from YouTube:
+          </p>
+        </div>
+      </div>
+      <ol className="ml-10 space-y-1 text-xs text-amber-800 dark:text-amber-200 list-decimal pl-2">
+        <li>Open the video on YouTube in a new tab</li>
+        <li>Click the <strong>three-dot menu (…)</strong> below the video player</li>
+        <li>Select <strong>"Open transcript"</strong></li>
+        <li>Select all the text and copy it</li>
+        <li>Come back and paste it below</li>
+      </ol>
+      <Button
+        size="sm"
+        onClick={onSwitch}
+        className="ml-10 h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
+        data-testid="button-switch-paste"
+      >
+        <FileText className="w-3.5 h-3.5 mr-1.5" />
+        Switch to Paste Text
+      </Button>
+    </motion.div>
+  );
+}
+
 function InputPanel({
   method, setMethod, lang, setLang,
   youtubeUrl, setYoutubeUrl, onYoutube, youtubePending,
   onUpload, uploadPending,
   pasteText, setPasteText, onPaste, pastePending,
+  youtubeBlocked, onClearBlocked,
   label = "Source",
 }: any) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -155,7 +193,7 @@ function InputPanel({
               <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
               <Input
                 value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
+                onChange={(e) => { setYoutubeUrl(e.target.value); if (onClearBlocked) onClearBlocked(); }}
                 onKeyDown={(e) => e.key === "Enter" && youtubeUrl.trim() && onYoutube()}
                 placeholder="https://youtube.com/watch?v=… or youtu.be/…"
                 className="pl-9 h-10 text-sm"
@@ -172,10 +210,17 @@ function InputPanel({
               {youtubePending ? "Fetching…" : "Fetch"}
             </Button>
           </div>
-          <p className="text-[11px] text-muted-foreground/60 flex items-start gap-1.5">
-            <Info className="w-3 h-3 mt-0.5 shrink-0" />
-            Pulls existing captions. Works best with videos that have auto-generated or manual subtitles enabled.
-          </p>
+          {youtubeBlocked ? (
+            <YoutubeBlockedBanner
+              message={youtubeBlocked}
+              onSwitch={() => { setMethod("paste"); if (onClearBlocked) onClearBlocked(); }}
+            />
+          ) : (
+            <p className="text-[11px] text-muted-foreground/60 flex items-start gap-1.5">
+              <Info className="w-3 h-3 mt-0.5 shrink-0" />
+              Pulls existing captions. Works best with videos that have auto-generated or manual subtitles enabled.
+            </p>
+          )}
         </motion.div>
       )}
 
@@ -298,6 +343,9 @@ export default function SpeechLab() {
   const ready = !!srcData;
   const bilingualReady = speechMode === "bilingual" && !!srcData && !!tgtData;
 
+  const [srcYoutubeBlocked, setSrcYoutubeBlocked] = useState<string | null>(null);
+  const [tgtYoutubeBlocked, setTgtYoutubeBlocked] = useState<string | null>(null);
+
   // ── Source mutations ────────────────────────────────────────────────────────
 
   const srcYoutubeMutation = useMutation({
@@ -306,12 +354,27 @@ export default function SpeechLab() {
       return res.json();
     },
     onSuccess: (data) => {
-      if (data.error) { toast({ title: "YouTube Error", description: data.error, variant: "destructive" }); return; }
+      if (data.error) {
+        if (data.error.startsWith("YOUTUBE_BLOCKED:")) {
+          setSrcYoutubeBlocked(data.error.replace("YOUTUBE_BLOCKED:", ""));
+        } else {
+          toast({ title: "YouTube Error", description: data.error, variant: "destructive" });
+        }
+        return;
+      }
+      setSrcYoutubeBlocked(null);
       setSrcData(data);
       setActiveTab("transcript");
       toast({ title: "Transcript fetched!", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` });
     },
-    onError: (e: any) => toast({ title: "Fetch failed", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      const msg: string = e.message ?? "";
+      if (msg.includes("YOUTUBE_BLOCKED:")) {
+        setSrcYoutubeBlocked(msg.replace(/.*YOUTUBE_BLOCKED:/, ""));
+      } else {
+        toast({ title: "Fetch failed", description: msg, variant: "destructive" });
+      }
+    },
   });
 
   const srcUploadMutation = useMutation({
@@ -345,8 +408,27 @@ export default function SpeechLab() {
       const res = await apiRequest("POST", "/api/speech/youtube", { url: tgtYoutubeUrl });
       return res.json();
     },
-    onSuccess: (data) => { setTgtData(data); toast({ title: "Target transcript fetched!" }); },
-    onError: (e: any) => toast({ title: "Fetch failed", description: e.message, variant: "destructive" }),
+    onSuccess: (data) => {
+      if (data.error) {
+        if (data.error.startsWith("YOUTUBE_BLOCKED:")) {
+          setTgtYoutubeBlocked(data.error.replace("YOUTUBE_BLOCKED:", ""));
+        } else {
+          toast({ title: "YouTube Error", description: data.error, variant: "destructive" });
+        }
+        return;
+      }
+      setTgtYoutubeBlocked(null);
+      setTgtData(data);
+      toast({ title: "Target transcript fetched!" });
+    },
+    onError: (e: any) => {
+      const msg: string = e.message ?? "";
+      if (msg.includes("YOUTUBE_BLOCKED:")) {
+        setTgtYoutubeBlocked(msg.replace(/.*YOUTUBE_BLOCKED:/, ""));
+      } else {
+        toast({ title: "Fetch failed", description: msg, variant: "destructive" });
+      }
+    },
   });
 
   const tgtUploadMutation = useMutation({
@@ -582,6 +664,8 @@ export default function SpeechLab() {
                       onUpload={(f: File) => srcUploadMutation.mutate(f)} uploadPending={srcUploadMutation.isPending}
                       pasteText={srcPasteText} setPasteText={setSrcPasteText}
                       onPaste={() => srcPasteMutation.mutate()} pastePending={srcPasteMutation.isPending}
+                      youtubeBlocked={srcYoutubeBlocked}
+                      onClearBlocked={() => setSrcYoutubeBlocked(null)}
                       label="Source"
                     />
                   )}
@@ -614,6 +698,8 @@ export default function SpeechLab() {
                         onUpload={(f: File) => tgtUploadMutation.mutate(f)} uploadPending={tgtUploadMutation.isPending}
                         pasteText={tgtPasteText} setPasteText={setTgtPasteText}
                         onPaste={() => tgtPasteMutation.mutate()} pastePending={tgtPasteMutation.isPending}
+                        youtubeBlocked={tgtYoutubeBlocked}
+                        onClearBlocked={() => setTgtYoutubeBlocked(null)}
                         label="Target"
                       />
                     )}
