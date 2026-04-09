@@ -179,7 +179,6 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
             >
               AI Insights
             </h2>
-            <p className="text-[11px] text-muted-foreground/60 font-medium tracking-wide mt-0.5">Gemini 2.5 Flash · OpenAI fallback</p>
           </div>
         </div>
 
@@ -240,7 +239,17 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                     <div className="space-y-4">
                       <div>
                         <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">Category</label>
-                        <Select value={category} onValueChange={(v) => { setCategory(v); setAnalysisType(v === "All" ? allTypes[0] : (AI_ANALYSIS_CATEGORIES.find(c => c.name === v)?.types[0] || allTypes[0])); }}>
+                        <Select
+                          value={category}
+                          onValueChange={(v) => {
+                            setCategory(v);
+                            if (v === "None") {
+                              setAnalysisType("Custom");
+                            } else {
+                              setAnalysisType(v === "All" ? allTypes[0] : (AI_ANALYSIS_CATEGORIES.find(c => c.name === v)?.types[0] || allTypes[0]));
+                            }
+                          }}
+                        >
                           <SelectTrigger data-testid="select-ai-category" className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl h-11">
                             <SelectValue />
                           </SelectTrigger>
@@ -249,25 +258,41 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                             {AI_ANALYSIS_CATEGORIES.map((c) => (
                               <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
                             ))}
+                            <SelectItem value="None">
+                              <span className="flex items-center gap-2">
+                                <span className="text-muted-foreground">—</span>
+                                None · write my own instructions
+                              </span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div>
-                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">Analysis Type</label>
-                        <Select value={analysisType} onValueChange={setAnalysisType}>
-                          <SelectTrigger data-testid="select-ai-analysis-type" className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl h-11">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredTypes.map((t) => (
-                              <SelectItem key={t} value={t}>{t}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {category !== "None" && (
+                        <div>
+                          <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">Analysis Type</label>
+                          <Select value={analysisType} onValueChange={setAnalysisType}>
+                            <SelectTrigger data-testid="select-ai-analysis-type" className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl h-11">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredTypes.map((t) => (
+                                <SelectItem key={t} value={t}>{t}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
-                      {AI_ANALYSIS_PRESETS[analysisType] && (
+                      {category === "None" && (
+                        <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-700/30 px-4 py-3">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            Type your own instructions in the box on the right. AI will run exactly the analysis you describe, without any preset template.
+                          </p>
+                        </div>
+                      )}
+
+                      {category !== "None" && AI_ANALYSIS_PRESETS[analysisType] && (
                         <p className="text-xs text-slate-400 dark:text-slate-500 italic leading-relaxed">
                           {AI_ANALYSIS_PRESETS[analysisType].description}
                         </p>
@@ -277,24 +302,39 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                     {/* Right col */}
                     <div>
                       <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">
-                        {analysisType === "Custom" ? "Custom Instructions (required)" : "Additional Instructions (optional)"}
+                        {category === "None"
+                          ? "Your Analysis Instructions (required)"
+                          : analysisType === "Custom"
+                            ? "Custom Instructions (required)"
+                            : "Additional Instructions (optional)"}
                       </label>
                       <Textarea
                         value={customInstructions}
                         onChange={(e) => setCustomInstructions(e.target.value)}
-                        placeholder={analysisType === "Custom"
-                          ? "Enter your full analysis prompt here..."
-                          : "e.g. Focus on feminist strategies in literary texts..."}
-                        className="min-h-[148px] resize-none bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl text-sm"
+                        placeholder={
+                          category === "None"
+                            ? "Describe exactly what you want AI to analyse in this corpus — e.g. 'Identify all passive constructions and explain their effect on formality level.'"
+                            : analysisType === "Custom"
+                              ? "Enter your full analysis prompt here..."
+                              : "e.g. Focus on feminist strategies in literary texts..."
+                        }
+                        className={cn(
+                          "resize-none bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl text-sm",
+                          category === "None" ? "min-h-[178px]" : "min-h-[148px]",
+                          category === "None" && !customInstructions.trim() && "border-amber-300 dark:border-amber-600 focus:border-amber-400"
+                        )}
                         data-testid="textarea-ai-instructions"
                       />
+                      {category === "None" && !customInstructions.trim() && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">Instructions are required when no preset is selected.</p>
+                      )}
                     </div>
                   </div>
 
                   {/* CTA */}
                   <button
                     onClick={() => analysisMutation.mutate()}
-                    disabled={analysisMutation.isPending || (analysisType === "Custom" && !customInstructions.trim())}
+                    disabled={analysisMutation.isPending || ((analysisType === "Custom" || category === "None") && !customInstructions.trim())}
                     data-testid="button-run-ai-analysis"
                     className={cn(
                       "flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-semibold transition-all duration-200",
