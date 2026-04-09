@@ -33,6 +33,17 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
+function decodeXmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
 export async function fetchYouTubeTranscript(url: string): Promise<{
   text: string;
   language: string;
@@ -42,30 +53,65 @@ export async function fetchYouTubeTranscript(url: string): Promise<{
   const videoId = extractVideoId(url);
   if (!videoId) throw new Error("Could not extract video ID from URL. Supported formats: youtube.com/watch?v=…, youtu.be/…, youtube.com/shorts/…");
 
-  const { YoutubeTranscript } = await import("youtube-transcript");
-  let items: any[];
+  const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const pageRes = await fetch(pageUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; Corpuscape/1.0)",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
+
+  if (!pageRes.ok) throw new Error(`Could not load YouTube page (HTTP ${pageRes.status})`);
+
+  const html = await pageRes.text();
+
+  const match = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:\s*var\s|\s*window\[|\s*<\/script>)/s);
+  if (!match) throw new Error("Could not parse YouTube player data. The video may be private, age-restricted, or unavailable.");
+
+  let playerData: any;
   try {
-    items = await YoutubeTranscript.fetchTranscript(videoId);
-  } catch (err: any) {
-    const msg = err?.message || String(err);
-    if (msg.includes("disabled") || msg.includes("Could not retrieve")) {
-      throw new Error("This video has no available captions. Try a video with auto-generated or manual subtitles enabled.");
+    playerData = JSON.parse(match[1]);
+  } catch {
+    throw new Error("Failed to parse YouTube player response.");
+  }
+
+  const captions = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  if (!captions || captions.length === 0) {
+    throw new Error("This video has no available captions. Try a video with auto-generated or manual subtitles enabled.");
+  }
+
+  const preferred = captions.find((t: any) => t.languageCode?.startsWith("en")) || captions[0];
+  const captionUrl: string = preferred.baseUrl;
+  const detectedLang: string = preferred.languageCode || "auto-detected";
+
+  const xmlRes = await fetch(captionUrl + "&fmt=srv3");
+  if (!xmlRes.ok) throw new Error("Failed to fetch caption track.");
+
+  const xmlText = await xmlRes.text();
+
+  const segRe = /<p\s[^>]*t="(\d+)"[^>]*d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+  const segments: TranscriptSegment[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = segRe.exec(xmlText)) !== null) {
+    const text = decodeXmlEntities(m[3]);
+    if (text) segments.push({ text, offset: Number(m[1]), duration: Number(m[2]) });
+  }
+
+  if (segments.length === 0) {
+    const fallbackRe = /<text\s[^>]*start="([^"]+)"[^>]*dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g;
+    const xmlRes2 = await fetch(captionUrl);
+    const xmlText2 = await xmlRes2.text();
+    let m2: RegExpExecArray | null;
+    while ((m2 = fallbackRe.exec(xmlText2)) !== null) {
+      const text = decodeXmlEntities(m2[3]);
+      if (text) segments.push({ text, offset: Math.round(parseFloat(m2[1]) * 1000), duration: Math.round(parseFloat(m2[2]) * 1000) });
     }
-    throw new Error(`YouTube transcript error: ${msg}`);
   }
 
-  if (!items || items.length === 0) {
-    throw new Error("No transcript segments found. The video may have no captions.");
-  }
-
-  const segments: TranscriptSegment[] = items.map((item: any) => ({
-    text: item.text?.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]+>/g, "").trim() || "",
-    offset: item.offset,
-    duration: item.duration,
-  })).filter((s: TranscriptSegment) => s.text.length > 0);
+  if (segments.length === 0) throw new Error("No transcript segments found. The video may have no captions.");
 
   const text = segments.map((s) => s.text).join(" ");
-  return { text, language: "auto-detected", videoId, segments };
+  return { text, language: detectedLang, videoId, segments };
 }
 
 export async function transcribeWithWhisper(
