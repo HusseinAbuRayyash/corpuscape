@@ -65,7 +65,7 @@ const AI_TABS: { id: AiTab; label: string; icon: React.ElementType }[] = [
 export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPanelProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<AiTab>("analysis");
-  const [category, setCategory] = useState("All");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(["All"]);
   const [analysisType, setAnalysisType] = useState("Translation Strategies");
   const [customInstructions, setCustomInstructions] = useState("");
   const [analysisResult, setAnalysisResult] = useState("");
@@ -77,9 +77,37 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
   const [chartIdCounter, setChartIdCounter] = useState(0);
 
   const allTypes = Object.keys(AI_ANALYSIS_PRESETS);
-  const filteredTypes = category === "All"
-    ? allTypes
-    : AI_ANALYSIS_CATEGORIES.find((c) => c.name === category)?.types || allTypes;
+
+  const isCustomMode = selectedCategories.includes("None");
+  const filteredTypes = isCustomMode
+    ? []
+    : selectedCategories.includes("All") || selectedCategories.length === 0
+      ? allTypes
+      : AI_ANALYSIS_CATEGORIES
+          .filter(c => selectedCategories.includes(c.name))
+          .flatMap(c => c.types)
+          .filter((t, i, arr) => arr.indexOf(t) === i);
+
+  const toggleCategory = (cat: string) => {
+    if (cat === "All") {
+      setSelectedCategories(["All"]);
+      setAnalysisType(allTypes[0]);
+      return;
+    }
+    if (cat === "None") {
+      setSelectedCategories(["None"]);
+      setAnalysisType("Custom");
+      return;
+    }
+    setSelectedCategories(prev => {
+      const base = prev.filter(c => c !== "All" && c !== "None");
+      const next = base.includes(cat) ? base.filter(c => c !== cat) : [...base, cat];
+      if (next.length === 0) { setAnalysisType(allTypes[0]); return ["All"]; }
+      const available = AI_ANALYSIS_CATEGORIES.filter(c => next.includes(c.name)).flatMap(c => c.types);
+      if (!available.includes(analysisType)) setAnalysisType(available[0] || allTypes[0]);
+      return next;
+    });
+  };
 
   const analysisMutation = useMutation({
     mutationFn: async () => {
@@ -237,38 +265,68 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Left col */}
                     <div className="space-y-4">
+                      {/* Category chips */}
                       <div>
-                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">Category</label>
-                        <Select
-                          value={category}
-                          onValueChange={(v) => {
-                            setCategory(v);
-                            if (v === "None") {
-                              setAnalysisType("Custom");
-                            } else {
-                              setAnalysisType(v === "All" ? allTypes[0] : (AI_ANALYSIS_CATEGORIES.find(c => c.name === v)?.types[0] || allTypes[0]));
-                            }
-                          }}
-                        >
-                          <SelectTrigger data-testid="select-ai-category" className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl h-11">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="All">All Categories</SelectItem>
-                            {AI_ANALYSIS_CATEGORIES.map((c) => (
-                              <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
-                            ))}
-                            <SelectItem value="None">
-                              <span className="flex items-center gap-2">
-                                <span className="text-muted-foreground">—</span>
-                                None · write my own instructions
-                              </span>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2.5 block">
+                          Category
+                          <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">— pick one or more</span>
+                        </label>
+                        <div className="flex flex-wrap gap-1.5" data-testid="category-chips">
+                          {/* All */}
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory("All")}
+                            data-testid="chip-category-all"
+                            className={cn(
+                              "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-150",
+                              selectedCategories.includes("All")
+                                ? `bg-gradient-to-r ${theme.gradient} text-white border-transparent shadow-sm`
+                                : "bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 hover:text-foreground"
+                            )}
+                          >All</button>
+
+                          {AI_ANALYSIS_CATEGORIES.map((c) => {
+                            const on = selectedCategories.includes(c.name);
+                            return (
+                              <button
+                                key={c.name}
+                                type="button"
+                                onClick={() => toggleCategory(c.name)}
+                                data-testid={`chip-category-${c.name.replace(/\s+/g, "-").toLowerCase()}`}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-150",
+                                  on
+                                    ? `bg-gradient-to-r ${theme.gradient} text-white border-transparent shadow-sm`
+                                    : "bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 hover:text-foreground"
+                                )}
+                              >{c.name}</button>
+                            );
+                          })}
+
+                          {/* None / custom */}
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory("None")}
+                            data-testid="chip-category-none"
+                            className={cn(
+                              "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all duration-150",
+                              isCustomMode
+                                ? "bg-amber-500 text-white border-transparent shadow-sm"
+                                : "bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-slate-300 hover:text-foreground"
+                            )}
+                          >None · write my own</button>
+                        </div>
+
+                        {/* Selection summary */}
+                        {!isCustomMode && !selectedCategories.includes("All") && selectedCategories.length > 0 && (
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">
+                            Showing {filteredTypes.length} type{filteredTypes.length !== 1 ? "s" : ""} from {selectedCategories.length} selected categor{selectedCategories.length !== 1 ? "ies" : "y"}
+                          </p>
+                        )}
                       </div>
 
-                      {category !== "None" && (
+                      {/* Analysis Type — hidden in custom mode */}
+                      {!isCustomMode && (
                         <div>
                           <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">Analysis Type</label>
                           <Select value={analysisType} onValueChange={setAnalysisType}>
@@ -284,15 +342,16 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                         </div>
                       )}
 
-                      {category === "None" && (
-                        <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-600 bg-slate-50/60 dark:bg-slate-700/30 px-4 py-3">
-                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Type your own instructions in the box on the right. AI will run exactly the analysis you describe, without any preset template.
+                      {/* Custom mode hint */}
+                      {isCustomMode && (
+                        <div className="rounded-xl border border-dashed border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-900/10 px-4 py-3">
+                          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                            No preset selected — AI will run exactly the analysis you describe in the instructions box.
                           </p>
                         </div>
                       )}
 
-                      {category !== "None" && AI_ANALYSIS_PRESETS[analysisType] && (
+                      {!isCustomMode && AI_ANALYSIS_PRESETS[analysisType] && (
                         <p className="text-xs text-slate-400 dark:text-slate-500 italic leading-relaxed">
                           {AI_ANALYSIS_PRESETS[analysisType].description}
                         </p>
@@ -302,7 +361,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                     {/* Right col */}
                     <div>
                       <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 block">
-                        {category === "None"
+                        {isCustomMode
                           ? "Your Analysis Instructions (required)"
                           : analysisType === "Custom"
                             ? "Custom Instructions (required)"
@@ -312,20 +371,20 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                         value={customInstructions}
                         onChange={(e) => setCustomInstructions(e.target.value)}
                         placeholder={
-                          category === "None"
-                            ? "Describe exactly what you want AI to analyse in this corpus — e.g. 'Identify all passive constructions and explain their effect on formality level.'"
+                          isCustomMode
+                            ? "Describe exactly what you want AI to analyse — e.g. 'Identify all passive constructions and explain their effect on formality level.'"
                             : analysisType === "Custom"
                               ? "Enter your full analysis prompt here..."
                               : "e.g. Focus on feminist strategies in literary texts..."
                         }
                         className={cn(
                           "resize-none bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 rounded-xl text-sm",
-                          category === "None" ? "min-h-[178px]" : "min-h-[148px]",
-                          category === "None" && !customInstructions.trim() && "border-amber-300 dark:border-amber-600 focus:border-amber-400"
+                          isCustomMode ? "min-h-[178px]" : "min-h-[148px]",
+                          isCustomMode && !customInstructions.trim() && "border-amber-300 dark:border-amber-600"
                         )}
                         data-testid="textarea-ai-instructions"
                       />
-                      {category === "None" && !customInstructions.trim() && (
+                      {isCustomMode && !customInstructions.trim() && (
                         <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">Instructions are required when no preset is selected.</p>
                       )}
                     </div>
@@ -334,7 +393,7 @@ export function AIAnalysisPanel({ corpusId, theme = defaultTheme }: AIAnalysisPa
                   {/* CTA */}
                   <button
                     onClick={() => analysisMutation.mutate()}
-                    disabled={analysisMutation.isPending || ((analysisType === "Custom" || category === "None") && !customInstructions.trim())}
+                    disabled={analysisMutation.isPending || ((analysisType === "Custom" || isCustomMode) && !customInstructions.trim())}
                     data-testid="button-run-ai-analysis"
                     className={cn(
                       "flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-semibold transition-all duration-200",
