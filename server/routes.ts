@@ -450,10 +450,11 @@ export async function registerRoutes(
   });
 
   app.post("/api/ai/analyze", async (req, res) => {
-    const { corpusId, analysisType, customInstructions } = req.body;
+    const { corpusId, analysisType, analysisTypes, customInstructions } = req.body;
     const text = resolveCorpusText(corpusId);
     if (!text) return res.status(404).json({ error: "Corpus not found" });
-    const result = await runAnalysis(text, analysisType, customInstructions);
+    const types = analysisTypes ?? (analysisType ? [analysisType] : ["Custom"]);
+    const result = await runAnalysis(text, types, customInstructions);
     res.json({ result });
   });
 
