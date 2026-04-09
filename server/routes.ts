@@ -1435,6 +1435,7 @@ Format with clear headings and specific examples from each corpus.`);
       const stats = computeSpeechStats(result.text);
       res.json({ ...result, corpusId, stats });
     } catch (err: any) {
+      console.error("[speech/youtube]", err.message);
       res.status(400).json({ error: err.message || "Failed to fetch transcript" });
     }
   });
