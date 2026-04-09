@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { SaveToLibrary } from "@/components/save-to-library";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,6 +62,31 @@ export default function Scraper() {
   const [ngChartExpanded, setNgChartExpanded] = useState(false);
   const [ngTableExpanded, setNgTableExpanded] = useState(false);
   const [colTableExpanded, setColTableExpanded] = useState(false);
+  const [scraperTab, setScraperTab] = useState("keywords");
+
+  const ScraperNavItem = ({ value, icon: Icon, label, hasResult }: {
+    value: string; icon: any; label: string; hasResult?: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={() => setScraperTab(value)}
+      data-testid={`tab-${value}`}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border-l-2",
+        scraperTab === value
+          ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-500"
+          : "text-foreground/65 hover:bg-muted/60 hover:text-foreground border-transparent"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span className="flex-1 text-left">{label}</span>
+      {hasResult && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+    </button>
+  );
+
+  const ScraperNavGroup = ({ label }: { label: string }) => (
+    <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 px-3 pt-3 pb-1">{label}</p>
+  );
 
   const addUrl = useCallback(() => {
     const trimmed = urlInput.trim();
@@ -601,35 +626,27 @@ export default function Scraper() {
                 />
               </div>
 
-              <Tabs defaultValue="keywords" className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-analysis">
-                  <TabsTrigger value="keywords" className="gap-1.5 text-xs" data-testid="tab-keywords">
-                    <TrendingUp className="w-3.5 h-3.5" />Keywords
-                  </TabsTrigger>
-                  <TabsTrigger value="ngrams" className="gap-1.5 text-xs" data-testid="tab-ngrams">
-                    <Hash className="w-3.5 h-3.5" />N-Grams
-                  </TabsTrigger>
-                  <TabsTrigger value="collocations" className="gap-1.5 text-xs" data-testid="tab-collocations">
-                    <Link2 className="w-3.5 h-3.5" />Collocations
-                  </TabsTrigger>
-                  <TabsTrigger value="concordance" className="gap-1.5 text-xs" data-testid="tab-concordance">
-                    <Search className="w-3.5 h-3.5" />Concordance
-                  </TabsTrigger>
-                  <TabsTrigger value="ai" className="gap-1.5 text-xs" data-testid="tab-ai">
-                    <Brain className="w-3.5 h-3.5" />AI Summary
-                  </TabsTrigger>
-                  <TabsTrigger value="terms" className="gap-1.5 text-xs" data-testid="tab-terms">
-                    <BookText className="w-3.5 h-3.5" />Terminology
-                  </TabsTrigger>
-                  <TabsTrigger value="wordcloud" className="gap-1.5 text-xs" data-testid="tab-wordcloud">
-                    <Cloud className="w-3.5 h-3.5" />Word Cloud
-                  </TabsTrigger>
-                  <TabsTrigger value="insights" className="gap-1.5 text-xs" data-testid="tab-insights">
-                    <BookOpen className="w-3.5 h-3.5" />AI Insights
-                  </TabsTrigger>
-                </TabsList>
+              <div className="flex gap-5 items-start" data-testid="tabs-analysis">
+                <div className="w-[160px] shrink-0">
+                  <div className="sticky top-6 rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+                    <div className="h-0.5 bg-gradient-to-r from-amber-500 to-orange-500" />
+                    <nav className="p-2 pb-3">
+                      <ScraperNavGroup label="Analysis" />
+                      <ScraperNavItem value="keywords" icon={TrendingUp} label="Keywords" hasResult={keywords.length > 0} />
+                      <ScraperNavItem value="ngrams" icon={Hash} label="N-Grams" hasResult={ngrams.length > 0} />
+                      <ScraperNavItem value="collocations" icon={Link2} label="Collocations" hasResult={collocations.length > 0} />
+                      <ScraperNavItem value="concordance" icon={Search} label="Concordance" hasResult={concordanceResults.length > 0} />
+                      <ScraperNavItem value="wordcloud" icon={Cloud} label="Word Cloud" hasResult={keywords.length > 0} />
+                      <ScraperNavGroup label="AI" />
+                      <ScraperNavItem value="ai" icon={Brain} label="AI Summary" hasResult={!!aiResult} />
+                      <ScraperNavItem value="terms" icon={BookText} label="Terminology" hasResult={!!termsResult} />
+                      <ScraperNavItem value="insights" icon={BookOpen} label="AI Insights" />
+                    </nav>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
 
-                <TabsContent value="keywords" className="mt-4">
+                {scraperTab === "keywords" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <TrendingUp className="w-4 h-4 text-amber-500" />
@@ -721,9 +738,9 @@ export default function Scraper() {
                       </div>
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="ngrams" className="mt-4">
+                {scraperTab === "ngrams" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <Hash className="w-4 h-4 text-amber-500" />
@@ -826,9 +843,9 @@ export default function Scraper() {
                       </div>
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="collocations" className="mt-4">
+                {scraperTab === "collocations" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <Link2 className="w-4 h-4 text-amber-500" />
@@ -905,9 +922,9 @@ export default function Scraper() {
                       </div>
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="concordance" className="mt-4">
+                {scraperTab === "concordance" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <Search className="w-4 h-4 text-amber-500" />
@@ -977,9 +994,9 @@ export default function Scraper() {
                       </div>
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="ai" className="mt-4">
+                {scraperTab === "ai" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <Brain className="w-4 h-4 text-amber-500" />
@@ -1005,9 +1022,9 @@ export default function Scraper() {
                       </div>
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="terms" className="mt-4">
+                {scraperTab === "terms" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <BookText className="w-4 h-4 text-amber-500" />
@@ -1033,9 +1050,9 @@ export default function Scraper() {
                       </div>
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="wordcloud" className="mt-4">
+                {scraperTab === "wordcloud" && <div className="mt-4">
                   <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <div className="section-header">
                       <Cloud className="w-4 h-4 text-amber-500" />
@@ -1063,9 +1080,9 @@ export default function Scraper() {
                       />
                     )}
                   </motion.div>
-                </TabsContent>
+                </div>}
 
-                <TabsContent value="insights" className="mt-4">
+                {scraperTab === "insights" && <div className="mt-4">
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <AIAnalysisPanel
                       corpusId={scraperCorpusId}
@@ -1076,8 +1093,9 @@ export default function Scraper() {
                       }}
                     />
                   </motion.div>
-                </TabsContent>
-              </Tabs>
+                </div>}
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
