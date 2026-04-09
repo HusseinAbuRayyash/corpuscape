@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { SaveToLibrary } from "@/components/save-to-library";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,6 +58,7 @@ export default function Monolingual() {
   const [ngChartExpanded, setNgChartExpanded] = useState(false);
   const [ngTableExpanded, setNgTableExpanded] = useState(false);
   const [colTableExpanded, setColTableExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState("upload");
 
   useEffect(() => {
     const scrapedId = sessionStorage.getItem("scraped_corpus_id");
@@ -199,6 +200,32 @@ export default function Monolingual() {
     </motion.div>
   );
 
+  const NavItem = ({ value, icon: Icon, label, disabled, hasResult }: {
+    value: string; icon: any; label: string; disabled?: boolean; hasResult?: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={() => { if (!disabled) setActiveTab(value); }}
+      disabled={disabled}
+      data-testid={`tab-${value}`}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border-l-2",
+        activeTab === value
+          ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-indigo-500"
+          : "text-foreground/65 hover:bg-muted/60 hover:text-foreground border-transparent",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-foreground/65"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span className="flex-1 text-left">{label}</span>
+      {hasResult && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+    </button>
+  );
+
+  const NavGroup = ({ label }: { label: string }) => (
+    <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 px-3 pt-3 pb-1">{label}</p>
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       <motion.div
@@ -277,23 +304,33 @@ export default function Monolingual() {
         <SampleOnlyBanner sampleCount={sampleCount} externalUrl={externalUrl} />
       )}
 
-      <Tabs defaultValue="upload" className="space-y-5">
-        <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-monolingual">
-          <TabsTrigger value="upload" className="shrink-0" data-testid="tab-upload"><Upload className="w-3.5 h-3.5 mr-1.5" />Upload</TabsTrigger>
-          <TabsTrigger value="dataset" disabled={!columns} className="shrink-0" data-testid="tab-dataset"><Table className="w-3.5 h-3.5 mr-1.5" />Dataset</TabsTrigger>
-          <TabsTrigger value="stats" disabled={!corpusId} className="shrink-0" data-testid="tab-stats"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Stats</TabsTrigger>
-          <TabsTrigger value="keywords" disabled={!corpusId} className="shrink-0" data-testid="tab-keywords"><TrendingUp className="w-3.5 h-3.5 mr-1.5" />Keywords</TabsTrigger>
-          <TabsTrigger value="collocations" disabled={!corpusId} className="shrink-0" data-testid="tab-collocations"><Link2 className="w-3.5 h-3.5 mr-1.5" />Collocations</TabsTrigger>
-          <TabsTrigger value="concordance" disabled={!corpusId} className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
-          <TabsTrigger value="ngrams" disabled={!corpusId} className="shrink-0" data-testid="tab-ngrams"><Hash className="w-3.5 h-3.5 mr-1.5" />N-grams</TabsTrigger>
-          <TabsTrigger value="wordcloud" disabled={!corpusId} className="shrink-0" data-testid="tab-wordcloud"><Cloud className="w-3.5 h-3.5 mr-1.5" />Word Cloud</TabsTrigger>
-          <TabsTrigger value="segments" disabled={!corpusId} className="shrink-0" data-testid="tab-segments"><Layers className="w-3.5 h-3.5 mr-1.5" />Segments</TabsTrigger>
-          <TabsTrigger value="ai" disabled={!corpusId} className="shrink-0" data-testid="tab-ai"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
-          <TabsTrigger value="terms" disabled={!corpusId} className="shrink-0" data-testid="tab-terms"><BookText className="w-3.5 h-3.5 mr-1.5" />Terminology</TabsTrigger>
-          <TabsTrigger value="export" disabled={!corpusId} className="shrink-0" data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
-        </TabsList>
+      <div className="flex gap-5 items-start" data-testid="tabs-monolingual">
+        <div className="w-[176px] shrink-0">
+          <div className="sticky top-6 rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="h-0.5 bg-gradient-to-r from-indigo-500 to-blue-600" />
+            <nav className="p-2 pb-3">
+              <NavGroup label="Data" />
+              <NavItem value="upload" icon={Upload} label="Upload" />
+              <NavItem value="dataset" icon={Table} label="Dataset" disabled={!columns} hasResult={!!columns} />
+              <NavGroup label="Analysis" />
+              <NavItem value="stats" icon={BarChart3} label="Stats" disabled={!corpusId} hasResult={!!stats} />
+              <NavItem value="keywords" icon={TrendingUp} label="Keywords" disabled={!corpusId} hasResult={keywords.length > 0} />
+              <NavItem value="collocations" icon={Link2} label="Collocations" disabled={!corpusId} hasResult={collocations.length > 0} />
+              <NavItem value="concordance" icon={Search} label="Concordance" disabled={!corpusId} hasResult={concordanceResults.length > 0} />
+              <NavItem value="ngrams" icon={Hash} label="N-grams" disabled={!corpusId} hasResult={ngrams.length > 0} />
+              <NavItem value="wordcloud" icon={Cloud} label="Word Cloud" disabled={!corpusId} hasResult={keywords.length > 0} />
+              <NavItem value="segments" icon={Layers} label="Segments" disabled={!corpusId} hasResult={segments.length > 0} />
+              <NavGroup label="AI" />
+              <NavItem value="ai" icon={Brain} label="AI Insights" disabled={!corpusId} hasResult={!!aiResult} />
+              <NavItem value="terms" icon={BookText} label="Terminology" disabled={!corpusId} hasResult={!!termsResult} />
+              <NavGroup label="Export" />
+              <NavItem value="export" icon={Download} label="Export" disabled={!corpusId} />
+            </nav>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
 
-        <TabsContent value="upload" className="space-y-5">
+        {activeTab === "upload" && <div className="space-y-5">
           <motion.div
             className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/50 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-blue-950/30 border border-indigo-100/60 dark:border-indigo-800/20"
             initial={{ opacity: 0, y: 16 }}
@@ -377,18 +414,18 @@ export default function Monolingual() {
               <MetricCard label="TTR" value={stats.typeTokenRatio.toFixed(3)} index={3} />
             </motion.div>
           )}
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="dataset" className="space-y-5">
+        {activeTab === "dataset" && <div className="space-y-5">
           {corpusId && columns && (
             <DatasetViewer
               corpusId={corpusId}
               theme={{ gradient: "from-indigo-500 to-blue-600", accent: "text-indigo-500", text: "text-indigo-600 dark:text-indigo-400" }}
             />
           )}
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="stats" className="space-y-5">
+        {activeTab === "stats" && <div className="space-y-5">
           {stats && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -403,9 +440,9 @@ export default function Monolingual() {
               </div>
             </motion.div>
           )}
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="keywords" className="space-y-4">
+        {activeTab === "keywords" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <TrendingUp className="w-4 h-4 text-primary" />
@@ -497,9 +534,9 @@ export default function Monolingual() {
               </div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="collocations" className="space-y-4">
+        {activeTab === "collocations" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <Link2 className="w-4 h-4 text-primary" />
@@ -576,9 +613,9 @@ export default function Monolingual() {
               </div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="concordance" className="space-y-4">
+        {activeTab === "concordance" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <Search className="w-4 h-4 text-primary" />
@@ -648,9 +685,9 @@ export default function Monolingual() {
               </div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="ngrams" className="space-y-4">
+        {activeTab === "ngrams" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <Hash className="w-4 h-4 text-primary" />
@@ -752,9 +789,9 @@ export default function Monolingual() {
               </div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="wordcloud" className="space-y-4">
+        {activeTab === "wordcloud" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <Cloud className="w-4 h-4 text-primary" />
@@ -793,9 +830,9 @@ export default function Monolingual() {
               </div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="segments" className="space-y-4">
+        {activeTab === "segments" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <Layers className="w-4 h-4 text-primary" />
@@ -849,13 +886,13 @@ export default function Monolingual() {
               </div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="ai" className="space-y-4">
+        {activeTab === "ai" && <div className="space-y-4">
           <AIAnalysisPanel corpusId={corpusId!} theme={{ gradient: "from-indigo-500 to-blue-600", accent: "text-indigo-500", text: "text-indigo-600 dark:text-indigo-400" }} />
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="terms" className="space-y-4">
+        {activeTab === "terms" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <BookText className="w-4 h-4 text-primary" />
@@ -883,9 +920,9 @@ export default function Monolingual() {
               </motion.div>
             )}
           </motion.div>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="export" className="space-y-4">
+        {activeTab === "export" && <div className="space-y-4">
           <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="section-header">
               <Download className="w-4 h-4 text-primary" />
@@ -940,8 +977,9 @@ export default function Monolingual() {
               />
             </div>
           </motion.div>
-        </TabsContent>
-      </Tabs>
+        </div>}
+        </div>
+      </div>
     </div>
   );
 }

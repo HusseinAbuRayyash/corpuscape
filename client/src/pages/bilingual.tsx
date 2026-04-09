@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { SaveToLibrary } from "@/components/save-to-library";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/file-upload";
 import { MarkdownRender } from "@/components/markdown-render";
 import { AIResultDisplay } from "@/components/ai-result-display";
@@ -51,6 +51,7 @@ export default function Bilingual() {
   const [sampleOnly, setSampleOnly] = useState(false);
   const [sampleCount, setSampleCount] = useState(0);
   const [externalUrl, setExternalUrl] = useState<string | undefined>();
+  const [biTab, setBiTab] = useState("pairs");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -284,6 +285,32 @@ export default function Bilingual() {
       <p className="text-2xl font-extrabold tabular-nums tracking-tight text-gradient">{typeof value === "number" ? value.toLocaleString() : value}</p>
       <p className="text-[11px] text-muted-foreground mt-1.5 font-medium uppercase tracking-wider">{label}</p>
     </motion.div>
+  );
+
+  const BiNavItem = ({ value, icon: Icon, label, disabled, hasResult }: {
+    value: string; icon: any; label: string; disabled?: boolean; hasResult?: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={() => { if (!disabled) setBiTab(value); }}
+      disabled={disabled}
+      data-testid={`tab-${value}`}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border-l-2",
+        biTab === value
+          ? "bg-teal-50 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400 border-teal-500"
+          : "text-foreground/65 hover:bg-muted/60 hover:text-foreground border-transparent",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-foreground/65"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span className="flex-1 text-left">{label}</span>
+      {hasResult && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+    </button>
+  );
+
+  const BiNavGroup = ({ label }: { label: string }) => (
+    <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 px-3 pt-3 pb-1">{label}</p>
   );
 
   return (
@@ -582,27 +609,38 @@ export default function Bilingual() {
             <SampleOnlyBanner sampleCount={sampleCount} externalUrl={externalUrl} />
           )}
 
-          <Tabs defaultValue="pairs" className="space-y-5">
-            <TabsList className="w-full justify-start overflow-x-auto scrollbar-hide flex-nowrap" data-testid="tabs-bilingual">
-              <TabsTrigger value="dataset" disabled={!columns} className="shrink-0" data-testid="tab-dataset"><Table2 className="w-3.5 h-3.5 mr-1.5" />Dataset</TabsTrigger>
-              <TabsTrigger value="pairs" className="shrink-0" data-testid="tab-pairs"><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Pairs</TabsTrigger>
-              <TabsTrigger value="concordance" className="shrink-0" data-testid="tab-concordance"><Search className="w-3.5 h-3.5 mr-1.5" />Concordance</TabsTrigger>
-              <TabsTrigger value="quality" className="shrink-0" data-testid="tab-quality"><ArrowLeftRight className="w-3.5 h-3.5 mr-1.5" />Quality</TabsTrigger>
-              <TabsTrigger value="theory" className="shrink-0" data-testid="tab-theory"><Brain className="w-3.5 h-3.5 mr-1.5" />Theory</TabsTrigger>
-              <TabsTrigger value="export" className="shrink-0" data-testid="tab-export"><Download className="w-3.5 h-3.5 mr-1.5" />Export</TabsTrigger>
-              <TabsTrigger value="ai" className="shrink-0" data-testid="tab-ai-insights"><Brain className="w-3.5 h-3.5 mr-1.5" />AI Insights</TabsTrigger>
-            </TabsList>
+          <div className="flex gap-5 items-start" data-testid="tabs-bilingual">
+            <div className="w-[176px] shrink-0">
+              <div className="sticky top-6 rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+                <div className="h-0.5 bg-gradient-to-r from-teal-500 to-emerald-600" />
+                <nav className="p-2 pb-3">
+                  <BiNavGroup label="Data" />
+                  <BiNavItem value="dataset" icon={Table2} label="Dataset" disabled={!columns} hasResult={!!columns} />
+                  <BiNavItem value="pairs" icon={BarChart3} label="Pairs" hasResult={pairs.length > 0} />
+                  <BiNavGroup label="Analysis" />
+                  <BiNavItem value="concordance" icon={Search} label="Concordance" hasResult={concordanceResults.length > 0} />
+                  <BiNavItem value="quality" icon={ArrowLeftRight} label="Quality" hasResult={backTranslateResults.length > 0 || glossaryResults.length > 0} />
+                  <BiNavGroup label="Theory" />
+                  <BiNavItem value="theory" icon={Brain} label="Theory" hasResult={!!universalsResult || !!strategiesResult} />
+                  <BiNavGroup label="AI" />
+                  <BiNavItem value="ai" icon={Brain} label="AI Insights" />
+                  <BiNavGroup label="Export" />
+                  <BiNavItem value="export" icon={Download} label="Export" />
+                </nav>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
 
-            <TabsContent value="dataset" className="space-y-5">
+            {biTab === "dataset" && <div className="space-y-5">
               {corpusId && columns && (
                 <DatasetViewer
                   corpusId={corpusId}
                   theme={{ gradient: "from-teal-500 to-emerald-600", accent: "text-teal-500", text: "text-teal-600 dark:text-teal-400" }}
                 />
               )}
-            </TabsContent>
+            </div>}
 
-            <TabsContent value="pairs" className="space-y-5">
+            {biTab === "pairs" && <div className="space-y-5">
               <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                   <div className="section-header mb-0">
@@ -677,9 +715,9 @@ export default function Bilingual() {
                   </table>
                 </div>
               </motion.div>
-            </TabsContent>
+            </div>}
 
-            <TabsContent value="concordance" className="space-y-5">
+            {biTab === "concordance" && <div className="space-y-5">
               <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="section-header">
                   <Search className="w-4 h-4 text-teal-500" />
@@ -739,9 +777,9 @@ export default function Bilingual() {
                   </div>
                 )}
               </motion.div>
-            </TabsContent>
+            </div>}
 
-            <TabsContent value="quality" className="space-y-5">
+            {biTab === "quality" && <div className="space-y-5">
               <div className="grid md:grid-cols-2 gap-4">
                 <motion.div className="polished-card p-5" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                   <div className="section-header">
@@ -866,9 +904,9 @@ export default function Bilingual() {
                   )}
                 </motion.div>
               </div>
-            </TabsContent>
+            </div>}
 
-            <TabsContent value="theory" className="space-y-5">
+            {biTab === "theory" && <div className="space-y-5">
               <div className="grid md:grid-cols-2 gap-4">
                 <motion.div className="polished-card p-5" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                   <div className="section-header">
@@ -924,9 +962,9 @@ export default function Bilingual() {
                   )}
                 </motion.div>
               </div>
-            </TabsContent>
+            </div>}
 
-            <TabsContent value="export" className="space-y-5">
+            {biTab === "export" && <div className="space-y-5">
               <motion.div className="polished-card p-6" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="section-header">
                   <Download className="w-4 h-4 text-primary" />
@@ -984,9 +1022,9 @@ export default function Bilingual() {
                   />
                 </div>
               </motion.div>
-            </TabsContent>
+            </div>}
 
-            <TabsContent value="ai" className="space-y-5">
+            {biTab === "ai" && <div className="space-y-5">
               {corpusId && (
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                   <AIAnalysisPanel
@@ -999,8 +1037,9 @@ export default function Bilingual() {
                   />
                 </motion.div>
               )}
-            </TabsContent>
-          </Tabs>
+            </div>}
+            </div>
+          </div>
         </motion.div>
       )}
 
