@@ -16,6 +16,7 @@ import Compare from "@/pages/compare";
 import FigureMaker from "@/pages/figure-maker";
 import About from "@/pages/about";
 import Library from "@/pages/library";
+import SpeechLab from "@/pages/speech";
 
 const SIDEBAR_LS_KEY = "corpuscape_sidebar_open";
 
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/compare" component={Compare} />
       <Route path="/figures" component={FigureMaker} />
       <Route path="/library" component={Library} />
+      <Route path="/speech" component={SpeechLab} />
       <Route path="/about" component={About} />
       <Route component={NotFound} />
     </Switch>

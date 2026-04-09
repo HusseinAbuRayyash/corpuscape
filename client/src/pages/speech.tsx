@@ -1,0 +1,892 @@
+import { useState, useRef, useCallback } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
+import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
+import { AIResultDisplay } from "@/components/ai-result-display";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Mic2, Youtube, Upload, FileText, ArrowLeftRight, BarChart3, Brain,
+  Loader2, Copy, Download, Check, Waves, MessageSquare, Award, Globe2,
+  ChevronRight, Headphones, AlertCircle, RefreshCw, Info, Languages,
+} from "lucide-react";
+
+const THEME = {
+  gradient: "from-fuchsia-500 to-violet-600",
+  accent: "text-fuchsia-600 dark:text-fuchsia-400",
+  activeBg: "bg-fuchsia-50 dark:bg-fuchsia-950/30",
+  activeBorder: "border-fuchsia-500",
+  badge: "bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300",
+};
+
+const WHISPER_LANGUAGES = [
+  { code: "auto", label: "Auto-detect" },
+  { code: "en", label: "English" }, { code: "ar", label: "Arabic" },
+  { code: "fr", label: "French" }, { code: "es", label: "Spanish" },
+  { code: "de", label: "German" }, { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" }, { code: "ru", label: "Russian" },
+  { code: "zh", label: "Chinese" }, { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" }, { code: "tr", label: "Turkish" },
+  { code: "fa", label: "Persian" }, { code: "he", label: "Hebrew" },
+  { code: "hi", label: "Hindi" }, { code: "nl", label: "Dutch" },
+  { code: "pl", label: "Polish" }, { code: "sv", label: "Swedish" },
+  { code: "da", label: "Danish" }, { code: "no", label: "Norwegian" },
+];
+
+type SpeechMode = "monolingual" | "bilingual" | "transcript";
+type InputMethod = "youtube" | "upload" | "paste";
+
+interface TranscriptData {
+  corpusId: string;
+  text: string;
+  language: string;
+  stats: {
+    words: number; sentences: number; uniqueWords: number;
+    typeTokenRatio: number; avgWordsPerSentence: number;
+    lexicalDensity: number; fillerCount: number; fillerRate: number;
+    fillers: { word: string; count: number }[];
+  };
+  segments?: { text: string; offset?: number; duration?: number }[];
+}
+
+function useClipboard() {
+  const [copied, setCopied] = useState(false);
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return { copy, copied };
+}
+
+function TranscriptBox({ data, label, accent }: { data: TranscriptData; label: string; accent?: string }) {
+  const { copy, copied } = useClipboard();
+  const downloadTxt = () => {
+    const blob = new Blob([data.text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `${label.replace(/\s/g,"_")}_transcript.txt`; a.click(); URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="rounded-xl border border-border/50 overflow-hidden">
+      <div className={`h-0.5 bg-gradient-to-r ${THEME.gradient}`} />
+      <div className="p-4 bg-card/60">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${THEME.badge}`}>{data.language}</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{data.stats.words.toLocaleString()} words</span>
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={() => copy(data.text)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Copy" data-testid="button-copy-transcript">
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+            </button>
+            <button onClick={downloadTxt} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Download .txt" data-testid="button-download-transcript">
+              <Download className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+        <div className="max-h-72 overflow-y-auto pr-1">
+          <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.text}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatPill({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <motion.div
+      className="metric-card p-4 text-center"
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+    >
+      <p className="text-2xl font-extrabold tabular-nums tracking-tight text-gradient">{typeof value === "number" ? value.toLocaleString() : value}</p>
+      <p className="text-[11px] text-muted-foreground mt-1 font-medium uppercase tracking-wider">{label}</p>
+      {sub && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{sub}</p>}
+    </motion.div>
+  );
+}
+
+function InputPanel({
+  method, setMethod, lang, setLang,
+  youtubeUrl, setYoutubeUrl, onYoutube, youtubePending,
+  onUpload, uploadPending,
+  pasteText, setPasteText, onPaste, pastePending,
+  label = "Source",
+}: any) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFile = (file: File) => onUpload(file);
+
+  return (
+    <div className="space-y-4">
+      {/* Method switcher */}
+      <div className="flex gap-1.5 p-1 bg-muted/40 rounded-xl w-fit">
+        {([["youtube", Youtube, "YouTube URL"], ["upload", Upload, "Upload File"], ["paste", FileText, "Paste Text"]] as const).map(([m, Icon, lbl]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMethod(m)}
+            data-testid={`tab-input-${m}`}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
+              method === m
+                ? `bg-white dark:bg-slate-800 shadow-sm text-fuchsia-600 dark:text-fuchsia-400`
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {/* YouTube */}
+      {method === "youtube" && (
+        <motion.div key="yt" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+              <Input
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && youtubeUrl.trim() && onYoutube()}
+                placeholder="https://youtube.com/watch?v=… or youtu.be/…"
+                className="pl-9 h-10 text-sm"
+                data-testid={`input-youtube-url-${label.toLowerCase()}`}
+              />
+            </div>
+            <Button
+              onClick={onYoutube}
+              disabled={!youtubeUrl.trim() || youtubePending}
+              className={`h-10 bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90`}
+              data-testid={`button-fetch-youtube-${label.toLowerCase()}`}
+            >
+              {youtubePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+              {youtubePending ? "Fetching…" : "Fetch"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground/60 flex items-start gap-1.5">
+            <Info className="w-3 h-3 mt-0.5 shrink-0" />
+            Pulls existing captions. Works best with videos that have auto-generated or manual subtitles enabled.
+          </p>
+        </motion.div>
+      )}
+
+      {/* Upload */}
+      {method === "upload" && (
+        <motion.div key="up" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          <div className="flex gap-2 items-center">
+            <Select value={lang} onValueChange={setLang}>
+              <SelectTrigger className="h-9 text-xs w-44" data-testid={`select-lang-${label.toLowerCase()}`}>
+                <Languages className="w-3.5 h-3.5 mr-1 shrink-0" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WHISPER_LANGUAGES.map((l) => (
+                  <SelectItem key={l.code} value={l.code} className="text-xs">{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[11px] text-muted-foreground/60">Select language or auto-detect</span>
+          </div>
+          <input ref={fileRef} type="file" accept="audio/*,video/*,.mp3,.mp4,.wav,.m4a,.ogg,.webm,.flac,.aac" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+            data-testid={`dropzone-audio-${label.toLowerCase()}`}
+            className={cn(
+              "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200",
+              dragOver
+                ? "border-fuchsia-400 bg-fuchsia-50 dark:bg-fuchsia-950/20"
+                : "border-border/50 hover:border-fuchsia-300 hover:bg-muted/30"
+            )}
+          >
+            {uploadPending ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 text-fuchsia-500 animate-spin" />
+                <p className="text-sm font-medium">Transcribing with Whisper AI…</p>
+                <p className="text-xs text-muted-foreground">This may take a moment for longer audio</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${THEME.gradient} flex items-center justify-center`}>
+                  <Mic2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Drop audio or video here</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">MP3, MP4, WAV, M4A, OGG, FLAC · max 25 MB</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Paste */}
+      {method === "paste" && (
+        <motion.div key="paste" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          <div className="flex gap-2 items-center">
+            <Select value={lang} onValueChange={setLang}>
+              <SelectTrigger className="h-9 text-xs w-44" data-testid={`select-paste-lang-${label.toLowerCase()}`}>
+                <Languages className="w-3.5 h-3.5 mr-1 shrink-0" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WHISPER_LANGUAGES.filter(l => l.code !== "auto").map((l) => (
+                  <SelectItem key={l.code} value={l.code} className="text-xs">{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={`Paste your ${label.toLowerCase()} transcript here…`}
+            className="min-h-[180px] text-sm resize-none"
+            data-testid={`textarea-paste-${label.toLowerCase()}`}
+          />
+          <Button
+            onClick={onPaste}
+            disabled={!pasteText.trim() || pastePending}
+            className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90`}
+            data-testid={`button-use-text-${label.toLowerCase()}`}
+          >
+            {pastePending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
+            {pastePending ? "Processing…" : "Use This Text"}
+          </Button>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+export default function SpeechLab() {
+  const { toast } = useToast();
+  const [speechMode, setSpeechMode] = useState<SpeechMode>("monolingual");
+  const [activeTab, setActiveTab] = useState("input");
+
+  // Source
+  const [srcMethod, setSrcMethod] = useState<InputMethod>("youtube");
+  const [srcYoutubeUrl, setSrcYoutubeUrl] = useState("");
+  const [srcLang, setSrcLang] = useState("auto");
+  const [srcPasteText, setSrcPasteText] = useState("");
+  const [srcData, setSrcData] = useState<TranscriptData | null>(null);
+
+  // Target (bilingual)
+  const [tgtMethod, setTgtMethod] = useState<InputMethod>("paste");
+  const [tgtYoutubeUrl, setTgtYoutubeUrl] = useState("");
+  const [tgtLang, setTgtLang] = useState("auto");
+  const [tgtPasteText, setTgtPasteText] = useState("");
+  const [tgtData, setTgtData] = useState<TranscriptData | null>(null);
+
+  // Analysis results
+  const [disfluencyResult, setDisfluencyResult] = useState("");
+  const [discourseResult, setDiscourseResult] = useState("");
+  const [interpretingResult, setInterpretingResult] = useState("");
+  const [qualityResult, setQualityResult] = useState("");
+  const [biStats, setBiStats] = useState<any>(null);
+
+  const ready = !!srcData;
+  const bilingualReady = speechMode === "bilingual" && !!srcData && !!tgtData;
+
+  // ── Source mutations ────────────────────────────────────────────────────────
+
+  const srcYoutubeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/youtube", { url: srcYoutubeUrl });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.error) { toast({ title: "YouTube Error", description: data.error, variant: "destructive" }); return; }
+      setSrcData(data);
+      setActiveTab("transcript");
+      toast({ title: "Transcript fetched!", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` });
+    },
+    onError: (e: any) => toast({ title: "Fetch failed", description: e.message, variant: "destructive" }),
+  });
+
+  const srcUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData(); fd.append("audio", file); if (srcLang !== "auto") fd.append("language", srcLang);
+      const res = await fetch("/api/speech/transcribe", { method: "POST", body: fd });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Transcription failed"); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setSrcData(data);
+      setActiveTab("transcript");
+      toast({ title: "Transcribed!", description: `Detected: ${data.language} · ${data.stats?.words?.toLocaleString() ?? "?"} words` });
+    },
+    onError: (e: any) => toast({ title: "Transcription failed", description: e.message, variant: "destructive" }),
+  });
+
+  const srcPasteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/paste", { text: srcPasteText, language: srcLang !== "auto" ? srcLang : undefined });
+      return res.json();
+    },
+    onSuccess: (data) => { setSrcData(data); setActiveTab("transcript"); toast({ title: "Text loaded", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` }); },
+    onError: () => toast({ title: "Failed", variant: "destructive" }),
+  });
+
+  // ── Target mutations ────────────────────────────────────────────────────────
+
+  const tgtYoutubeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/youtube", { url: tgtYoutubeUrl });
+      return res.json();
+    },
+    onSuccess: (data) => { setTgtData(data); toast({ title: "Target transcript fetched!" }); },
+    onError: (e: any) => toast({ title: "Fetch failed", description: e.message, variant: "destructive" }),
+  });
+
+  const tgtUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData(); fd.append("audio", file); if (tgtLang !== "auto") fd.append("language", tgtLang);
+      const res = await fetch("/api/speech/transcribe", { method: "POST", body: fd });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Transcription failed"); }
+      return res.json();
+    },
+    onSuccess: (data) => { setTgtData(data); toast({ title: "Target transcribed!", description: `Detected: ${data.language}` }); },
+    onError: (e: any) => toast({ title: "Transcription failed", description: e.message, variant: "destructive" }),
+  });
+
+  const tgtPasteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/paste", { text: tgtPasteText, language: tgtLang !== "auto" ? tgtLang : undefined });
+      return res.json();
+    },
+    onSuccess: (data) => { setTgtData(data); toast({ title: "Target text loaded" }); },
+    onError: () => toast({ title: "Failed", variant: "destructive" }),
+  });
+
+  // ── AI mutations ────────────────────────────────────────────────────────────
+
+  const disfluencyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/disfluencies", { corpusId: srcData?.corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setDisfluencyResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const discourseMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/discourse", { corpusId: srcData?.corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setDiscourseResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const interpretingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/interpreting", {
+        sourceCorpusId: srcData?.corpusId, targetCorpusId: tgtData?.corpusId,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => setInterpretingResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const qualityMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/quality", {
+        sourceCorpusId: srcData?.corpusId, targetCorpusId: tgtData?.corpusId,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => setQualityResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const biStatsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/bilingual-stats", {
+        sourceCorpusId: srcData?.corpusId, targetCorpusId: tgtData?.corpusId,
+      });
+      return res.json();
+    },
+    onSuccess: setBiStats,
+  });
+
+  // ── Nav ─────────────────────────────────────────────────────────────────────
+
+  const NavItem = ({ value, icon: Icon, label, disabled, hasResult }: {
+    value: string; icon: any; label: string; disabled?: boolean; hasResult?: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={() => { if (!disabled) setActiveTab(value); }}
+      disabled={disabled}
+      data-testid={`tab-speech-${value}`}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border-l-2",
+        activeTab === value
+          ? `${THEME.activeBg} ${THEME.accent} ${THEME.activeBorder}`
+          : "text-foreground/65 hover:bg-muted/60 hover:text-foreground border-transparent",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-foreground/65"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span className="flex-1 text-left">{label}</span>
+      {hasResult && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+    </button>
+  );
+
+  const NavGroup = ({ label }: { label: string }) => (
+    <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 px-3 pt-3 pb-1">{label}</p>
+  );
+
+  // ── Reset ────────────────────────────────────────────────────────────────────
+
+  const reset = () => {
+    setSrcData(null); setTgtData(null);
+    setDisfluencyResult(""); setDiscourseResult("");
+    setInterpretingResult(""); setQualityResult(""); setBiStats(null);
+    setActiveTab("input");
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+        className="flex items-center justify-between"
+      >
+        <div className="flex items-center gap-4">
+          <div className={`page-header-icon bg-gradient-to-br ${THEME.gradient}`}>
+            <Mic2 className="w-5 h-5 text-white relative z-10" />
+          </div>
+          <div>
+            <h1 className={`text-2xl md:text-3xl font-bold italic tracking-tight ${THEME.accent}`} style={{ fontFamily: "'Playfair Display', serif" }} data-testid="text-page-title">
+              Speech Lab
+            </h1>
+            <p className="text-[11px] text-muted-foreground/60 mt-0.5 font-medium tracking-wide">
+              Spoken corpus analysis · transcription · interpreting research
+            </p>
+          </div>
+        </div>
+        {ready && (
+          <button onClick={reset} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors" data-testid="button-reset-speech">
+            <RefreshCw className="w-3.5 h-3.5" /> New session
+          </button>
+        )}
+      </motion.div>
+
+      {/* Main layout */}
+      <div className="flex gap-5 items-start">
+        {/* Left nav */}
+        <div className="w-[176px] shrink-0">
+          <div className="sticky top-6 rounded-2xl border bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className={`h-0.5 bg-gradient-to-r ${THEME.gradient}`} />
+            <nav className="p-2 pb-3">
+              <NavGroup label="Data" />
+              <NavItem value="input" icon={Mic2} label="Input & Setup" />
+              <NavItem value="transcript" icon={FileText} label="Transcript" disabled={!ready} hasResult={ready} />
+              <NavGroup label="Analysis" />
+              <NavItem value="stats" icon={BarChart3} label="Speech Stats" disabled={!ready} hasResult={!!srcData?.stats} />
+              <NavItem value="disfluencies" icon={Waves} label="Disfluency" disabled={!ready} hasResult={!!disfluencyResult} />
+              <NavItem value="discourse" icon={MessageSquare} label="Discourse" disabled={!ready} hasResult={!!discourseResult} />
+              {speechMode === "bilingual" && (<>
+                <NavGroup label="Interpreting" />
+                <NavItem value="interpreting" icon={ArrowLeftRight} label="Strategies" disabled={!bilingualReady} hasResult={!!interpretingResult} />
+                <NavItem value="quality" icon={Award} label="Quality" disabled={!bilingualReady} hasResult={!!qualityResult} />
+              </>)}
+              <NavGroup label="AI" />
+              <NavItem value="ai" icon={Brain} label="AI Insights" disabled={!ready} />
+            </nav>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0 space-y-5">
+          <AnimatePresence mode="wait">
+
+            {/* ── Input ──────────────────────────────────────────────── */}
+            {activeTab === "input" && (
+              <motion.div key="input" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
+
+                {/* Mode cards */}
+                <div className="polished-card p-5">
+                  <h2 className="text-sm font-bold mb-3">Select Mode</h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      ["monolingual", Mic2, "Monolingual", "Single-language spoken corpus analysis"],
+                      ["bilingual", ArrowLeftRight, "Bilingual / Interpreted", "Source speech + interpretation or translation"],
+                      ["transcript", FileText, "Transcript Only", "Paste or upload an existing transcript"],
+                    ] as const).map(([mode, Icon, title, desc]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => { setSpeechMode(mode as SpeechMode); reset(); }}
+                        data-testid={`button-mode-${mode}`}
+                        className={cn(
+                          "flex flex-col items-center gap-2.5 p-4 rounded-xl border-2 text-center transition-all duration-200 hover:scale-[1.02]",
+                          speechMode === mode
+                            ? `border-fuchsia-400 bg-gradient-to-br from-fuchsia-50 to-violet-50 dark:from-fuchsia-950/30 dark:to-violet-950/30 shadow-md`
+                            : "border-border/50 hover:border-fuchsia-200 bg-card/60"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                          speechMode === mode ? `bg-gradient-to-br ${THEME.gradient}` : "bg-muted"
+                        )}>
+                          <Icon className={cn("w-5 h-5", speechMode === mode ? "text-white" : "text-muted-foreground")} />
+                        </div>
+                        <div>
+                          <p className={cn("text-xs font-bold", speechMode === mode ? THEME.accent : "text-foreground")}>{title}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Source input */}
+                <div className="polished-card p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${THEME.gradient} flex items-center justify-center`}>
+                      <Mic2 className="w-3 h-3 text-white" />
+                    </div>
+                    <h3 className="text-sm font-bold">
+                      {speechMode === "bilingual" ? "Source Speech" : "Speech Input"}
+                    </h3>
+                  </div>
+                  {srcData ? (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Transcript ready</p>
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate">{srcData.stats.words.toLocaleString()} words · {srcData.language}</p>
+                      </div>
+                      <button onClick={() => { setSrcData(null); setActiveTab("input"); }} className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 text-[11px] font-medium shrink-0">Replace</button>
+                    </div>
+                  ) : (
+                    <InputPanel
+                      method={srcMethod} setMethod={setSrcMethod}
+                      lang={srcLang} setLang={setSrcLang}
+                      youtubeUrl={srcYoutubeUrl} setYoutubeUrl={setSrcYoutubeUrl}
+                      onYoutube={() => srcYoutubeMutation.mutate()} youtubePending={srcYoutubeMutation.isPending}
+                      onUpload={(f: File) => srcUploadMutation.mutate(f)} uploadPending={srcUploadMutation.isPending}
+                      pasteText={srcPasteText} setPasteText={setSrcPasteText}
+                      onPaste={() => srcPasteMutation.mutate()} pastePending={srcPasteMutation.isPending}
+                      label="Source"
+                    />
+                  )}
+                </div>
+
+                {/* Target input (bilingual only) */}
+                {speechMode === "bilingual" && (
+                  <motion.div key="tgt" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="polished-card p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                        <Headphones className="w-3 h-3 text-white" />
+                      </div>
+                      <h3 className="text-sm font-bold">Interpretation / Translation</h3>
+                    </div>
+                    {tgtData ? (
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Target transcript ready</p>
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 truncate">{tgtData.stats.words.toLocaleString()} words · {tgtData.language}</p>
+                        </div>
+                        <button onClick={() => setTgtData(null)} className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 text-[11px] font-medium shrink-0">Replace</button>
+                      </div>
+                    ) : (
+                      <InputPanel
+                        method={tgtMethod} setMethod={setTgtMethod}
+                        lang={tgtLang} setLang={setTgtLang}
+                        youtubeUrl={tgtYoutubeUrl} setYoutubeUrl={setTgtYoutubeUrl}
+                        onYoutube={() => tgtYoutubeMutation.mutate()} youtubePending={tgtYoutubeMutation.isPending}
+                        onUpload={(f: File) => tgtUploadMutation.mutate(f)} uploadPending={tgtUploadMutation.isPending}
+                        pasteText={tgtPasteText} setPasteText={setTgtPasteText}
+                        onPaste={() => tgtPasteMutation.mutate()} pastePending={tgtPasteMutation.isPending}
+                        label="Target"
+                      />
+                    )}
+                    {bilingualReady && !biStats && (
+                      <Button size="sm" variant="outline" onClick={() => biStatsMutation.mutate()} disabled={biStatsMutation.isPending} className="w-full" data-testid="button-compute-bistats">
+                        {biStatsMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <BarChart3 className="w-3.5 h-3.5 mr-2" />}
+                        Compute bilingual statistics
+                      </Button>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Ready prompt */}
+                {ready && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r ${THEME.gradient} text-white shadow-md`}>
+                    <Check className="w-5 h-5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold">Transcript ready — explore the tabs on the left</p>
+                      <p className="text-[11px] opacity-80">
+                        {srcData?.stats.words.toLocaleString()} words available for analysis
+                        {speechMode === "bilingual" && tgtData ? ` · target: ${tgtData.stats.words.toLocaleString()} words` : ""}
+                      </p>
+                    </div>
+                    <button onClick={() => setActiveTab("transcript")} className="shrink-0 bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors" data-testid="button-go-to-transcript">
+                      View Transcript →
+                    </button>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ── Transcript ─────────────────────────────────────────── */}
+            {activeTab === "transcript" && srcData && (
+              <motion.div key="transcript" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <h2 className={`text-sm font-bold ${THEME.accent}`}>Transcript Viewer</h2>
+                  <TranscriptBox data={srcData} label={speechMode === "bilingual" ? "Source Speech" : "Transcript"} />
+                  {speechMode === "bilingual" && tgtData && (
+                    <TranscriptBox data={tgtData} label="Interpretation / Translation" />
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Stats ──────────────────────────────────────────────── */}
+            {activeTab === "stats" && srcData && (
+              <motion.div key="stats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
+                <div className="polished-card p-5">
+                  <h2 className={`text-sm font-bold mb-4 ${THEME.accent}`}>
+                    {speechMode === "bilingual" ? "Source Speech Statistics" : "Speech Statistics"}
+                  </h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    <StatPill label="Total Words" value={srcData.stats.words} />
+                    <StatPill label="Unique Words" value={srcData.stats.uniqueWords} />
+                    <StatPill label="Sentences" value={srcData.stats.sentences} />
+                    <StatPill label="TTR" value={srcData.stats.typeTokenRatio} sub="type-token ratio" />
+                    <StatPill label="Avg Words/Sent" value={srcData.stats.avgWordsPerSentence} />
+                    <StatPill label="Lexical Density" value={srcData.stats.lexicalDensity} />
+                  </div>
+                </div>
+
+                {/* Filler summary */}
+                {srcData.stats.fillerCount > 0 && (
+                  <div className="polished-card p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-bold">Filler & Hesitation Summary</h3>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${THEME.badge}`}>
+                        {srcData.stats.fillerRate}% filler rate
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {srcData.stats.fillers.map((f) => (
+                        <div key={f.word} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-fuchsia-50 dark:bg-fuchsia-950/20 border border-fuchsia-200/60 dark:border-fuchsia-800/40">
+                          <span className="text-xs font-medium text-fuchsia-700 dark:text-fuchsia-300">"{f.word}"</span>
+                          <span className="text-[10px] font-bold text-fuchsia-500 bg-fuchsia-100 dark:bg-fuchsia-900/40 px-1.5 py-0.5 rounded-full">{f.count}×</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bilingual comparison */}
+                {speechMode === "bilingual" && tgtData && (
+                  <div className="polished-card p-5">
+                    <h2 className={`text-sm font-bold mb-4 ${THEME.accent}`}>Target Statistics</h2>
+                    <div className="grid grid-cols-3 gap-3">
+                      <StatPill label="Total Words" value={tgtData.stats.words} />
+                      <StatPill label="Unique Words" value={tgtData.stats.uniqueWords} />
+                      <StatPill label="Sentences" value={tgtData.stats.sentences} />
+                      <StatPill label="TTR" value={tgtData.stats.typeTokenRatio} />
+                      <StatPill label="Avg Words/Sent" value={tgtData.stats.avgWordsPerSentence} />
+                      <StatPill label="Lexical Density" value={tgtData.stats.lexicalDensity} />
+                    </div>
+                    {biStats && (
+                      <div className="mt-4 pt-4 border-t border-border/40">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Bilingual Comparison</h4>
+                        <div className="grid grid-cols-3 gap-3">
+                          <StatPill label="Compression Ratio" value={biStats.compressionRatio} sub="target/source words" />
+                          <StatPill label="Expansion Rate" value={`${biStats.expansionRate > 0 ? "+" : ""}${biStats.expansionRate}%`} sub="word count change" />
+                          <StatPill label="Direction" value={biStats.isCompressed ? "Compressed ↓" : biStats.isExpanded ? "Expanded ↑" : "Balanced ≈"} />
+                        </div>
+                      </div>
+                    )}
+                    {bilingualReady && !biStats && (
+                      <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => biStatsMutation.mutate()} disabled={biStatsMutation.isPending} data-testid="button-compute-bistats-stats">
+                        {biStatsMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : null} Compute bilingual comparison
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ── Disfluency ─────────────────────────────────────────── */}
+            {activeTab === "disfluencies" && srcData && (
+              <motion.div key="disfluencies" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Disfluency & Fluency Analysis</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">AI-powered deep analysis of hesitation, repair, and fluency patterns</p>
+                    </div>
+                    {!disfluencyResult && (
+                      <Button
+                        onClick={() => disfluencyMutation.mutate()}
+                        disabled={disfluencyMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-disfluency"
+                      >
+                        {disfluencyMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Waves className="w-4 h-4 mr-2" />}
+                        {disfluencyMutation.isPending ? "Analysing…" : "Run Analysis"}
+                      </Button>
+                    )}
+                  </div>
+                  {disfluencyMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {disfluencyResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={disfluencyResult} onContentChange={setDisfluencyResult} downloadFilename="Disfluency_Analysis" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Discourse ──────────────────────────────────────────── */}
+            {activeTab === "discourse" && srcData && (
+              <motion.div key="discourse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Discourse Marker Analysis</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">Structural, contrastive, causal, hedging, and interactive discourse patterns</p>
+                    </div>
+                    {!discourseResult && (
+                      <Button
+                        onClick={() => discourseMutation.mutate()}
+                        disabled={discourseMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-discourse"
+                      >
+                        {discourseMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageSquare className="w-4 h-4 mr-2" />}
+                        {discourseMutation.isPending ? "Analysing…" : "Run Analysis"}
+                      </Button>
+                    )}
+                  </div>
+                  {discourseMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {discourseResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={discourseResult} onContentChange={setDiscourseResult} downloadFilename="Discourse_Analysis" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Interpreting Strategies ─────────────────────────────── */}
+            {activeTab === "interpreting" && bilingualReady && (
+              <motion.div key="interpreting" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Interpreting Strategies Analysis</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">Omission · Addition · Reformulation · Compression · Coping strategies</p>
+                    </div>
+                    {!interpretingResult && (
+                      <Button
+                        onClick={() => interpretingMutation.mutate()}
+                        disabled={interpretingMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-interpreting"
+                      >
+                        {interpretingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowLeftRight className="w-4 h-4 mr-2" />}
+                        {interpretingMutation.isPending ? "Analysing…" : "Run Analysis"}
+                      </Button>
+                    )}
+                  </div>
+                  {interpretingMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {interpretingResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={interpretingResult} onContentChange={setInterpretingResult} downloadFilename="Interpreting_Strategies" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Quality ────────────────────────────────────────────── */}
+            {activeTab === "quality" && bilingualReady && (
+              <motion.div key="quality" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Interpreting Quality Assessment</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">AIIC rubric · Accuracy · Completeness · Fluency · Register · Coherence</p>
+                    </div>
+                    {!qualityResult && (
+                      <Button
+                        onClick={() => qualityMutation.mutate()}
+                        disabled={qualityMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-quality"
+                      >
+                        {qualityMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Award className="w-4 h-4 mr-2" />}
+                        {qualityMutation.isPending ? "Assessing…" : "Run Assessment"}
+                      </Button>
+                    )}
+                  </div>
+                  {qualityMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {qualityResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={qualityResult} onContentChange={setQualityResult} downloadFilename="Quality_Assessment" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── AI Insights ─────────────────────────────────────────── */}
+            {activeTab === "ai" && srcData && (
+              <motion.div key="ai" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AIAnalysisPanel
+                  corpusId={srcData.corpusId}
+                  theme={{ gradient: THEME.gradient, accent: THEME.accent, text: THEME.accent }}
+                />
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+
+          {/* Empty state */}
+          {activeTab === "input" && !ready && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.3 } }} className="rounded-2xl border-2 border-dashed border-border/40 p-10 text-center space-y-3">
+              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${THEME.gradient} flex items-center justify-center mx-auto opacity-70`}>
+                <Mic2 className="w-7 h-7 text-white" />
+              </div>
+              <p className="text-sm font-semibold text-muted-foreground/70">Select a mode and provide a YouTube link, audio file, or paste a transcript to begin</p>
+              <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground/50">
+                <span className="flex items-center gap-1"><Youtube className="w-3 h-3" /> YouTube captions</span>
+                <span className="flex items-center gap-1"><Mic2 className="w-3 h-3" /> Whisper transcription</span>
+                <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> Paste transcript</span>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
