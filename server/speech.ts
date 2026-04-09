@@ -33,16 +33,6 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-function decodeXmlEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, "&")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/<[^>]+>/g, "")
-    .trim();
-}
 
 export async function fetchYouTubeTranscript(url: string): Promise<{
   text: string;
@@ -81,36 +71,45 @@ export async function fetchYouTubeTranscript(url: string): Promise<{
   }
 
   const preferred = captions.find((t: any) => t.languageCode?.startsWith("en")) || captions[0];
-  const captionUrl: string = preferred.baseUrl;
   const detectedLang: string = preferred.languageCode || "auto-detected";
 
-  const xmlRes = await fetch(captionUrl + "&fmt=srv3");
-  if (!xmlRes.ok) throw new Error("Failed to fetch caption track.");
+  const baseUrl: string = preferred.baseUrl;
+  const sep = baseUrl.includes("?") ? "&" : "?";
+  const jsonUrl = `${baseUrl}${sep}fmt=json3`;
 
-  const xmlText = await xmlRes.text();
+  const jsonRes = await fetch(jsonUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; Corpuscape/1.0)" },
+  });
+  if (!jsonRes.ok) throw new Error(`Failed to fetch caption track (HTTP ${jsonRes.status}).`);
 
-  const segRe = /<p\s[^>]*t="(\d+)"[^>]*d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
-  const segments: TranscriptSegment[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = segRe.exec(xmlText)) !== null) {
-    const text = decodeXmlEntities(m[3]);
-    if (text) segments.push({ text, offset: Number(m[1]), duration: Number(m[2]) });
+  let captionJson: any;
+  try {
+    captionJson = await jsonRes.json();
+  } catch {
+    throw new Error("Could not parse caption data from YouTube.");
   }
 
-  if (segments.length === 0) {
-    const fallbackRe = /<text\s[^>]*start="([^"]+)"[^>]*dur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g;
-    const xmlRes2 = await fetch(captionUrl);
-    const xmlText2 = await xmlRes2.text();
-    let m2: RegExpExecArray | null;
-    while ((m2 = fallbackRe.exec(xmlText2)) !== null) {
-      const text = decodeXmlEntities(m2[3]);
-      if (text) segments.push({ text, offset: Math.round(parseFloat(m2[1]) * 1000), duration: Math.round(parseFloat(m2[2]) * 1000) });
+  const events: any[] = captionJson?.events ?? [];
+  const segments: TranscriptSegment[] = [];
+
+  for (const event of events) {
+    if (!event.segs) continue;
+    const raw = event.segs
+      .map((s: any) => (s.utf8 ?? "").replace(/\n/g, " "))
+      .join("")
+      .trim();
+    if (raw && raw !== "\n") {
+      segments.push({
+        text: raw,
+        offset: event.tStartMs,
+        duration: event.dDurationMs,
+      });
     }
   }
 
   if (segments.length === 0) throw new Error("No transcript segments found. The video may have no captions.");
 
-  const text = segments.map((s) => s.text).join(" ");
+  const text = segments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
   return { text, language: detectedLang, videoId, segments };
 }
 
