@@ -50,6 +50,115 @@ import { ensureTablesExist } from "./db";
 import type { SamplePair } from "../shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const largeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
+
+const IMPORT_MAX_ROWS = 100_000;
+
+function parseBufferToLibraryRows(
+  buffer: Buffer,
+  filename: string,
+  type: "monolingual" | "bilingual",
+  srcIdx: number,
+  tgtIdx: number,
+): { rows: Record<string, any>[]; truncated: boolean } {
+  const ext = filename.toLowerCase().split(".").pop() || "txt";
+  const rows: Record<string, any>[] = [];
+
+  function parseCSVLine(line: string, delim: string): string[] {
+    if (!line.includes('"')) return line.split(delim).map(s => s.trim());
+    const result: string[] = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (line[i] === delim && !inQ) { result.push(cur.trim()); cur = ""; }
+      else cur += line[i];
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  function looksLikeHeader(row: string[]): boolean {
+    const first = (row[0] || "").toLowerCase().trim();
+    return /^(no|#|id|source|src|en|english|arabic|original|text|segment|sentence|lang|col)/i.test(first);
+  }
+
+  function addBi(s: string, t: string) { if (s || t) rows.push({ source: s, target: t, similarity: 1.0 }); }
+  function addMono(s: string) { if (s) rows.push({ source: s }); }
+
+  try {
+    if (ext === "xlsx" || ext === "xls") {
+      const XLSX = require("xlsx");
+      const wb = XLSX.read(buffer, { type: "buffer" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+      const hasHdr = data.length > 0 && looksLikeHeader((data[0] as any[]).map(String));
+      const start = hasHdr ? 1 : 0;
+      for (let i = start; i < data.length && rows.length < IMPORT_MAX_ROWS; i++) {
+        const row = (data[i] as any[]).map(String);
+        if (type === "bilingual") addBi((row[srcIdx] ?? "").trim(), (row[tgtIdx] ?? "").trim());
+        else addMono((row[srcIdx] ?? "").trim());
+      }
+    } else if (ext === "tmx") {
+      const text = buffer.toString("utf-8");
+      const tuRegex = /<tu[\s>][\s\S]*?<\/tu>/gi;
+      let m: RegExpExecArray | null;
+      while ((m = tuRegex.exec(text)) !== null && rows.length < IMPORT_MAX_ROWS) {
+        const segs = [...m[0].matchAll(/<tuv[^>]*xml:lang="([^"]+)"[^>]*>[\s\S]*?<seg[^>]*>([\s\S]*?)<\/seg>/gi)];
+        if (segs.length >= 2) {
+          const s = segs[0][2].replace(/<[^>]+>/g, "").trim();
+          const t = segs[1][2].replace(/<[^>]+>/g, "").trim();
+          addBi(s, t);
+        }
+      }
+    } else {
+      const text = buffer.toString("utf-8");
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (!lines.length) return { rows, truncated: false };
+      const sample = lines.find(l => l.trim()) || "";
+      const tabCount = (sample.match(/\t/g) || []).length;
+      const commaCount = (sample.match(/,/g) || []).length;
+      const semiCount = (sample.match(/;/g) || []).length;
+      const delim = (ext === "tsv" || tabCount > 0) ? "\t" : semiCount > commaCount ? ";" : ",";
+      if (ext === "txt" && type === "bilingual") {
+        const hasTab = lines.some(l => l.includes("\t"));
+        if (hasTab) {
+          const firstParts = lines[0].split("\t").map(s => s.trim());
+          const start = looksLikeHeader(firstParts) ? 1 : 0;
+          for (let i = start; i < lines.length && rows.length < IMPORT_MAX_ROWS; i++) {
+            const parts = lines[i].split("\t").map(s => s.trim());
+            if (parts.length >= 2) addBi(parts[0], parts[1]);
+          }
+        } else {
+          for (let i = 0; i < lines.length - 1 && rows.length < IMPORT_MAX_ROWS; i += 2) {
+            addBi(lines[i].trim(), (lines[i + 1] || "").trim());
+          }
+        }
+      } else if (ext === "txt") {
+        for (const line of lines) {
+          if (rows.length >= IMPORT_MAX_ROWS) break;
+          addMono(line.trim());
+        }
+      } else {
+        const firstRow = parseCSVLine(lines[0], delim);
+        const hasHdr = looksLikeHeader(firstRow);
+        const start = hasHdr ? 1 : 0;
+        for (let i = start; i < lines.length && rows.length < IMPORT_MAX_ROWS; i++) {
+          const parts = parseCSVLine(lines[i], delim);
+          if (type === "bilingual") {
+            const maxIdx = Math.max(srcIdx, tgtIdx);
+            if (parts.length > maxIdx) addBi((parts[srcIdx] || "").trim(), (parts[tgtIdx] || "").trim());
+          } else {
+            addMono((parts[srcIdx] || "").trim());
+          }
+        }
+      }
+    }
+  } catch (_e) { /* return what we have */ }
+
+  return { rows, truncated: rows.length >= IMPORT_MAX_ROWS };
+}
 
 function resolveCorpusText(corpusId: string): string | undefined {
   const text = getCorpus(corpusId);
@@ -1045,6 +1154,98 @@ Format with clear headings and specific examples from each corpus.`);
       res.json(saved);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to save corpus" });
+    }
+  });
+
+  app.post("/api/library/import-file", largeUpload.single("file"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "No file provided" });
+      const { name, type, languagePair, domain, sourceColIdx, targetColIdx } = req.body;
+      if (!name || !type) return res.status(400).json({ error: "name and type are required" });
+      const srcIdx = Math.max(0, parseInt(sourceColIdx ?? "0") || 0);
+      const tgtIdx = Math.max(0, parseInt(targetColIdx ?? "1") || 1);
+      const { rows, truncated } = parseBufferToLibraryRows(file.buffer, file.originalname, type as "monolingual" | "bilingual", srcIdx, tgtIdx);
+      if (rows.length === 0) return res.status(400).json({ error: "No data could be extracted from the file. Check the format and column settings." });
+      const saved = await saveLibraryCorpus({
+        name, type: type as "monolingual" | "bilingual", origin: "user",
+        sourceTrack: type === "bilingual" ? "bilingual" : "monolingual",
+        languagePair: languagePair || null, domain: domain || null,
+        sizeLabel: `${rows.length.toLocaleString()} ${type === "bilingual" ? "pairs" : "sentences"}${truncated ? " (first 100K)" : ""}`,
+        license: null, externalUrl: null, samplePairs: rows,
+      });
+      res.json({ corpus: saved, rowCount: rows.length, truncated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Import failed" });
+    }
+  });
+
+  app.post("/api/library/import-url", async (req, res) => {
+    try {
+      const { url, name, type, languagePair, domain, sourceColIdx, targetColIdx } = req.body;
+      if (!url || !name || !type) return res.status(400).json({ error: "url, name, and type are required" });
+      const srcIdx = Math.max(0, parseInt(sourceColIdx ?? "0") || 0);
+      const tgtIdx = Math.max(0, parseInt(targetColIdx ?? "1") || 1);
+
+      let rows: Record<string, any>[] = [];
+      let truncated = false;
+
+      const isHFViewerApi = url.includes("datasets-server.huggingface.co/rows");
+      if (isHFViewerApi) {
+        const baseUrl = new URL(url);
+        baseUrl.searchParams.delete("offset");
+        baseUrl.searchParams.delete("length");
+        let offset = 0;
+        const pageSize = 100;
+        let hasMore = true;
+        while (hasMore && rows.length < IMPORT_MAX_ROWS) {
+          baseUrl.searchParams.set("offset", String(offset));
+          baseUrl.searchParams.set("length", String(pageSize));
+          const resp = await fetch(baseUrl.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+          if (!resp.ok) break;
+          const data = await resp.json() as any;
+          const pageRows: any[] = data.rows || [];
+          if (!pageRows.length) { hasMore = false; break; }
+          for (const r of pageRows) {
+            const rowData = r.row ?? r;
+            const keys = Object.keys(rowData);
+            if (type === "bilingual") {
+              const s = String(rowData[keys[srcIdx]] ?? "").trim();
+              const t = String(rowData[keys[tgtIdx]] ?? "").trim();
+              if (s || t) rows.push({ source: s, target: t, similarity: 1.0 });
+            } else {
+              const s = String(rowData[keys[srcIdx]] ?? "").trim();
+              if (s) rows.push({ source: s });
+            }
+          }
+          if (pageRows.length < pageSize) hasMore = false;
+          offset += pageSize;
+        }
+        truncated = rows.length >= IMPORT_MAX_ROWS;
+      } else {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(180000), headers: { "User-Agent": "Corpuscape/1.0" } });
+        if (!resp.ok) return res.status(400).json({ error: `Failed to fetch URL: ${resp.status} ${resp.statusText}` });
+        let filename = url.split("/").pop()?.split("?")[0] || "data.txt";
+        const cd = resp.headers.get("content-disposition");
+        if (cd) { const fn = cd.match(/filename="?([^";\n]+)"?/i); if (fn) filename = fn[1]; }
+        const buffer = Buffer.from(await resp.arrayBuffer());
+        const result = parseBufferToLibraryRows(buffer, filename, type as "monolingual" | "bilingual", srcIdx, tgtIdx);
+        rows = result.rows;
+        truncated = result.truncated;
+      }
+
+      if (rows.length === 0) return res.status(400).json({ error: "No data could be extracted from the URL. Ensure it is a direct link to a CSV, TSV, TXT, or TMX file." });
+      const saved = await saveLibraryCorpus({
+        name, type: type as "monolingual" | "bilingual", origin: "user",
+        sourceTrack: type === "bilingual" ? "bilingual" : "monolingual",
+        languagePair: languagePair || null, domain: domain || null,
+        sizeLabel: `${rows.length.toLocaleString()} ${type === "bilingual" ? "pairs" : "sentences"}${truncated ? " (first 100K)" : ""}`,
+        license: null, externalUrl: url, samplePairs: rows,
+      });
+      res.json({ corpus: saved, rowCount: rows.length, truncated });
+    } catch (error: any) {
+      console.error("URL import error:", error);
+      res.status(500).json({ error: error.message || "URL import failed" });
     }
   });
 
