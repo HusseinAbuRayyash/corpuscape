@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Mic2, Youtube, Upload, FileText, ArrowLeftRight, BarChart3, Brain,
-  Loader2, Copy, Download, Check, Waves, MessageSquare, Award, Globe2,
-  ChevronRight, Headphones, AlertCircle, RefreshCw, Info, Languages,
+  Mic2, Upload, FileText, ArrowLeftRight, BarChart3, Brain,
+  Loader2, Copy, Download, Check, Waves, MessageSquare, Award,
+  ChevronRight, Headphones, RefreshCw, Info, Languages, Users,
+  Hash, BookOpen, Repeat2, UserCheck,
 } from "lucide-react";
 
 const THEME = {
@@ -40,7 +41,10 @@ const WHISPER_LANGUAGES = [
 ];
 
 type SpeechMode = "monolingual" | "bilingual" | "transcript";
-type InputMethod = "youtube" | "upload" | "paste";
+type InputMethod = "upload" | "paste";
+
+const ACCEPTED_AUDIO_VIDEO = ".mp3,.mp4,.wav,.m4a,.ogg,.flac,.webm,.aac,.opus,.wma,.mkv,.mov,.avi,.mpeg,.mpga";
+const ACCEPTED_AUDIO_VIDEO_LABEL = "MP3, MP4, WAV, M4A, OGG, FLAC, WebM, AAC, Opus, WMA, MKV, MOV, AVI";
 
 interface TranscriptData {
   corpusId: string;
@@ -112,61 +116,21 @@ function StatPill({ label, value, sub }: { label: string; value: string | number
   );
 }
 
-function YoutubeBlockedBanner({ message, onSwitch }: { message: string; onSwitch: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3"
-    >
-      <div className="flex items-start gap-2.5">
-        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center shrink-0">
-          <Info className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">YouTube captions unavailable from server</p>
-          <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
-            YouTube blocks server-side caption requests. Get the transcript directly from YouTube:
-          </p>
-        </div>
-      </div>
-      <ol className="ml-10 space-y-1 text-xs text-amber-800 dark:text-amber-200 list-decimal pl-2">
-        <li>Open the video on YouTube in a new tab</li>
-        <li>Click the <strong>three-dot menu (…)</strong> below the video player</li>
-        <li>Select <strong>"Open transcript"</strong></li>
-        <li>Select all the text and copy it</li>
-        <li>Come back and paste it below</li>
-      </ol>
-      <Button
-        size="sm"
-        onClick={onSwitch}
-        className="ml-10 h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0"
-        data-testid="button-switch-paste"
-      >
-        <FileText className="w-3.5 h-3.5 mr-1.5" />
-        Switch to Paste Text
-      </Button>
-    </motion.div>
-  );
-}
-
 function InputPanel({
   method, setMethod, lang, setLang,
-  youtubeUrl, setYoutubeUrl, onYoutube, youtubePending,
   onUpload, uploadPending,
   pasteText, setPasteText, onPaste, pastePending,
-  youtubeBlocked, onClearBlocked,
   label = "Source",
 }: any) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-
   const handleFile = (file: File) => onUpload(file);
 
   return (
     <div className="space-y-4">
       {/* Method switcher */}
       <div className="flex gap-1.5 p-1 bg-muted/40 rounded-xl w-fit">
-        {([["youtube", Youtube, "YouTube URL"], ["upload", Upload, "Upload File"], ["paste", FileText, "Paste Text"]] as const).map(([m, Icon, lbl]) => (
+        {([["upload", Upload, "Upload / Record"], ["paste", FileText, "Paste Text"]] as [InputMethod, any, string][]).map(([m, Icon, lbl]) => (
           <button
             key={m}
             type="button"
@@ -175,7 +139,7 @@ function InputPanel({
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
               method === m
-                ? `bg-white dark:bg-slate-800 shadow-sm text-fuchsia-600 dark:text-fuchsia-400`
+                ? "bg-white dark:bg-slate-800 shadow-sm text-fuchsia-600 dark:text-fuchsia-400"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -185,49 +149,10 @@ function InputPanel({
         ))}
       </div>
 
-      {/* YouTube */}
-      {method === "youtube" && (
-        <motion.div key="yt" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
-              <Input
-                value={youtubeUrl}
-                onChange={(e) => { setYoutubeUrl(e.target.value); if (onClearBlocked) onClearBlocked(); }}
-                onKeyDown={(e) => e.key === "Enter" && youtubeUrl.trim() && onYoutube()}
-                placeholder="https://youtube.com/watch?v=… or youtu.be/…"
-                className="pl-9 h-10 text-sm"
-                data-testid={`input-youtube-url-${label.toLowerCase()}`}
-              />
-            </div>
-            <Button
-              onClick={onYoutube}
-              disabled={!youtubeUrl.trim() || youtubePending}
-              className={`h-10 bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90`}
-              data-testid={`button-fetch-youtube-${label.toLowerCase()}`}
-            >
-              {youtubePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
-              {youtubePending ? "Fetching…" : "Fetch"}
-            </Button>
-          </div>
-          {youtubeBlocked ? (
-            <YoutubeBlockedBanner
-              message={youtubeBlocked}
-              onSwitch={() => { setMethod("paste"); if (onClearBlocked) onClearBlocked(); }}
-            />
-          ) : (
-            <p className="text-[11px] text-muted-foreground/60 flex items-start gap-1.5">
-              <Info className="w-3 h-3 mt-0.5 shrink-0" />
-              Pulls existing captions. Works best with videos that have auto-generated or manual subtitles enabled.
-            </p>
-          )}
-        </motion.div>
-      )}
-
       {/* Upload */}
       {method === "upload" && (
         <motion.div key="up" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <Select value={lang} onValueChange={setLang}>
               <SelectTrigger className="h-9 text-xs w-44" data-testid={`select-lang-${label.toLowerCase()}`}>
                 <Languages className="w-3.5 h-3.5 mr-1 shrink-0" />
@@ -241,7 +166,13 @@ function InputPanel({
             </Select>
             <span className="text-[11px] text-muted-foreground/60">Select language or auto-detect</span>
           </div>
-          <input ref={fileRef} type="file" accept="audio/*,video/*,.mp3,.mp4,.wav,.m4a,.ogg,.webm,.flac,.aac" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept={ACCEPTED_AUDIO_VIDEO}
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          />
           <div
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -259,17 +190,20 @@ function InputPanel({
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 text-fuchsia-500 animate-spin" />
                 <p className="text-sm font-medium">Transcribing with Whisper AI…</p>
-                <p className="text-xs text-muted-foreground">This may take a moment for longer audio</p>
+                <p className="text-xs text-muted-foreground">This may take a moment for longer recordings</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${THEME.gradient} flex items-center justify-center`}>
-                  <Mic2 className="w-6 h-6 text-white" />
+                  <Headphones className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold">Drop audio or video here</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">MP3, MP4, WAV, M4A, OGG, FLAC · max 25 MB</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed max-w-sm mx-auto">{ACCEPTED_AUDIO_VIDEO_LABEL} · max 25 MB</p>
                 </div>
+                <Button size="sm" variant="outline" className="h-8 text-xs mt-1" onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} data-testid={`button-browse-file-${label.toLowerCase()}`}>
+                  <Upload className="w-3 h-3 mr-1.5" /> Browse file
+                </Button>
               </div>
             )}
           </div>
@@ -320,15 +254,13 @@ export default function SpeechLab() {
   const [activeTab, setActiveTab] = useState("input");
 
   // Source
-  const [srcMethod, setSrcMethod] = useState<InputMethod>("youtube");
-  const [srcYoutubeUrl, setSrcYoutubeUrl] = useState("");
+  const [srcMethod, setSrcMethod] = useState<InputMethod>("upload");
   const [srcLang, setSrcLang] = useState("auto");
   const [srcPasteText, setSrcPasteText] = useState("");
   const [srcData, setSrcData] = useState<TranscriptData | null>(null);
 
   // Target (bilingual)
-  const [tgtMethod, setTgtMethod] = useState<InputMethod>("paste");
-  const [tgtYoutubeUrl, setTgtYoutubeUrl] = useState("");
+  const [tgtMethod, setTgtMethod] = useState<InputMethod>("upload");
   const [tgtLang, setTgtLang] = useState("auto");
   const [tgtPasteText, setTgtPasteText] = useState("");
   const [tgtData, setTgtData] = useState<TranscriptData | null>(null);
@@ -338,44 +270,16 @@ export default function SpeechLab() {
   const [discourseResult, setDiscourseResult] = useState("");
   const [interpretingResult, setInterpretingResult] = useState("");
   const [qualityResult, setQualityResult] = useState("");
+  const [speakersResult, setSpeakersResult] = useState("");
+  const [numbersResult, setNumbersResult] = useState("");
+  const [terminologyResult, setTerminologyResult] = useState("");
+  const [consecutiveResult, setConsecutiveResult] = useState("");
   const [biStats, setBiStats] = useState<any>(null);
 
   const ready = !!srcData;
   const bilingualReady = speechMode === "bilingual" && !!srcData && !!tgtData;
 
-  const [srcYoutubeBlocked, setSrcYoutubeBlocked] = useState<string | null>(null);
-  const [tgtYoutubeBlocked, setTgtYoutubeBlocked] = useState<string | null>(null);
-
   // ── Source mutations ────────────────────────────────────────────────────────
-
-  const srcYoutubeMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/speech/youtube", { url: srcYoutubeUrl });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      if (data.error) {
-        if (data.error.startsWith("YOUTUBE_BLOCKED:")) {
-          setSrcYoutubeBlocked(data.error.replace("YOUTUBE_BLOCKED:", ""));
-        } else {
-          toast({ title: "YouTube Error", description: data.error, variant: "destructive" });
-        }
-        return;
-      }
-      setSrcYoutubeBlocked(null);
-      setSrcData(data);
-      setActiveTab("transcript");
-      toast({ title: "Transcript fetched!", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` });
-    },
-    onError: (e: any) => {
-      const msg: string = e.message ?? "";
-      if (msg.includes("YOUTUBE_BLOCKED:")) {
-        setSrcYoutubeBlocked(msg.replace(/.*YOUTUBE_BLOCKED:/, ""));
-      } else {
-        toast({ title: "Fetch failed", description: msg, variant: "destructive" });
-      }
-    },
-  });
 
   const srcUploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -402,34 +306,6 @@ export default function SpeechLab() {
   });
 
   // ── Target mutations ────────────────────────────────────────────────────────
-
-  const tgtYoutubeMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/speech/youtube", { url: tgtYoutubeUrl });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      if (data.error) {
-        if (data.error.startsWith("YOUTUBE_BLOCKED:")) {
-          setTgtYoutubeBlocked(data.error.replace("YOUTUBE_BLOCKED:", ""));
-        } else {
-          toast({ title: "YouTube Error", description: data.error, variant: "destructive" });
-        }
-        return;
-      }
-      setTgtYoutubeBlocked(null);
-      setTgtData(data);
-      toast({ title: "Target transcript fetched!" });
-    },
-    onError: (e: any) => {
-      const msg: string = e.message ?? "";
-      if (msg.includes("YOUTUBE_BLOCKED:")) {
-        setTgtYoutubeBlocked(msg.replace(/.*YOUTUBE_BLOCKED:/, ""));
-      } else {
-        toast({ title: "Fetch failed", description: msg, variant: "destructive" });
-      }
-    },
-  });
 
   const tgtUploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -503,6 +379,48 @@ export default function SpeechLab() {
     onSuccess: setBiStats,
   });
 
+  const speakersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/speakers", { corpusId: srcData?.corpusId });
+      return res.json();
+    },
+    onSuccess: (data) => setSpeakersResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const numbersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/numbers", {
+        sourceCorpusId: srcData?.corpusId, targetCorpusId: tgtData?.corpusId,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => setNumbersResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const terminologyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/terminology", {
+        sourceCorpusId: srcData?.corpusId, targetCorpusId: tgtData?.corpusId,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => setTerminologyResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
+  const consecutiveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/speech/ai/consecutive", {
+        sourceCorpusId: srcData?.corpusId, targetCorpusId: tgtData?.corpusId,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => setConsecutiveResult(data.result),
+    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+  });
+
   // ── Nav ─────────────────────────────────────────────────────────────────────
 
   const NavItem = ({ value, icon: Icon, label, disabled, hasResult }: {
@@ -536,7 +454,9 @@ export default function SpeechLab() {
   const reset = () => {
     setSrcData(null); setTgtData(null);
     setDisfluencyResult(""); setDiscourseResult("");
-    setInterpretingResult(""); setQualityResult(""); setBiStats(null);
+    setInterpretingResult(""); setQualityResult("");
+    setSpeakersResult(""); setNumbersResult(""); setTerminologyResult(""); setConsecutiveResult("");
+    setBiStats(null);
     setActiveTab("input");
   };
 
@@ -579,12 +499,16 @@ export default function SpeechLab() {
               <NavItem value="transcript" icon={FileText} label="Transcript" disabled={!ready} hasResult={ready} />
               <NavGroup label="Analysis" />
               <NavItem value="stats" icon={BarChart3} label="Speech Stats" disabled={!ready} hasResult={!!srcData?.stats} />
+              <NavItem value="speakers" icon={Users} label="Speakers" disabled={!ready} hasResult={!!speakersResult} />
               <NavItem value="disfluencies" icon={Waves} label="Disfluency" disabled={!ready} hasResult={!!disfluencyResult} />
               <NavItem value="discourse" icon={MessageSquare} label="Discourse" disabled={!ready} hasResult={!!discourseResult} />
               {speechMode === "bilingual" && (<>
                 <NavGroup label="Interpreting" />
                 <NavItem value="interpreting" icon={ArrowLeftRight} label="Strategies" disabled={!bilingualReady} hasResult={!!interpretingResult} />
                 <NavItem value="quality" icon={Award} label="Quality" disabled={!bilingualReady} hasResult={!!qualityResult} />
+                <NavItem value="numbers" icon={Hash} label="Numbers & Names" disabled={!bilingualReady} hasResult={!!numbersResult} />
+                <NavItem value="terminology" icon={BookOpen} label="Terminology" disabled={!bilingualReady} hasResult={!!terminologyResult} />
+                <NavItem value="consecutive" icon={Repeat2} label="Consecutive CI" disabled={!bilingualReady} hasResult={!!consecutiveResult} />
               </>)}
               <NavGroup label="AI" />
               <NavItem value="ai" icon={Brain} label="AI Insights" disabled={!ready} />
@@ -659,13 +583,9 @@ export default function SpeechLab() {
                     <InputPanel
                       method={srcMethod} setMethod={setSrcMethod}
                       lang={srcLang} setLang={setSrcLang}
-                      youtubeUrl={srcYoutubeUrl} setYoutubeUrl={setSrcYoutubeUrl}
-                      onYoutube={() => srcYoutubeMutation.mutate()} youtubePending={srcYoutubeMutation.isPending}
                       onUpload={(f: File) => srcUploadMutation.mutate(f)} uploadPending={srcUploadMutation.isPending}
                       pasteText={srcPasteText} setPasteText={setSrcPasteText}
                       onPaste={() => srcPasteMutation.mutate()} pastePending={srcPasteMutation.isPending}
-                      youtubeBlocked={srcYoutubeBlocked}
-                      onClearBlocked={() => setSrcYoutubeBlocked(null)}
                       label="Source"
                     />
                   )}
@@ -693,13 +613,9 @@ export default function SpeechLab() {
                       <InputPanel
                         method={tgtMethod} setMethod={setTgtMethod}
                         lang={tgtLang} setLang={setTgtLang}
-                        youtubeUrl={tgtYoutubeUrl} setYoutubeUrl={setTgtYoutubeUrl}
-                        onYoutube={() => tgtYoutubeMutation.mutate()} youtubePending={tgtYoutubeMutation.isPending}
                         onUpload={(f: File) => tgtUploadMutation.mutate(f)} uploadPending={tgtUploadMutation.isPending}
                         pasteText={tgtPasteText} setPasteText={setTgtPasteText}
                         onPaste={() => tgtPasteMutation.mutate()} pastePending={tgtPasteMutation.isPending}
-                        youtubeBlocked={tgtYoutubeBlocked}
-                        onClearBlocked={() => setTgtYoutubeBlocked(null)}
                         label="Target"
                       />
                     )}
@@ -939,6 +855,138 @@ export default function SpeechLab() {
                   {qualityResult && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <AIResultDisplay content={qualityResult} onContentChange={setQualityResult} downloadFilename="Quality_Assessment" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Speakers ───────────────────────────────────────────── */}
+            {activeTab === "speakers" && srcData && (
+              <motion.div key="speakers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Speaker Detection & Diarization</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">AI labels each speaker turn · Speaker profiles · Conversation structure</p>
+                    </div>
+                    {!speakersResult && (
+                      <Button
+                        onClick={() => speakersMutation.mutate()}
+                        disabled={speakersMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-speakers"
+                      >
+                        {speakersMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserCheck className="w-4 h-4 mr-2" />}
+                        {speakersMutation.isPending ? "Detecting…" : "Detect Speakers"}
+                      </Button>
+                    )}
+                  </div>
+                  {speakersMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {speakersResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={speakersResult} onContentChange={setSpeakersResult} downloadFilename="Speaker_Diarization" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Numbers & Names ─────────────────────────────────────── */}
+            {activeTab === "numbers" && bilingualReady && (
+              <motion.div key="numbers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Numbers, Names & Critical Elements</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">Accuracy of figures · proper nouns · dates · acronyms · cultural references</p>
+                    </div>
+                    {!numbersResult && (
+                      <Button
+                        onClick={() => numbersMutation.mutate()}
+                        disabled={numbersMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-numbers"
+                      >
+                        {numbersMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Hash className="w-4 h-4 mr-2" />}
+                        {numbersMutation.isPending ? "Analysing…" : "Run Analysis"}
+                      </Button>
+                    )}
+                  </div>
+                  {numbersMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {numbersResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={numbersResult} onContentChange={setNumbersResult} downloadFilename="Numbers_Names_Analysis" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Terminology ─────────────────────────────────────────── */}
+            {activeTab === "terminology" && bilingualReady && (
+              <motion.div key="terminology" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Terminology Consistency</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">Key term inventory · translation consistency · glossary recommendations</p>
+                    </div>
+                    {!terminologyResult && (
+                      <Button
+                        onClick={() => terminologyMutation.mutate()}
+                        disabled={terminologyMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-terminology"
+                      >
+                        {terminologyMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
+                        {terminologyMutation.isPending ? "Analysing…" : "Run Analysis"}
+                      </Button>
+                    )}
+                  </div>
+                  {terminologyMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {terminologyResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={terminologyResult} onContentChange={setTerminologyResult} downloadFilename="Terminology_Consistency" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Consecutive CI ──────────────────────────────────────── */}
+            {activeTab === "consecutive" && bilingualReady && (
+              <motion.div key="consecutive" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <div className="polished-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Consecutive Interpreting Analysis</h2>
+                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">Segmentation · memory · reformulation · EVS · CI performance profile</p>
+                    </div>
+                    {!consecutiveResult && (
+                      <Button
+                        onClick={() => consecutiveMutation.mutate()}
+                        disabled={consecutiveMutation.isPending}
+                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                        data-testid="button-run-consecutive"
+                      >
+                        {consecutiveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Repeat2 className="w-4 h-4 mr-2" />}
+                        {consecutiveMutation.isPending ? "Analysing…" : "Run Analysis"}
+                      </Button>
+                    )}
+                  </div>
+                  {consecutiveMutation.isPending && (
+                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
+                  )}
+                  {consecutiveResult && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <AIResultDisplay content={consecutiveResult} onContentChange={setConsecutiveResult} downloadFilename="Consecutive_CI_Analysis" />
                     </motion.div>
                   )}
                 </div>

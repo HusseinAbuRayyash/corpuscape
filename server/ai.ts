@@ -1052,3 +1052,81 @@ Discuss what the discourse marker profile reveals about:
 
   return generateContentChunked(prompt, text);
 }
+
+export async function detectAndLabelSpeakers(text: string): Promise<string> {
+  const prompt = `You are an expert in conversation analysis and speaker diarization. Your task is to read this transcript and label each speaker turn with a clear speaker tag.
+
+Instructions:
+- Identify distinct speakers based on: topic shifts, conversational roles (interviewer/interviewee, speaker/interpreter, presenter/questioner), pronoun usage, and stylistic differences.
+- If the transcript already contains speaker labels in any format (A:, B:, P:, Q:, interviewer, etc.), normalize them to "Speaker 1:", "Speaker 2:", etc.
+- If there are NO speaker labels, infer turn boundaries from conversational logic and assign Speaker 1, Speaker 2, etc.
+- Preserve ALL original text exactly — only add or replace speaker tags.
+- For interpreting contexts: label as "Speaker 1 (source)", "Interpreter (target)" if detectable.
+- Format each turn on its own line: "Speaker N: [text of turn]"
+- After the labeled transcript, add a brief "Speaker Profile" section summarizing each speaker's role, estimated number of words/turns, and speaking style.
+
+Output the full speaker-labeled transcript followed by the speaker profiles.`;
+
+  return generateContentChunked(prompt, text);
+}
+
+export async function analyzeNumbersAndNames(sourceText: string, targetText: string): Promise<string> {
+  const combined = `SOURCE SPEECH:\n${sourceText}\n\n---\nINTERPRETED/TRANSLATED VERSION:\n${targetText}`;
+  const prompt = `You are an interpreting quality assessor specializing in the accurate rendering of critical information elements. Analyze how well numbers, proper names, dates, and technical terms are handled in the interpretation.
+
+Examine the following:
+1. **Numbers & Figures** — Are all numbers (quantities, percentages, statistics, years, phone numbers, measurements) accurately rendered? List all instances with source vs. target comparison.
+2. **Proper Names** — Are personal names, place names, organization names, and titles correctly transferred or appropriately adapted?
+3. **Dates & Times** — Are temporal references (dates, times, durations) accurately rendered with appropriate calendar/time format adaptation?
+4. **Technical Terms & Acronyms** — Are field-specific terms, abbreviations, and acronyms correctly handled?
+5. **Cultural References** — Are culture-specific items (currencies, institutions, titles, honorifics) appropriately adapted?
+6. **Omissions & Errors** — List every instance where a critical element was omitted, distorted, or incorrectly rendered.
+
+For each category, provide:
+- Total count of instances found in source
+- Count accurately rendered
+- Count with errors or omissions
+- Specific examples with source vs. target text
+
+End with an **Accuracy Score** (0–100%) and **Priority Recommendations** for the interpreter.`;
+
+  return generateContentChunked(prompt, combined);
+}
+
+export async function analyzeTerminologyConsistency(sourceText: string, targetText: string): Promise<string> {
+  const combined = `SOURCE SPEECH:\n${sourceText}\n\n---\nINTERPRETED/TRANSLATED VERSION:\n${targetText}`;
+  const prompt = `You are a terminology and translation quality specialist. Analyze the terminological consistency and lexical choices in this interpreted or translated text.
+
+Your analysis should cover:
+1. **Key Term Inventory** — Extract the 15–20 most important domain-specific terms from the source text.
+2. **Translation Consistency** — For each key term, identify all occurrences in the source and how they are rendered in the target. Flag inconsistencies.
+3. **Terminological Accuracy** — Assess whether chosen equivalents are accurate for the domain (academic, medical, legal, political, technical).
+4. **Register Matching** — Evaluate whether the target maintains the same register (formal, informal, technical) as the source.
+5. **Lexical Cohesion** — Are cohesive chains (synonyms, pronoun references, lexical repetition) maintained?
+6. **Problematic Terms** — Identify terms that were mistranslated, inconsistently rendered, or avoided (untranslated, omitted, or paraphrased unnecessarily).
+7. **Glossary Recommendations** — Suggest a mini-glossary of 10 source terms with their recommended target equivalents.
+
+Format as a structured report with a **Terminology Consistency Score** (0–100%) at the end.`;
+
+  return generateContentChunked(prompt, combined);
+}
+
+export async function analyzeConsecutiveInterpreting(sourceText: string, targetText: string): Promise<string> {
+  const combined = `SOURCE SPEECH:\n${sourceText}\n\n---\nCONSECUTIVE INTERPRETATION:\n${targetText}`;
+  const prompt = `You are an expert in consecutive interpreting research and training. Analyze this consecutive interpretation for features specific to the consecutive mode.
+
+Analyze the following:
+1. **Segmentation & Chunking** — How are source speech segments handled? Assess whether the interpreter identified appropriate chunking points.
+2. **Information Density Management** — How does the interpreter handle high-density passages (lists, enumerations, statistics)?
+3. **Note-Taking Evidence** — Based on completeness and structure of the rendition, infer the quality of note-taking.
+4. **Memory & Recall** — Are there signs of memory lapses (gaps, reconstructions, approximations)?
+5. **Re-structuring** — Does the interpreter successfully re-organize source speech structure into natural target language structure?
+6. **Ear-Voice Span** — Estimate the lag strategy: full-utterance CI, partial segments, or hybrid?
+7. **Reformulation Quality** — Are reformulations natural, idiomatic, and rhetorically effective?
+8. **Prosody & Delivery** — Based on the text, what can be inferred about pacing, emphasis, and fluency?
+9. **Strengths & Weaknesses** — A balanced assessment for training purposes.
+
+Conclude with a **CI Performance Profile** rating five dimensions (1–5): Completeness, Accuracy, Fluency, Naturalness, Coherence.`;
+
+  return generateContentChunked(prompt, combined);
+}

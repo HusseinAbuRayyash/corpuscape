@@ -37,6 +37,10 @@ import {
   analyzeInterpretingStrategies,
   assessInterpretingQuality,
   analyzeDiscourseMarkers,
+  detectAndLabelSpeakers,
+  analyzeNumbersAndNames,
+  analyzeTerminologyConsistency,
+  analyzeConsecutiveInterpreting,
 } from "./ai";
 import {
   fetchYouTubeTranscript,
@@ -1527,6 +1531,57 @@ Format with clear headings and specific examples from each corpus.`);
       const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
       if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
       const result = await assessInterpretingQuality(srcText, tgtText);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/speakers", async (req, res) => {
+    try {
+      const { corpusId, text } = req.body;
+      const transcript = corpusId ? getCorpus(corpusId) : text;
+      if (!transcript) return res.status(400).json({ error: "Transcript text is required" });
+      const result = await detectAndLabelSpeakers(transcript);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/numbers", async (req, res) => {
+    try {
+      const { sourceCorpusId, targetCorpusId } = req.body;
+      const srcText = sourceCorpusId ? getCorpus(sourceCorpusId) : req.body.sourceText;
+      const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
+      if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
+      const result = await analyzeNumbersAndNames(srcText, tgtText);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/terminology", async (req, res) => {
+    try {
+      const { sourceCorpusId, targetCorpusId } = req.body;
+      const srcText = sourceCorpusId ? getCorpus(sourceCorpusId) : req.body.sourceText;
+      const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
+      if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
+      const result = await analyzeTerminologyConsistency(srcText, tgtText);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/consecutive", async (req, res) => {
+    try {
+      const { sourceCorpusId, targetCorpusId } = req.body;
+      const srcText = sourceCorpusId ? getCorpus(sourceCorpusId) : req.body.sourceText;
+      const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
+      if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
+      const result = await analyzeConsecutiveInterpreting(srcText, tgtText);
       res.json({ result });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
