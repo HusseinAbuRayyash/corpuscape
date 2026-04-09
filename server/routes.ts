@@ -33,7 +33,17 @@ import {
   detectCulturalReferences,
   findLexicalGaps,
   profileTranslatorStyle,
+  analyzeSpeechDisfluencies,
+  analyzeInterpretingStrategies,
+  assessInterpretingQuality,
+  analyzeDiscourseMarkers,
 } from "./ai";
+import {
+  fetchYouTubeTranscript,
+  transcribeWithWhisper,
+  computeSpeechStats,
+  computeBilingualSpeechStats,
+} from "./speech";
 import {
   storeCorpus,
   getCorpus,
@@ -1410,6 +1420,115 @@ Format with clear headings and specific examples from each corpus.`);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to delete corpus" });
+    }
+  });
+
+  // ── Speech Lab routes ──────────────────────────────────────────────────────
+
+  app.post("/api/speech/youtube", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url) return res.status(400).json({ error: "URL is required" });
+      const result = await fetchYouTubeTranscript(url);
+      const corpusId = generateCorpusId();
+      storeCorpus(corpusId, result.text);
+      const stats = computeSpeechStats(result.text);
+      res.json({ ...result, corpusId, stats });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || "Failed to fetch transcript" });
+    }
+  });
+
+  app.post("/api/speech/transcribe", upload.single("audio"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No audio file provided" });
+      if (req.file.size > 25 * 1024 * 1024) {
+        return res.status(400).json({ error: "File too large. Whisper API limit is 25 MB." });
+      }
+      const language = req.body.language || undefined;
+      const result = await transcribeWithWhisper(req.file.buffer, req.file.originalname, language);
+      const corpusId = generateCorpusId();
+      storeCorpus(corpusId, result.text);
+      const stats = computeSpeechStats(result.text, language || "en");
+      res.json({ ...result, corpusId, stats, segments: [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Transcription failed" });
+    }
+  });
+
+  app.post("/api/speech/paste", async (req, res) => {
+    try {
+      const { text, language } = req.body;
+      if (!text) return res.status(400).json({ error: "Text is required" });
+      const corpusId = generateCorpusId();
+      storeCorpus(corpusId, text);
+      const stats = computeSpeechStats(text, language || "en");
+      res.json({ text, language: language || "manual", corpusId, stats, segments: [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to process text" });
+    }
+  });
+
+  app.post("/api/speech/bilingual-stats", async (req, res) => {
+    try {
+      const { sourceCorpusId, targetCorpusId } = req.body;
+      const srcText = sourceCorpusId ? getCorpus(sourceCorpusId) : req.body.sourceText;
+      const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
+      if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
+      const stats = computeBilingualSpeechStats(srcText, tgtText);
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/disfluencies", async (req, res) => {
+    try {
+      const { corpusId } = req.body;
+      const text = corpusId ? getCorpus(corpusId) : req.body.text;
+      if (!text) return res.status(404).json({ error: "Corpus not found" });
+      const result = await analyzeSpeechDisfluencies(text);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/discourse", async (req, res) => {
+    try {
+      const { corpusId } = req.body;
+      const text = corpusId ? getCorpus(corpusId) : req.body.text;
+      if (!text) return res.status(404).json({ error: "Corpus not found" });
+      const result = await analyzeDiscourseMarkers(text);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/interpreting", async (req, res) => {
+    try {
+      const { sourceCorpusId, targetCorpusId } = req.body;
+      const srcText = sourceCorpusId ? getCorpus(sourceCorpusId) : req.body.sourceText;
+      const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
+      if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
+      const result = await analyzeInterpretingStrategies(srcText, tgtText);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/speech/ai/quality", async (req, res) => {
+    try {
+      const { sourceCorpusId, targetCorpusId } = req.body;
+      const srcText = sourceCorpusId ? getCorpus(sourceCorpusId) : req.body.sourceText;
+      const tgtText = targetCorpusId ? getCorpus(targetCorpusId) : req.body.targetText;
+      if (!srcText || !tgtText) return res.status(400).json({ error: "Both source and target texts are required" });
+      const result = await assessInterpretingQuality(srcText, tgtText);
+      res.json({ result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

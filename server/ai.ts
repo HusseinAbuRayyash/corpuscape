@@ -972,3 +972,83 @@ IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
 
   return allResults;
 }
+
+// ── Speech Lab AI functions ──────────────────────────────────────────────────
+
+export async function analyzeSpeechDisfluencies(text: string): Promise<string> {
+  const prompt = `You are a speech and corpus linguistics expert. Analyze the following speech transcript for disfluency features relevant to translation and interpreting research.
+
+Identify and discuss:
+1. **Hesitation markers** — um, uh, er, ah, hmm and equivalents in other languages
+2. **Fillers and discourse markers** — you know, I mean, like, well, so, basically, right
+3. **False starts and self-repairs** — where the speaker abandons and restarts an utterance
+4. **Repetitions** — word or phrase repetitions that indicate processing difficulty
+5. **Prolongations** — stretched sounds (often noted as "::") indicating planning time
+6. **Overall fluency profile** — what the disfluency pattern tells us about the speaker's cognitive load, spontaneity, and speaking style
+7. **Implications for interpreting** — how these features affect interpretability, what an interpreter must handle
+
+Present findings in clear sections with examples from the transcript. Conclude with a brief fluency rating (1–5) with justification.`;
+
+  return generateContentChunked(prompt, text);
+}
+
+export async function analyzeInterpretingStrategies(sourceText: string, targetText: string): Promise<string> {
+  const combined = `SOURCE SPEECH:\n${sourceText}\n\n---\nINTERPRETED/TRANSLATED VERSION:\n${targetText}`;
+  const prompt = `You are an expert in interpreting studies and spoken language translation. Compare the source speech and its interpreted/translated version.
+
+Analyze and identify:
+1. **Omission** — information present in the source but absent in the target; classify as deliberate (strategic) or unintentional
+2. **Addition** — information added in the target not in the source; classify as explicitation, compensation, or error
+3. **Reformulation** — how source phrasing is restructured; identify paraphrase, transposition, modulation
+4. **Compression** — condensed renderings; calculate rough compression ratio
+5. **Expansion** — elaborated renderings; identify explicitation strategies
+6. **Anticipation & Ear-Voice Span** — evidence of anticipation or lag
+7. **Coping strategies** — approximation, generalization, substitution, neutralization
+8. **Fidelity assessment** — semantic accuracy, pragmatic equivalence, register consistency
+9. **Overall interpreting quality** — rate accuracy, fluency, completeness, and target language quality (each 1–5)
+
+Use concrete examples from both texts for each point. Format with clear headings and a summary table.`;
+
+  return generateContentChunked(prompt, combined);
+}
+
+export async function assessInterpretingQuality(sourceText: string, targetText: string): Promise<string> {
+  const combined = `SOURCE:\n${sourceText}\n\n---\nTARGET:\n${targetText}`;
+  const prompt = `You are an experienced interpreting quality assessor using AIIC and academic rubrics. Provide a structured quality assessment of this source–target pair.
+
+Assessment criteria:
+1. **Content Accuracy (1–5)** — fidelity to source meaning, no distortions or major omissions
+2. **Completeness (1–5)** — all key information rendered
+3. **Target Language Quality (1–5)** — fluency, grammar, naturalness
+4. **Register Consistency (1–5)** — matching formality level of source
+5. **Coherence & Cohesion (1–5)** — logical flow, discourse connectors
+6. **Pragmatic Equivalence (1–5)** — speaker intent and illocutionary force preserved
+
+For each criterion: give the score, brief justification, and specific examples.
+Then provide an **Overall Score** (average) and a **Summary paragraph** suitable for interpreting training feedback.
+Finally, list 3 concrete **Recommendations for improvement**.`;
+
+  return generateContentChunked(prompt, combined);
+}
+
+export async function analyzeDiscourseMarkers(text: string): Promise<string> {
+  const prompt = `You are a discourse analysis and corpus linguistics specialist. Analyze the discourse markers and pragmatic features in this spoken text.
+
+Identify and categorize:
+1. **Structural markers** — markers organizing speech (first, then, finally, moving on)
+2. **Contrastive markers** — however, but, on the other hand, although
+3. **Elaboration markers** — furthermore, in addition, for example, specifically
+4. **Causal markers** — because, therefore, as a result, consequently
+5. **Hedging language** — I think, I believe, perhaps, it seems, might, could
+6. **Stance markers** — expressions of the speaker's attitude or commitment
+7. **Turn management** — markers signaling topic shift, interruption, or floor-holding
+8. **Interactive markers** — right?, you know?, okay?, don't you think?
+
+For each category, provide frequency analysis and representative examples. 
+Discuss what the discourse marker profile reveals about:
+- Speaker's rhetorical strategy
+- Register and formality level
+- Implications for translation and interpreting decisions`;
+
+  return generateContentChunked(prompt, text);
+}
