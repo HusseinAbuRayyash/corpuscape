@@ -783,6 +783,136 @@ Write a 2-3 sentence academic Results paragraph citing Figure ${figureNumber}. U
   return generateContent(prompt, dataStr, 5000);
 }
 
+export async function detectCulturalReferences(
+  pairs: { source: string; target: string }[]
+): Promise<{ term: string; category: string; sourceTerm: string; targetRendering: string; strategy: string; notes: string }[]> {
+  const BATCH_SIZE = 35;
+  const allRefs: { term: string; category: string; sourceTerm: string; targetRendering: string; strategy: string; notes: string }[] = [];
+  const seenTerms = new Set<string>();
+
+  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
+    const batch = pairs.slice(start, start + BATCH_SIZE);
+    const pairsText = batch.map((p, i) => `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`).join("\n");
+
+    const prompt = `You are a translation studies expert. Analyze these aligned translation pairs and identify ALL cultural references — proper nouns, idioms, culture-specific items, religious references, historical allusions, food/customs/institutions.
+
+For each reference found, classify it and determine how the translator handled it.
+
+IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
+[{"term":"brief English label","category":"proper_noun|idiom|culture_specific|religious|historical|food_custom","sourceTerm":"exact phrase in source","targetRendering":"how it appears in target","strategy":"retained|adapted|domesticated|footnoted|omitted|explained|transliterated","notes":"1-2 sentence explanation of the translation decision"}]
+
+Rules:
+- Only include items that are genuinely cultural (not generic vocabulary)
+- strategy must be one of the listed values exactly
+- category must be one of the listed values exactly
+- Provide as many distinct references as you can find
+- notes should explain WHY the translator made that choice`;
+
+    const raw = await generateContent(prompt, pairsText);
+    try {
+      const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) continue;
+      const parsed = JSON.parse(jsonMatch[0]);
+      for (const item of parsed) {
+        const key = `${String(item.sourceTerm || "").toLowerCase()}`;
+        if (!seenTerms.has(key) && key.length > 0) {
+          seenTerms.add(key);
+          allRefs.push({
+            term: String(item.term || ""),
+            category: String(item.category || "culture_specific"),
+            sourceTerm: String(item.sourceTerm || ""),
+            targetRendering: String(item.targetRendering || ""),
+            strategy: String(item.strategy || "retained"),
+            notes: String(item.notes || ""),
+          });
+        }
+      }
+    } catch { }
+  }
+  return allRefs;
+}
+
+export async function findLexicalGaps(
+  pairs: { source: string; target: string }[]
+): Promise<{ sourceConcept: string; sourceExample: string; targetAttempt: string; gapType: string; discussion: string }[]> {
+  const BATCH_SIZE = 35;
+  const allGaps: { sourceConcept: string; sourceExample: string; targetAttempt: string; gapType: string; discussion: string }[] = [];
+  const seenConcepts = new Set<string>();
+
+  for (let start = 0; start < pairs.length; start += BATCH_SIZE) {
+    const batch = pairs.slice(start, start + BATCH_SIZE);
+    const pairsText = batch.map((p, i) => `${i + 1}. SRC: ${p.source} | TGT: ${p.target}`).join("\n");
+
+    const prompt = `You are a lexicology and translation studies expert. Analyze these aligned translation pairs and identify LEXICAL GAPS — source-language concepts or words that have no direct single-word equivalent in the target language.
+
+Focus on cases where the translator had to use a phrase, explanation, borrowing, or approximation to convey a concept that has one clean word in the source.
+
+IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
+[{"sourceConcept":"the word or concept (1-3 words)","sourceExample":"the exact phrase from the source text","targetAttempt":"how the translator rendered it","gapType":"single_word|conceptual|cultural|grammatical","discussion":"2-3 sentences explaining the gap — why no equivalent exists and how the translator coped"}]
+
+Rules:
+- gapType must be exactly one of: single_word (target language lacks a single-word form), conceptual (the concept itself doesn't exist in target culture), cultural (culturally untranslatable), grammatical (grammatical category gap)
+- Only include genuine gaps, not lazy translation choices
+- sourceExample must be a real excerpt from the provided pairs`;
+
+    const raw = await generateContent(prompt, pairsText);
+    try {
+      const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) continue;
+      const parsed = JSON.parse(jsonMatch[0]);
+      for (const item of parsed) {
+        const key = String(item.sourceConcept || "").toLowerCase();
+        if (!seenConcepts.has(key) && key.length > 0) {
+          seenConcepts.add(key);
+          allGaps.push({
+            sourceConcept: String(item.sourceConcept || ""),
+            sourceExample: String(item.sourceExample || ""),
+            targetAttempt: String(item.targetAttempt || ""),
+            gapType: String(item.gapType || "conceptual"),
+            discussion: String(item.discussion || ""),
+          });
+        }
+      }
+    } catch { }
+  }
+  return allGaps;
+}
+
+export async function profileTranslatorStyle(
+  pairs: { source: string; target: string }[]
+): Promise<string> {
+  const sample = pairs.slice(0, 120);
+  const pairsText = sample.map((p, i) => `${i + 1}. SRC: ${p.source}\n   TGT: ${p.target}`).join("\n\n");
+
+  const prompt = `You are an expert in translation stylistics and corpus-based translation studies. Analyze the following ${sample.length} aligned translation pairs and produce a comprehensive TRANSLATOR STYLE PROFILE.
+
+Your profile must cover ALL of these dimensions with specific examples quoted directly from the corpus:
+
+## 1. Synonym & Lexical Preferences
+Which synonyms does this translator consistently prefer? Do they favour formal or informal register? Are there recurring word choices that reveal a personal lexical fingerprint?
+
+## 2. Sentence Restructuring Patterns
+How does the translator handle sentence length and structure? Do they split long sentences, merge short ones, shift clause order, prefer active/passive voice? Quantify if possible (e.g., "roughly 40% of complex SRC sentences are split into two TGT sentences").
+
+## 3. Borrowing & Code-Switching Tendency
+How often does the translator borrow source-language terms (loan words, transliteration) vs. finding target-language equivalents? In which domains is borrowing most frequent?
+
+## 4. Explicitation vs. Implicitation
+Does the translator tend to add explanatory material not present in the source (explicitation), or compress and omit (implicitation)? Provide ratio estimate and examples.
+
+## 5. Idiomatic vs. Literal Tendency
+Does the translator preserve source idioms literally, adapt them to target-language idioms, or neutralise them to literal paraphrase?
+
+## 6. Overall Translator Profile Summary
+A 2–3 paragraph synthesis naming the dominant stylistic features, whether this profile leans towards domesticating or foreignising translation (à la Venuti), and any research implications.
+
+Format your response in Markdown with clear headings. Quote specific pair numbers where relevant (e.g., "see pair #12").`;
+
+  return generateContent(prompt, pairsText, 180000);
+}
+
 export async function backTranslate(
   pairs: { source: string; target: string }[],
   srcLang: string = "en",

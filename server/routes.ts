@@ -30,6 +30,9 @@ import {
   generateFigureCaption,
   recommendChartType,
   generateResultsParagraph,
+  detectCulturalReferences,
+  findLexicalGaps,
+  profileTranslatorStyle,
 } from "./ai";
 import {
   storeCorpus,
@@ -1048,6 +1051,45 @@ Format with clear headings and specific examples from each corpus.`);
     const pairs = JSON.parse(pairsStr);
     const result = await analyzeStrategies(pairs);
     res.json({ result });
+  });
+
+  app.post("/api/bilingual/cultural-references", async (req, res) => {
+    try {
+      const { corpusId } = req.body;
+      const pairsStr = getCorpus(`${corpusId}_pairs`);
+      if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+      const pairs = JSON.parse(pairsStr);
+      const references = await detectCulturalReferences(pairs);
+      res.json({ references });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Cultural reference detection failed" });
+    }
+  });
+
+  app.post("/api/bilingual/lexical-gaps", async (req, res) => {
+    try {
+      const { corpusId } = req.body;
+      const pairsStr = getCorpus(`${corpusId}_pairs`);
+      if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+      const pairs = JSON.parse(pairsStr);
+      const gaps = await findLexicalGaps(pairs);
+      res.json({ gaps });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Lexical gap analysis failed" });
+    }
+  });
+
+  app.post("/api/bilingual/style-profile", async (req, res) => {
+    try {
+      const { corpusId } = req.body;
+      const pairsStr = getCorpus(`${corpusId}_pairs`);
+      if (!pairsStr) return res.status(404).json({ error: "Pairs not found" });
+      const pairs = JSON.parse(pairsStr);
+      const profile = await profileTranslatorStyle(pairs);
+      res.json({ profile });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Style profiling failed" });
+    }
   });
 
   app.post("/api/export/tmx", (req, res) => {
