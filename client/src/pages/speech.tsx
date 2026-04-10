@@ -149,7 +149,7 @@ function parseSpeakerProfiles(result: string): { speaker: string; role: string; 
   // A "speaker header line" is one that starts with a name followed by ":" at column 0 (after trimming)
   // We exclude pure bullet lines and the "Speaker Profile:" header itself
   const HEADER = /^speaker\s*profile/i;
-  const SPEAKER_HEADER = /^([A-Z][\w\s()\-]{0,60}?)\s*:\s*(.*)/; // starts with capital letter
+  const SPEAKER_HEADER = /^([A-Z][\w\s()\-,]{0,60}?)\s*:\s*(.*)/; // starts with capital letter; commas allowed inside parens
   const BULLET = /^[-•]\s*/;
 
   const rawLines = clean.split("\n").map(l => l.trim());
