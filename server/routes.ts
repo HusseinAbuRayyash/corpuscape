@@ -45,6 +45,7 @@ import {
 import {
   fetchYouTubeTranscript,
   transcribeWithWhisper,
+  transcribeWithGemini,
   computeSpeechStats,
   computeBilingualSpeechStats,
 } from "./speech";
@@ -1458,6 +1459,23 @@ Format with clear headings and specific examples from each corpus.`);
       res.json({ ...result, corpusId, stats, segments: [] });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Transcription failed" });
+    }
+  });
+
+  app.post("/api/speech/transcribe-gemini", upload.single("audio"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No audio file provided" });
+      if (req.file.size > 20 * 1024 * 1024) {
+        return res.status(400).json({ error: "File too large for Gemini inline transcription (max 20 MB)." });
+      }
+      const language = req.body.language || undefined;
+      const result = await transcribeWithGemini(req.file.buffer, req.file.originalname, language);
+      const corpusId = generateCorpusId();
+      storeCorpus(corpusId, result.text);
+      const stats = computeSpeechStats(result.text, language || "ar");
+      res.json({ ...result, corpusId, stats, segments: [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Gemini transcription failed" });
     }
   });
 

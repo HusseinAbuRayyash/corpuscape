@@ -1054,18 +1054,24 @@ Discuss what the discourse marker profile reveals about:
 }
 
 export async function detectAndLabelSpeakers(text: string): Promise<string> {
-  const prompt = `You are an expert in conversation analysis and speaker diarization. Your task is to read this transcript and label each speaker turn with a clear speaker tag.
+  const prompt = `You are an expert in conversation analysis and speaker diarization. Read the following transcript and label every speaker turn.
 
-Instructions:
-- Identify distinct speakers based on: topic shifts, conversational roles (interviewer/interviewee, speaker/interpreter, presenter/questioner), pronoun usage, and stylistic differences.
-- If the transcript already contains speaker labels in any format (A:, B:, P:, Q:, interviewer, etc.), normalize them to "Speaker 1:", "Speaker 2:", etc.
-- If there are NO speaker labels, infer turn boundaries from conversational logic and assign Speaker 1, Speaker 2, etc.
-- Preserve ALL original text exactly — only add or replace speaker tags.
-- For interpreting contexts: label as "Speaker 1 (source)", "Interpreter (target)" if detectable.
-- Format each turn on its own line: "Speaker N: [text of turn]"
-- After the labeled transcript, add a brief "Speaker Profile" section summarizing each speaker's role, estimated number of words/turns, and speaking style.
+STRICT OUTPUT RULES — follow exactly or the result will be unusable:
+1. PLAIN TEXT ONLY. Do NOT use any markdown: no asterisks (*), no double-asterisks (**), no underscores (_), no hashes (#), no dashes as bullets, no bold, no italic. Plain text only.
+2. Each turn MUST be on its own line in EXACTLY this format (nothing before the speaker name, nothing after the colon except the text):
+   Speaker 1: [turn text]
+   Speaker 2: [turn text]
+3. Do NOT merge multiple conversational exchanges into a single long turn. Each time the speaker changes, start a new line with the speaker tag.
+4. Speaker numbering: the FIRST speaker to speak is Speaker 1, the SECOND new voice is Speaker 2, etc. Do not reassign numbers mid-transcript.
+5. Preserve ALL original text exactly — only add speaker tags, do not paraphrase or summarize.
+6. For interpreting/conference contexts: label as "Speaker 1 (source language)" and "Interpreter" if clearly distinguishable.
+7. After the labeled transcript, add a plain-text section starting with "Speaker Profile:" that lists each speaker's role, turn count, and style in 1-2 sentences each.
 
-Output the full speaker-labeled transcript followed by the speaker profiles.`;
+Identification strategy:
+- Topic shifts and question/answer pairs
+- Conversational role (host, guest, interpreter, questioner)
+- Changes in pronoun reference ("I said...", "you said...")
+- Greeting/acknowledgement patterns that signal speaker switches`;
 
   return generateContentChunked(prompt, text);
 }
