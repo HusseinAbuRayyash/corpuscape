@@ -269,11 +269,21 @@ export async function transcribeWithWhisper(
   language?: string,
 ): Promise<{ text: string; language: string }> {
   const file = new File([buffer], filename);
+  const isAutoDetect = !language || language === "auto";
+
   const response = await (openai.audio.transcriptions as any).create({
     file,
     model: "whisper-1",
-    ...(language && language !== "auto" ? { language } : {}),
+    // Only lock the language when the user explicitly chose one.
+    // Auto-detect lets Whisper handle code-switching (e.g. Arabic + English).
+    ...(isAutoDetect ? {} : { language }),
     response_format: "verbose_json",
+    // When auto-detecting, hint that the recording may switch languages so
+    // Whisper keeps each word in its original spoken language rather than
+    // normalising everything to the dominant language.
+    ...(isAutoDetect ? {
+      prompt: "This recording may contain multiple languages. Do not translate. Transcribe every word exactly as spoken, preserving each language as-is.",
+    } : {}),
   }) as any;
 
   const text: string = response.text || "";
@@ -362,9 +372,10 @@ export async function transcribeWithGemini(
 ): Promise<{ text: string; language: string }> {
   const mimeType = toAudioMimeType(filename);
   const base64Data = buffer.toString("base64");
-  const langHint = language && language !== "auto"
-    ? `The audio language is ${language}. Transcribe accordingly.`
-    : "Detect the language automatically and transcribe.";
+  const isAutoDetect = !language || language === "auto";
+  const langHint = isAutoDetect
+    ? "The audio may be in one language or may switch between multiple languages (code-switching). Detect all languages present."
+    : `The audio is primarily in ${language}, but may also contain segments in other languages.`;
 
   const response = await geminiAi.models.generateContent({
     model: "gemini-2.5-flash",
@@ -378,8 +389,9 @@ export async function transcribeWithGemini(
 
 Rules:
 - Output ONLY the spoken text — no timestamps, no speaker labels, no explanations, no preamble.
+- MULTILINGUAL: If the audio contains more than one language (e.g. Arabic and English, French and Arabic, etc.), transcribe each word or phrase in the EXACT language it was spoken. Do NOT translate any segment into another language. Do NOT normalize everything into one language. Preserve code-switching exactly as it occurs.
 - Preserve the exact words spoken including filler words, hesitations, and repetitions.
-- For Arabic: use Modern Standard Arabic spellings where ambiguous.
+- For Arabic: use the spelling closest to what was spoken (dialect or MSA) rather than normalizing.
 - If multiple speakers are present, run their speech together in the order spoken (no labels).
 - If you cannot detect any speech, output only the word: [inaudible]`,
           },
