@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BookOpen, Globe, Newspaper, Scale, Image, Sparkles, Zap, FileText, BarChart3, Brain, Search, ArrowRight, CheckCircle2, ChevronDown, Library } from "lucide-react";
+import { BookOpen, Globe, Newspaper, Scale, Image, Sparkles, Zap, FileText, BarChart3, Brain, Search, ArrowRight, CheckCircle2, ChevronDown, Library, Mic } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,18 @@ const tracks = [
     bgTo: "to-sky-400",
     glowColor: "rgba(8, 145, 178, 0.35)",
   },
+  {
+    title: "Speech Lab",
+    description: "Transcribe audio, detect & label speakers, analyze tone & disfluency — built for interpreted speech",
+    features: ["AI transcription", "Speaker diarization", "RTL/LTR per turn", "Tone & register", "Corpus export"],
+    icon: Mic,
+    href: "/speech",
+    color: "#c026d3",
+    colorEnd: "#a855f7",
+    bgFrom: "from-fuchsia-500",
+    bgTo: "to-violet-600",
+    glowColor: "rgba(192, 38, 211, 0.35)",
+  },
 ];
 
 const capabilities = [
@@ -107,6 +119,13 @@ const capabilities = [
     description: "Keywords, collocations, n-grams, concordance, word clouds, and sub-corpus segmentation",
     iconBg: "bg-[rgba(56,189,248,0.1)] dark:bg-[rgba(56,189,248,0.08)]",
     iconColor: "text-sky-500 dark:text-sky-300",
+  },
+  {
+    icon: Mic,
+    title: "Speech Lab — New",
+    description: "Transcribe recordings with Gemini, auto-detect speakers, compare interpreter vs. speaker tone & register with per-turn RTL/LTR rendering",
+    iconBg: "bg-[rgba(192,38,211,0.1)] dark:bg-[rgba(192,38,211,0.08)]",
+    iconColor: "text-fuchsia-500 dark:text-fuchsia-300",
   },
 ];
 
@@ -342,32 +361,36 @@ export default function Home() {
           </motion.div>
 
           <motion.div
-            className="grid md:grid-cols-2 gap-5"
+            className="grid md:grid-cols-2 lg:grid-cols-3 gap-5"
             variants={containerVariants}
             initial="hidden" whileInView="show"
             viewport={{ once: true, margin: "-60px" }}
           >
-            {capabilities.map((cap, i) => (
-              <motion.div
-                key={cap.title}
-                variants={cardVariants}
-                className="group relative overflow-hidden rounded-[20px] border border-border/50 dark:border-white/[0.06] bg-white/60 dark:bg-[rgba(17,24,39,0.5)] backdrop-blur-sm p-8 flex gap-6 items-start transition-all duration-400 hover:-translate-y-1 hover:border-border dark:hover:border-white/[0.12]"
-                style={{ boxShadow: "0 2px 16px -4px rgba(0,0,0,0.07)" }}
-                data-testid={`card-capability-${i}`}
-              >
-                <div className="absolute top-0 left-[10%] right-[10%] h-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                  style={{ background: `linear-gradient(90deg, transparent, ${["#14b8a6","#6366f1","#f59e0b","#38bdf8"][i]}, transparent)` }} />
-                <div className={`w-13 h-13 rounded-[14px] flex items-center justify-center flex-shrink-0 ${cap.iconBg}`}
-                  style={{ width: 52, height: 52 }}>
-                  <cap.icon className={`w-6 h-6 ${cap.iconColor}`} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-[15px] tracking-tight mb-2 text-foreground"
-                    style={{ fontFamily: "'Playfair Display', serif" }}>{cap.title}</h3>
-                  <p className="text-[13px] text-muted-foreground leading-relaxed">{cap.description}</p>
-                </div>
-              </motion.div>
-            ))}
+            {capabilities.map((cap, i) => {
+              const accentColors = ["#14b8a6","#6366f1","#f59e0b","#38bdf8","#c026d3"];
+              const isLastOdd = i === capabilities.length - 1 && capabilities.length % 3 !== 0;
+              return (
+                <motion.div
+                  key={cap.title}
+                  variants={cardVariants}
+                  className={`group relative overflow-hidden rounded-[20px] border border-border/50 dark:border-white/[0.06] bg-white/60 dark:bg-[rgba(17,24,39,0.5)] backdrop-blur-sm p-8 flex gap-6 items-start transition-all duration-400 hover:-translate-y-1 hover:border-border dark:hover:border-white/[0.12]${isLastOdd ? " md:col-span-2 lg:col-span-1" : ""}`}
+                  style={{ boxShadow: "0 2px 16px -4px rgba(0,0,0,0.07)" }}
+                  data-testid={`card-capability-${i}`}
+                >
+                  <div className="absolute top-0 left-[10%] right-[10%] h-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{ background: `linear-gradient(90deg, transparent, ${accentColors[i] ?? "#14b8a6"}, transparent)` }} />
+                  <div className={`w-13 h-13 rounded-[14px] flex items-center justify-center flex-shrink-0 ${cap.iconBg}`}
+                    style={{ width: 52, height: 52 }}>
+                    <cap.icon className={`w-6 h-6 ${cap.iconColor}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[15px] tracking-tight mb-2 text-foreground"
+                      style={{ fontFamily: "'Playfair Display', serif" }}>{cap.title}</h3>
+                    <p className="text-[13px] text-muted-foreground leading-relaxed">{cap.description}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
           </motion.div>
         </div>
       </section>
@@ -467,7 +490,7 @@ export default function Home() {
               style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.5px" }}
               data-testid="text-tracks-title"
             >
-              Six Specialized <span className="text-gradient">Research Tracks</span>
+              Seven Specialized <span className="text-gradient">Research Tracks</span>
             </h2>
             <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
               Each track is purpose-built for a specific workflow in translation studies and corpus linguistics.
@@ -480,11 +503,13 @@ export default function Home() {
             initial="hidden" whileInView="show"
             viewport={{ once: true, margin: "-60px" }}
           >
-            {tracks.map((track, i) => (
+            {tracks.map((track, i) => {
+              const isLonelyLast = i === tracks.length - 1 && tracks.length % 3 === 1;
+              return (
               <motion.div
                 key={track.title}
                 variants={cardVariants}
-                className=""
+                className={isLonelyLast ? "lg:col-start-2" : ""}
               >
                 <Link href={track.href}>
                   <motion.div
@@ -555,7 +580,8 @@ export default function Home() {
                   </motion.div>
                 </Link>
               </motion.div>
-            ))}
+              );
+            })}
           </motion.div>
         </div>
       </section>
@@ -625,6 +651,20 @@ export default function Home() {
                 >
                   <Globe className="w-4 h-4" />
                   Bilingual Track
+                </button>
+              </Link>
+              <Link href="/speech">
+                <button
+                  className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl font-bold text-[14px] transition-all duration-300 hover:-translate-y-0.5"
+                  style={{
+                    background: "linear-gradient(135deg, #c026d3, #a855f7)",
+                    color: "#fff",
+                    boxShadow: "0 6px 24px -4px rgba(192,38,211,0.4)",
+                  }}
+                  data-testid="button-start-speech"
+                >
+                  <Mic className="w-4 h-4" />
+                  Speech Lab
                 </button>
               </Link>
             </div>
