@@ -513,7 +513,9 @@ export default function SpeechLab() {
     },
     onSuccess: (data) => {
       setSrcData(data);
+      setSpeakersResult("");
       setActiveTab("transcript");
+      speakersMutation.mutate(data.corpusId);
       toast({ title: "Transcribed!", description: `Detected: ${data.language} · ${data.stats?.words?.toLocaleString() ?? "?"} words` });
     },
     onError: (e: any) => toast({ title: "Transcription failed", description: e.message, variant: "destructive" }),
@@ -524,7 +526,13 @@ export default function SpeechLab() {
       const res = await apiRequest("POST", "/api/speech/paste", { text: srcPasteText, language: srcLang !== "auto" ? srcLang : undefined });
       return res.json();
     },
-    onSuccess: (data) => { setSrcData(data); setActiveTab("transcript"); toast({ title: "Text loaded", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` }); },
+    onSuccess: (data) => {
+      setSrcData(data);
+      setSpeakersResult("");
+      setActiveTab("transcript");
+      speakersMutation.mutate(data.corpusId);
+      toast({ title: "Text loaded", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` });
+    },
     onError: () => toast({ title: "Failed", variant: "destructive" }),
   });
 
@@ -603,12 +611,12 @@ export default function SpeechLab() {
   });
 
   const speakersMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/speech/ai/speakers", { corpusId: srcData?.corpusId });
+    mutationFn: async (overrideCorpusId?: string) => {
+      const res = await apiRequest("POST", "/api/speech/ai/speakers", { corpusId: overrideCorpusId ?? srcData?.corpusId });
       return res.json();
     },
     onSuccess: (data) => setSpeakersResult(data.result),
-    onError: () => toast({ title: "Analysis failed", variant: "destructive" }),
+    onError: () => toast({ title: "Speaker detection failed", variant: "destructive" }),
   });
 
   const numbersMutation = useMutation({
@@ -874,88 +882,65 @@ export default function SpeechLab() {
             {activeTab === "transcript" && srcData && (
               <motion.div key="transcript" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
 
-                {/* Raw / editable transcript */}
-                <div className="polished-card p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className={`text-sm font-bold ${THEME.accent}`}>Transcript Viewer</h2>
-                    <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
-                      <Pencil className="w-3 h-3" /> Click the pencil to correct typos
-                    </span>
-                  </div>
-                  <TranscriptBox
-                    data={srcData}
-                    label={speechMode === "bilingual" ? "Source Speech" : "Transcript"}
-                    editable
-                  />
-                  {speechMode === "bilingual" && tgtData && (
-                    <TranscriptBox data={tgtData} label="Interpretation / Translation" editable />
-                  )}
-                </div>
-
-                {/* Speaker Detection widget */}
+                {/* ── PRIMARY: Speaker-labeled view ── */}
                 {(() => {
                   const speakerText = speakersResult ? extractSpeakerTranscript(speakersResult) : "";
                   const speakerTurns = speakerText ? parseSpeakerTurns(speakerText) : null;
                   const rtl = isRtl(srcData.text);
 
-                  // Build colour map for speaker turns
                   const colorMap = new Map<string, (typeof SPEAKER_PALETTE)[0]>();
-                  let idx = 0;
+                  let ci = 0;
                   speakerTurns?.forEach(({ speaker }) => {
-                    if (!colorMap.has(speaker)) { colorMap.set(speaker, SPEAKER_PALETTE[idx % SPEAKER_PALETTE.length]); idx++; }
+                    if (!colorMap.has(speaker)) { colorMap.set(speaker, SPEAKER_PALETTE[ci % SPEAKER_PALETTE.length]); ci++; }
                   });
 
-                  if (!speakersResult && !speakersMutation.isPending) {
-                    return (
-                      <div className="polished-card p-5">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-bold flex items-center gap-2">
-                              <Users className="w-4 h-4 text-fuchsia-500" /> Speaker Identification
-                            </h3>
-                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                              AI will label each speaker turn — ideal for interviews, panels, and interpreted speech
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => speakersMutation.mutate()}
-                            className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm shrink-0`}
-                            data-testid="button-detect-speakers-transcript"
-                          >
-                            <UserCheck className="w-4 h-4 mr-2" /> Detect Speakers
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  }
-
+                  /* Loading skeleton while AI runs */
                   if (speakersMutation.isPending) {
                     return (
-                      <div className="polished-card p-5 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" />
-                          <span className="text-sm font-medium">Detecting speakers…</span>
+                      <div className="polished-card p-5 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${THEME.gradient} flex items-center justify-center shrink-0`}>
+                            <Loader2 className="w-4 h-4 text-white animate-spin" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold">Identifying speakers with AI…</p>
+                            <p className="text-[11px] text-muted-foreground/60">Gemini is labeling each speaker turn</p>
+                          </div>
                         </div>
-                        <div className="space-y-2">{[100, 85, 72, 60, 45].map((w, i) => <Skeleton key={i} className="h-12 rounded-xl" style={{ width: `${w}%` }} />)}</div>
+                        {/* Fake bubbles to preview the layout */}
+                        <div className="space-y-3 pt-1">
+                          {[{ w: "72%", side: "left" }, { w: "58%", side: "right" }, { w: "80%", side: "left" }, { w: "50%", side: "right" }, { w: "65%", side: "left" }].map((b, i) => (
+                            <div key={i} className={`flex ${b.side === "right" ? "justify-end" : "justify-start"}`}>
+                              <Skeleton className="h-14 rounded-2xl" style={{ width: b.w }} />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     );
                   }
 
+                  /* Speaker view — AI returned parseable turns */
                   if (speakerTurns && speakerTurns.length > 0) {
                     return (
                       <div className="polished-card p-5 space-y-4">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div>
-                            <h3 className={`text-sm font-bold flex items-center gap-2 ${THEME.accent}`}>
-                              <Users className="w-4 h-4" /> Speaker View
-                            </h3>
-                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">AI-labeled transcript — {colorMap.size} speaker{colorMap.size !== 1 ? "s" : ""} identified</p>
+                        {/* Header */}
+                        <div className="flex items-start justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${THEME.gradient} flex items-center justify-center shrink-0`}>
+                              <Users className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <h2 className={`text-sm font-bold ${THEME.accent}`}>Speaker-Labeled Transcript</h2>
+                              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                                {colorMap.size} speaker{colorMap.size !== 1 ? "s" : ""} identified by Gemini AI
+                              </p>
+                            </div>
                           </div>
                           <Button
                             size="sm" variant="outline"
                             onClick={() => speakersMutation.mutate()}
                             disabled={speakersMutation.isPending}
-                            className="h-8 text-xs"
+                            className="h-8 text-xs shrink-0"
                             data-testid="button-redetect-speakers"
                           >
                             <RefreshCw className="w-3 h-3 mr-1.5" /> Re-detect
@@ -963,31 +948,93 @@ export default function SpeechLab() {
                         </div>
 
                         {/* Speaker legend */}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 pb-1 border-b border-border/40">
                           {[...colorMap.entries()].map(([name, col]) => (
-                            <span key={name} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
+                            <span key={name} className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
                               <span className={`w-2 h-2 rounded-full ${col.badge.split(" ")[0]}`} />
                               <span className={col.name}>{name}</span>
                             </span>
                           ))}
                         </div>
 
-                        {/* Speaker turns */}
-                        <div className="overflow-y-auto max-h-[640px] pr-1" dir={rtl ? "rtl" : "ltr"}>
+                        {/* Speaker bubbles */}
+                        <div className="overflow-y-auto max-h-[680px] pr-1" dir={rtl ? "rtl" : "ltr"}>
                           <SpeakerTurnsView turns={speakerTurns} colorMap={colorMap} rtl={rtl} />
                         </div>
                       </div>
                     );
                   }
 
-                  // speakersResult exists but couldn't parse turns — show raw result
+                  /* AI returned result but can't parse turns — show raw */
+                  if (speakersResult) {
+                    return (
+                      <div className="polished-card p-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className={`text-sm font-bold ${THEME.accent} flex items-center gap-2`}>
+                            <UserCheck className="w-4 h-4" /> Speaker Analysis
+                          </h3>
+                          <Button size="sm" variant="outline" onClick={() => speakersMutation.mutate()} className="h-7 text-xs" data-testid="button-redetect-speakers-raw">
+                            <RefreshCw className="w-3 h-3 mr-1" /> Re-detect
+                          </Button>
+                        </div>
+                        <pre className="text-sm leading-[1.8] text-foreground/85 whitespace-pre-wrap font-sans" dir={rtl ? "rtl" : "ltr"}>{speakerText || speakersResult}</pre>
+                      </div>
+                    );
+                  }
+
+                  /* Nothing yet — show detect prompt */
                   return (
-                    <div className="polished-card p-5 space-y-3">
-                      <h3 className={`text-sm font-bold ${THEME.accent}`}>Speaker Analysis Result</h3>
-                      <pre className="text-xs leading-relaxed text-foreground/80 whitespace-pre-wrap font-sans" dir={rtl ? "rtl" : "ltr"}>{speakerText}</pre>
+                    <div className="polished-card p-5">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${THEME.gradient} opacity-20 flex items-center justify-center shrink-0`}>
+                            <Users className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold">Speaker Identification</h3>
+                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                              Gemini will label each turn — ideal for interviews &amp; interpreted speech
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => speakersMutation.mutate()}
+                          className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm shrink-0`}
+                          data-testid="button-detect-speakers-transcript"
+                        >
+                          <UserCheck className="w-4 h-4 mr-2" /> Detect Speakers
+                        </Button>
+                      </div>
                     </div>
                   );
                 })()}
+
+                {/* ── SECONDARY: Raw editable transcript ── */}
+                <details className="group" open={!speakersResult && !speakersMutation.isPending}>
+                  <summary className="flex items-center gap-2 px-1 py-2 cursor-pointer text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors list-none select-none">
+                    <ChevronRight className="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-90" />
+                    <FileText className="w-3.5 h-3.5" />
+                    Raw transcript &amp; typo editor
+                    <span className="text-[10px] opacity-60 ml-auto">click to expand</span>
+                  </summary>
+                  <div className="polished-card p-5 space-y-4 mt-2">
+                    <div className="flex items-center justify-between">
+                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Raw Transcript</h2>
+                      <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                        <Pencil className="w-3 h-3" /> Click the pencil to fix typos
+                      </span>
+                    </div>
+                    <TranscriptBox
+                      data={srcData}
+                      label={speechMode === "bilingual" ? "Source Speech" : "Transcript"}
+                      editable
+                    />
+                    {speechMode === "bilingual" && tgtData && (
+                      <TranscriptBox data={tgtData} label="Interpretation / Translation" editable />
+                    )}
+                  </div>
+                </details>
+
               </motion.div>
             )}
 
