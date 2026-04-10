@@ -294,6 +294,10 @@ function SpeakerTurnsView({
         const isRight = speakerIdx % 2 === 1;
         // Avatar initials: first letter of last word in speaker name
         const initial = (turn.speaker.trim().split(/\s+/).pop() ?? "?")[0].toUpperCase();
+        // Per-turn direction: detect from THIS turn's own text, not the global corpus language.
+        // This ensures English bubbles in an Arabic recording are still left-aligned,
+        // Arabic bubbles in an English recording are still right-aligned, etc.
+        const turnIsRtl = isRtl(turn.text);
 
         return (
           <div key={i} className={`flex items-end gap-2.5 ${isRight ? "flex-row-reverse" : "flex-row"}`} data-testid={`turn-${i}`}>
@@ -316,8 +320,12 @@ function SpeakerTurnsView({
               )}>
                 <p
                   className="text-sm leading-[1.9] text-foreground/90 tracking-wide"
-                  dir={rtl ? "rtl" : "ltr"}
-                  style={{ textAlign: rtl ? "right" : "left", fontFamily: rtl ? "'Noto Sans Arabic', 'Segoe UI', sans-serif" : undefined }}
+                  dir={turnIsRtl ? "rtl" : "ltr"}
+                  style={{
+                    textAlign: turnIsRtl ? "right" : "left",
+                    fontFamily: turnIsRtl ? "'Noto Sans Arabic', 'Segoe UI', sans-serif" : undefined,
+                    unicodeBidi: "plaintext",
+                  }}
                 >
                   {turn.text}
                 </p>
