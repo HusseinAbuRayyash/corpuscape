@@ -385,24 +385,46 @@ export async function generateChartData(
   text: string,
   prompt: string,
 ): Promise<{ title: string; data: { label: string; value: number }[] }> {
-  const systemPrompt = `You are a corpus analysis assistant. The user wants to visualize specific data from a corpus as a chart.
-Based on their request, analyze the corpus text and produce chart-ready data.
+  const systemPrompt = `You are an expert corpus and discourse analysis assistant for translation studies research. The user wants to visualize data from a corpus or transcript as a chart.
 
-User request: ${prompt}
+User request: "${prompt}"
 
 IMPORTANT: Respond ONLY with a valid JSON object in this exact format, no markdown fences, no explanation:
 {"title":"Chart Title Here","data":[{"label":"Category 1","value":42},{"label":"Category 2","value":28}]}
 
-Rules:
-- The corpus may include a DATASET STRUCTURE section with pre-computed column value frequencies. USE THESE EXACT COUNTS — do not estimate or approximate when exact data is provided.
-- If the user asks for "top N" items, return exactly N items (or all items if fewer than N exist)
-- If the user asks to "list all", "show all", or "every", return ALL matching items found — do NOT limit or truncate
-- Otherwise return up to 100 data points, sorted by value descending unless order matters (e.g. chronological)
-- Labels must be short (1-5 words) and descriptive
-- Values must be positive numbers (counts, percentages, scores — whatever fits the request)
-- The title should clearly describe what the chart shows
-- When COLUMN data is provided with exact frequencies, use those exact numbers — do not recount from raw text
-- Be exhaustive and precise: include every matching item from the data`;
+═══ ANALYSIS MODE SELECTION ═══
+First, determine whether the user is asking for QUANTITATIVE data (counts, frequencies, lengths) or QUALITATIVE scoring (tone, sentiment, register, formality, clarity, complexity, disfluency, politeness, emotionality, etc.).
+
+── QUALITATIVE ANALYSIS MODE (use when the request mentions tone, sentiment, register, style, formality, emotion, politeness, fluency, clarity, complexity, naturalness, expressiveness, or any other qualitative attribute) ──
+- DO NOT count words or compute frequencies — that is NOT what the user asked for.
+- Instead, READ the corpus/transcript carefully and SCORE each entity (speaker, role, document section, language, etc.) on a 0–10 scale for the qualitative attribute asked.
+- Score rubric: 0 = completely absent, 5 = moderate / neutral, 10 = extreme / maximum
+- For TONE specifically: interpret as formality-adjusted sentiment. Positive/warm/encouraging = higher score; negative/cold/critical = lower score. For comparison between entities, score each independently.
+- For REGISTER/FORMALITY: 0 = very informal/colloquial, 10 = highly formal/academic.
+- For DISFLUENCY: 0 = perfectly fluent, 10 = heavily disfluent (many fillers/repairs/hesitations).
+- For SENTIMENT: 0 = very negative, 5 = neutral, 10 = very positive.
+- For CLARITY/COMPLEXITY: score as appropriate to the attribute.
+- If comparing entities (e.g. "speaker vs interpreter", "source vs target", "English turns vs Arabic turns"), score EACH entity separately and include all in the data array.
+- Label each data point with the entity name (e.g. "Speaker (Doctor)", "Interpreter", "Speaker 1", "Speaker 2").
+- The title should name the attribute and the comparison (e.g. "Tone Score: Speaker vs Interpreter").
+- If the SPEAKER-LABELED TRANSCRIPT is provided, use it to isolate each speaker's text before scoring.
+
+── QUANTITATIVE ANALYSIS MODE (use when the request mentions count, frequency, length, number, how many, top, most common, distribution, etc.) ──
+- The corpus may include a DATASET STRUCTURE section with pre-computed column value frequencies — USE THESE EXACT COUNTS.
+- If the user asks for "top N" items, return exactly N items.
+- If the user asks to "list all" / "show all" / "every", return ALL matching items — do NOT truncate.
+- Otherwise return up to 100 data points, sorted by value descending unless order matters.
+- Labels must be short (1–5 words) and descriptive.
+- Values must be positive numbers (counts, percentages, lengths — whatever fits).
+- When COLUMN data is provided with exact frequencies, use those exact numbers.
+- Be exhaustive and precise: include every matching item.
+
+═══ GENERAL RULES ═══
+- NEVER substitute a generic word-count comparison when the user asks for something qualitative. If tone is asked, give tone scores — not word counts.
+- If a SPEAKER-LABELED TRANSCRIPT is present, always use it to correctly attribute text to each speaker.
+- Values must always be positive numbers greater than 0.
+- The title should clearly and specifically describe what the chart shows.`;
+
 
   const raw = await generateContent(systemPrompt, text, 200000);
   try {

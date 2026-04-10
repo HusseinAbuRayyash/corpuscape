@@ -497,6 +497,14 @@ export async function registerRoutes(
       if (!text) return res.status(404).json({ error: "Corpus not found" });
 
       let enrichedText = text;
+
+      // If a speaker-labeled transcript exists (Speech Lab), prepend it so the AI
+      // can answer per-speaker questions (tone, register, word count by speaker, etc.)
+      const speakerTranscript = getCorpus(`${corpusId}_speakers`);
+      if (speakerTranscript) {
+        enrichedText = `SPEAKER-LABELED TRANSCRIPT (use this for per-speaker analysis):\n${speakerTranscript}\n\n---PLAIN TRANSCRIPT---\n${text}`;
+      }
+
       const columnsStr = getCorpus(`${corpusId}_columns`);
       if (columnsStr) {
         try {
