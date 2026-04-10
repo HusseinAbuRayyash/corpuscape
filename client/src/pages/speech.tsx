@@ -136,6 +136,56 @@ function isRtl(text: string): boolean {
   return rtlChars / text.length > 0.25;
 }
 
+// Parse structured speaker profiles — handles both multi-line bullet format and single-line format
+function parseSpeakerProfiles(result: string): { speaker: string; role: string; words: string; turns: string; style: string }[] {
+  const profileIdx = result.search(/(?:^|\n)\s*(?:\*{1,2})?speaker\s*profile/im);
+  if (profileIdx < 0) return [];
+
+  const clean = result.slice(profileIdx).replace(/\*{1,3}|_{1,2}/g, "");
+
+  // Collect per-speaker raw blocks by scanning line by line
+  // A "speaker header line" is one that starts with a name followed by ":" at column 0 (after trimming)
+  // We exclude pure bullet lines and the "Speaker Profile:" header itself
+  const HEADER = /^speaker\s*profile/i;
+  const SPEAKER_HEADER = /^([A-Z][\w\s()\-]{0,60}?)\s*:\s*(.*)/; // starts with capital letter
+  const BULLET = /^[-•]\s*/;
+
+  const rawLines = clean.split("\n").map(l => l.trim());
+  const blocks: { speaker: string; lines: string[] }[] = [];
+  let cur: { speaker: string; lines: string[] } | null = null;
+
+  for (const line of rawLines) {
+    if (!line || HEADER.test(line)) continue;
+    if (BULLET.test(line)) {
+      cur?.lines.push(line.replace(BULLET, ""));
+      continue;
+    }
+    const m = line.match(SPEAKER_HEADER);
+    if (m) {
+      if (cur) blocks.push(cur);
+      cur = { speaker: m[1].trim(), lines: m[2] ? [m[2]] : [] };
+    } else if (cur) {
+      cur.lines.push(line);
+    }
+  }
+  if (cur) blocks.push(cur);
+
+  return blocks.map(({ speaker, lines }) => {
+    const body = lines.join(" ");
+    const get = (re: RegExp) => {
+      const found = lines.find(l => re.test(l)) ?? "";
+      return found.replace(re, "").replace(/^[:\s]+/, "").trim();
+    };
+    const role  = get(/^role|^position/i);
+    const words = get(/\bword/i) || (body.match(/[~≈]?(\d+)\s+word/i)?.[0] ?? "");
+    const turns = get(/\bturn/i) || (body.match(/(\d+)\s+turn/i)?.[0] ?? "");
+    const style = get(/\bstyle|\btone|\bmanner/i);
+    // fallback: use the full description as style text if nothing parsed
+    const desc  = style || body.replace(/[~≈]?\d+\s+(?:words?|turns?)[^.]*\.?\s*/gi, "").trim();
+    return { speaker, role, words, turns, style: desc };
+  }).filter(p => p.speaker && p.speaker.length < 60);
+}
+
 // Extract only the speaker-labeled lines from an AI result (before profile section)
 function extractSpeakerTranscript(result: string): string {
   const profileIdx = result.search(/(?:^|\n)\s*(?:\*{1,2})?speaker\s*profile|(?:^|\n)\s*---/im);
@@ -1314,37 +1364,181 @@ export default function SpeechLab() {
             )}
 
             {/* ── Speakers ───────────────────────────────────────────── */}
-            {activeTab === "speakers" && srcData && (
-              <motion.div key="speakers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-                <div className="polished-card p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Speaker Detection & Diarization</h2>
-                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">AI labels each speaker turn · Speaker profiles · Conversation structure</p>
+            {activeTab === "speakers" && srcData && (() => {
+              const speakerText  = speakersResult ? extractSpeakerTranscript(speakersResult) : "";
+              const speakerTurns = speakerText ? parseSpeakerTurns(speakerText) : null;
+              const profiles     = speakersResult ? parseSpeakerProfiles(speakersResult) : [];
+              const rtl          = isRtl(srcData.text);
+              const colorMap     = new Map<string, (typeof SPEAKER_PALETTE)[0]>();
+              let ci = 0;
+              speakerTurns?.forEach(({ speaker }) => {
+                if (!colorMap.has(speaker)) { colorMap.set(speaker, SPEAKER_PALETTE[ci % SPEAKER_PALETTE.length]); ci++; }
+              });
+              const totalTurns = speakerTurns?.length ?? 0;
+              const totalWords = speakerTurns?.reduce((n, t) => n + t.text.trim().split(/\s+/).length, 0) ?? 0;
+
+              return (
+                <motion.div key="speakers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+
+                  {/* ── Header card ── */}
+                  <div className="polished-card p-5 space-y-5">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${THEME.gradient} flex items-center justify-center shadow-sm`}>
+                          <Users className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h2 className={`text-sm font-bold ${THEME.accent}`}>Speaker Detection &amp; Diarization</h2>
+                          <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                            AI labels each turn · speaker profiles · conversation structure
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {speakersResult && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                              onClick={() => navigator.clipboard.writeText(speakersResult)}
+                              data-testid="button-copy-speakers">
+                              <Copy className="w-3 h-3" /> Copy
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                              onClick={() => speakersMutation.mutate()} disabled={speakersMutation.isPending}
+                              data-testid="button-rerun-speakers">
+                              <RefreshCw className="w-3 h-3" /> Re-detect
+                            </Button>
+                          </>
+                        )}
+                        {!speakersResult && (
+                          <Button
+                            onClick={() => speakersMutation.mutate()}
+                            disabled={speakersMutation.isPending}
+                            className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                            data-testid="button-run-speakers"
+                          >
+                            {speakersMutation.isPending
+                              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Detecting…</>
+                              : <><UserCheck className="w-4 h-4 mr-2" />Detect Speakers</>}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    {!speakersResult && (
-                      <Button
-                        onClick={() => speakersMutation.mutate()}
-                        disabled={speakersMutation.isPending}
-                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
-                        data-testid="button-run-speakers"
-                      >
-                        {speakersMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserCheck className="w-4 h-4 mr-2" />}
-                        {speakersMutation.isPending ? "Detecting…" : "Detect Speakers"}
-                      </Button>
+
+                    {/* Loading skeleton */}
+                    {speakersMutation.isPending && (
+                      <div className="space-y-4 pt-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground/60 animate-pulse">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-fuchsia-500" />
+                          Gemini is reading the conversation and labeling each speaker turn…
+                        </div>
+                        <div className="space-y-3">
+                          {[{ w: "68%", r: false }, { w: "52%", r: true }, { w: "76%", r: false }, { w: "44%", r: true }, { w: "60%", r: false }].map((b, i) => (
+                            <div key={i} className={`flex ${b.r ? "justify-end" : "justify-start"}`}>
+                              <Skeleton className="h-14 rounded-2xl" style={{ width: b.w }} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Results */}
+                    {speakerTurns && speakerTurns.length > 0 && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                        {/* Summary stats row */}
+                        <div className="flex flex-wrap gap-3 py-3 border-y border-border/40">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Speakers</span>
+                            <span className={`text-sm font-bold ${THEME.accent}`}>{colorMap.size}</span>
+                          </div>
+                          <div className="w-px bg-border/40" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Turns</span>
+                            <span className={`text-sm font-bold ${THEME.accent}`}>{totalTurns}</span>
+                          </div>
+                          <div className="w-px bg-border/40" />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Words</span>
+                            <span className={`text-sm font-bold ${THEME.accent}`}>{totalWords.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="flex flex-wrap gap-2">
+                          {[...colorMap.entries()].map(([name, col]) => (
+                            <span key={name} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
+                              <span className={`w-2 h-2 rounded-full ${col.badge.split(" ")[0]}`} />
+                              <span className={col.name}>{name}</span>
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Chat bubbles */}
+                        <div className="overflow-y-auto max-h-[720px] pr-1 scroll-smooth" dir={rtl ? "rtl" : "ltr"}>
+                          <SpeakerTurnsView turns={speakerTurns} colorMap={colorMap} rtl={rtl} />
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Raw fallback when parse failed */}
+                    {speakersResult && !speakerTurns && !speakersMutation.isPending && (
+                      <AIResultDisplay content={speakersResult} onContentChange={setSpeakersResult} downloadFilename="Speaker_Diarization" />
                     )}
                   </div>
-                  {speakersMutation.isPending && (
-                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
-                  )}
-                  {speakersResult && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <AIResultDisplay content={speakersResult} onContentChange={setSpeakersResult} downloadFilename="Speaker_Diarization" />
+
+                  {/* ── Speaker Profile cards ── */}
+                  {profiles.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="polished-card p-5 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-lg bg-gradient-to-br ${THEME.gradient} flex items-center justify-center`}>
+                          <UserCheck className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <h3 className={`text-sm font-bold ${THEME.accent}`}>Speaker Profiles</h3>
+                      </div>
+                      <div className={`grid gap-4 ${profiles.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+                        {profiles.map((p, i) => {
+                          const col = colorMap.get(p.speaker) ?? SPEAKER_PALETTE[i % SPEAKER_PALETTE.length];
+                          return (
+                            <div key={i} className={`rounded-2xl border p-4 space-y-3 ${col.bubble}`}>
+                              {/* Speaker label */}
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm ${col.badge.split(" ")[0]}`}>
+                                  {i + 1}
+                                </div>
+                                <div>
+                                  <p className={`text-sm font-bold ${col.name}`}>{p.speaker}</p>
+                                  {p.role && <p className="text-[11px] text-muted-foreground/70 mt-0.5 leading-snug">{p.role}</p>}
+                                </div>
+                              </div>
+                              {/* Stats row */}
+                              {(p.words || p.turns) && (
+                                <div className="flex gap-4 pt-1 border-t border-border/30">
+                                  {p.words && (
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Words</p>
+                                      <p className={`text-sm font-bold tabular-nums ${col.name}`}>{p.words.replace(/[~≈]/g, "").trim()}</p>
+                                    </div>
+                                  )}
+                                  {p.turns && (
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Turns</p>
+                                      <p className={`text-sm font-bold tabular-nums ${col.name}`}>{p.turns.replace(/[~≈]/g, "").trim()}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {/* Style */}
+                              {p.style && (
+                                <p className="text-[11px] text-foreground/70 leading-relaxed italic border-t border-border/30 pt-2">{p.style}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </motion.div>
                   )}
-                </div>
-              </motion.div>
-            )}
+                </motion.div>
+              );
+            })()}
 
             {/* ── Numbers & Names ─────────────────────────────────────── */}
             {activeTab === "numbers" && bilingualReady && (
