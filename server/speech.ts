@@ -365,27 +365,23 @@ function toAudioMimeType(filename: string): string {
   return map[ext] ?? "audio/mp3";
 }
 
+// Files ≤ INLINE_LIMIT are sent as base64 inline data (fast, no upload).
+// Files > INLINE_LIMIT are uploaded via the Gemini File API (up to 2 GB)
+// and referenced by URI — the uploaded file is deleted after transcription.
+const INLINE_LIMIT = 15 * 1024 * 1024; // 15 MB
+
 export async function transcribeWithGemini(
   buffer: Buffer,
   filename: string,
   language?: string,
 ): Promise<{ text: string; language: string }> {
   const mimeType = toAudioMimeType(filename);
-  const base64Data = buffer.toString("base64");
   const isAutoDetect = !language || language === "auto";
   const langHint = isAutoDetect
     ? "The audio may be in one language or may switch between multiple languages (code-switching). Detect all languages present."
     : `The audio is primarily in ${language}, but may also contain segments in other languages.`;
 
-  const response = await geminiAi.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { inlineData: { mimeType, data: base64Data } },
-          {
-            text: `Transcribe this audio recording with maximum accuracy. ${langHint}
+  const transcriptionPrompt = `Transcribe this audio recording with maximum accuracy. ${langHint}
 
 Rules:
 - Output ONLY the spoken text — no timestamps, no speaker labels, no explanations, no preamble.
@@ -393,14 +389,57 @@ Rules:
 - Preserve the exact words spoken including filler words, hesitations, and repetitions.
 - For Arabic: use the spelling closest to what was spoken (dialect or MSA) rather than normalizing.
 - If multiple speakers are present, run their speech together in the order spoken (no labels).
-- If you cannot detect any speech, output only the word: [inaudible]`,
-          },
-        ],
-      },
-    ],
-  });
+- If you cannot detect any speech, output only the word: [inaudible]`;
 
-  const text = (response.text ?? "").trim();
-  const detectedLang = language && language !== "auto" ? language : "detected";
-  return { text, language: detectedLang };
+  // Decide between inline data and File API
+  let audioPart: Record<string, unknown>;
+  let uploadedFileName: string | undefined;
+
+  if (buffer.length <= INLINE_LIMIT) {
+    // ── Inline base64 (fast for small files) ──────────────────────────
+    audioPart = { inlineData: { mimeType, data: buffer.toString("base64") } };
+  } else {
+    // ── Gemini File API (large files up to 2 GB) ─────────────────────
+    console.log(`[Gemini] File size ${(buffer.length / 1024 / 1024).toFixed(1)} MB — uploading via File API`);
+    const blob = new Blob([buffer], { type: mimeType });
+    const uploaded = await (geminiAi as any).files.upload({
+      file: blob,
+      config: { mimeType, displayName: filename },
+    });
+    // Wait for ACTIVE state (audio is usually immediate; video may take a moment)
+    let fileInfo = uploaded;
+    let attempts = 0;
+    while (fileInfo.state === "PROCESSING" && attempts < 20) {
+      await new Promise(r => setTimeout(r, 3000));
+      fileInfo = await (geminiAi as any).files.get(fileInfo.name);
+      attempts++;
+    }
+    if (fileInfo.state === "FAILED") {
+      throw new Error("Gemini file processing failed. Try a different format or a shorter file.");
+    }
+    audioPart = { fileData: { mimeType, fileUri: fileInfo.uri } };
+    uploadedFileName = fileInfo.name;
+    console.log(`[Gemini] File uploaded and ready: ${fileInfo.uri}`);
+  }
+
+  try {
+    const response = await geminiAi.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [audioPart as any, { text: transcriptionPrompt }],
+        },
+      ],
+    });
+
+    const text = (response.text ?? "").trim();
+    const detectedLang = language && language !== "auto" ? language : "detected";
+    return { text, language: detectedLang };
+  } finally {
+    // Always clean up the uploaded file to free quota
+    if (uploadedFileName) {
+      try { await (geminiAi as any).files.delete(uploadedFileName); } catch { /* ignore */ }
+    }
+  }
 }
