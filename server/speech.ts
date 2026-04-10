@@ -3,16 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Proxy client — used for generateContent (supported by Replit AI integrations proxy)
 const geminiAi = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
   httpOptions: { apiVersion: "", baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL },
-});
-
-// Direct client — used ONLY for File API operations (upload/get/delete) because the
-// Replit proxy does not support the /upload/v1beta/files endpoint.
-const geminiAiDirect = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
 });
 
 export interface TranscriptSegment {
@@ -373,11 +366,6 @@ function toAudioMimeType(filename: string): string {
   return map[ext] ?? "audio/mp3";
 }
 
-// Files ≤ INLINE_LIMIT are sent as base64 inline data (fast, no upload).
-// Files > INLINE_LIMIT are uploaded via the Gemini File API (up to 2 GB)
-// and referenced by URI — the uploaded file is deleted after transcription.
-const INLINE_LIMIT = 15 * 1024 * 1024; // 15 MB
-
 export async function transcribeWithGemini(
   buffer: Buffer,
   filename: string,
@@ -399,56 +387,19 @@ Rules:
 - If multiple speakers are present, run their speech together in the order spoken (no labels).
 - If you cannot detect any speech, output only the word: [inaudible]`;
 
-  // Decide between inline data and File API
-  let audioPart: Record<string, unknown>;
-  let uploadedFileName: string | undefined;
+  const audioPart = { inlineData: { mimeType, data: buffer.toString("base64") } };
 
-  if (buffer.length <= INLINE_LIMIT) {
-    // ── Inline base64 (fast for small files) ──────────────────────────
-    audioPart = { inlineData: { mimeType, data: buffer.toString("base64") } };
-  } else {
-    // ── Gemini File API (large files up to 2 GB) ─────────────────────
-    console.log(`[Gemini] File size ${(buffer.length / 1024 / 1024).toFixed(1)} MB — uploading via File API`);
-    const blob = new Blob([buffer], { type: mimeType });
-    // File API goes via direct client — proxy doesn't support /upload/v1beta/files
-    const uploaded = await (geminiAiDirect as any).files.upload({
-      file: blob,
-      config: { mimeType, displayName: filename },
-    });
-    // Wait for ACTIVE state (audio is usually immediate; video may take a moment)
-    let fileInfo = uploaded;
-    let attempts = 0;
-    while (fileInfo.state === "PROCESSING" && attempts < 20) {
-      await new Promise(r => setTimeout(r, 3000));
-      fileInfo = await (geminiAiDirect as any).files.get(fileInfo.name);
-      attempts++;
-    }
-    if (fileInfo.state === "FAILED") {
-      throw new Error("Gemini file processing failed. Try a different format or a shorter file.");
-    }
-    audioPart = { fileData: { mimeType, fileUri: fileInfo.uri } };
-    uploadedFileName = fileInfo.name;
-    console.log(`[Gemini] File uploaded and ready: ${fileInfo.uri}`);
-  }
+  const response = await geminiAi.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [audioPart as any, { text: transcriptionPrompt }],
+      },
+    ],
+  });
 
-  try {
-    const response = await geminiAi.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [audioPart as any, { text: transcriptionPrompt }],
-        },
-      ],
-    });
-
-    const text = (response.text ?? "").trim();
-    const detectedLang = language && language !== "auto" ? language : "detected";
-    return { text, language: detectedLang };
-  } finally {
-    // Always clean up the uploaded file to free quota
-    if (uploadedFileName) {
-      try { await (geminiAiDirect as any).files.delete(uploadedFileName); } catch { /* ignore */ }
-    }
-  }
+  const text = (response.text ?? "").trim();
+  const detectedLang = language && language !== "auto" ? language : "detected";
+  return { text, language: detectedLang };
 }

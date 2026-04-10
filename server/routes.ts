@@ -1462,9 +1462,10 @@ Format with clear headings and specific examples from each corpus.`);
     }
   });
 
-  app.post("/api/speech/transcribe-gemini", largeUpload.single("audio"), async (req, res) => {
+  app.post("/api/speech/transcribe-gemini", upload.single("audio"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No audio file provided" });
+      if (req.file.size > 25 * 1024 * 1024) return res.status(400).json({ error: "File too large for Gemini. Please use a file under 25 MB, or choose Whisper for larger files." });
       const language = req.body.language || undefined;
       const result = await transcribeWithGemini(req.file.buffer, req.file.originalname, language);
       const corpusId = generateCorpusId();
