@@ -80,7 +80,7 @@ const SPEAKER_PALETTE = [
   { badge: "bg-indigo-500 text-white",  bubble: "bg-indigo-50 dark:bg-indigo-950/25 border-indigo-200/70 dark:border-indigo-800/40",    name: "text-indigo-700 dark:text-indigo-300"   },
 ];
 
-// Parse "Speaker N: text" or "A: text" patterns from a transcript
+// Parse "Speaker N: text" or "A: text" patterns — also strips markdown **bold** markers
 function parseSpeakerTurns(text: string): { speaker: string; text: string }[] | null {
   const SPEAKER_RE = /^([A-Za-z\u0600-\u06FF][\w\u0600-\u06FF\s]{0,40}?(?:\s*\([^)]{0,30}\))?)\s*:\s*(.+)/;
   const lines = text.split(/\r?\n/);
@@ -89,7 +89,8 @@ function parseSpeakerTurns(text: string): { speaker: string; text: string }[] | 
   let curText = "";
 
   for (const raw of lines) {
-    const line = raw.trim();
+    // Strip markdown bold/italic markers (* ** _ __ etc.) and leading hyphens/bullets before matching
+    const line = raw.replace(/\*{1,3}|_{1,3}/g, "").replace(/^[-•]\s*/, "").trim();
     if (!line) continue;
     const m = line.match(SPEAKER_RE);
     if (m && m[2].trim()) {
@@ -102,7 +103,6 @@ function parseSpeakerTurns(text: string): { speaker: string; text: string }[] | 
   }
   if (curSpeaker && curText.trim()) turns.push({ speaker: curSpeaker, text: curText.trim() });
 
-  // Only treat as speaker-labeled if we found ≥2 distinct speakers or ≥3 turns
   const uniq = new Set(turns.map(t => t.speaker));
   return (uniq.size >= 2 || turns.length >= 3) ? turns : null;
 }
@@ -143,7 +143,7 @@ function extractSpeakerTranscript(result: string): string {
   return raw.trim();
 }
 
-// Shared speaker-turn renderer used by both TranscriptBox and the Speaker tab preview
+// Shared speaker-turn renderer — chat-bubble style with alternating sides
 function SpeakerTurnsView({
   turns, colorMap, rtl,
 }: {
@@ -151,18 +151,48 @@ function SpeakerTurnsView({
   colorMap: Map<string, (typeof SPEAKER_PALETTE)[0]>;
   rtl: boolean;
 }) {
+  // Determine a stable display-order index per speaker (first appearance = 0, second = 1, …)
+  const speakerOrder: string[] = [];
+  turns.forEach(({ speaker }) => { if (!speakerOrder.includes(speaker)) speakerOrder.push(speaker); });
+
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-4 py-1">
       {turns.map((turn, i) => {
         const col = colorMap.get(turn.speaker) ?? SPEAKER_PALETTE[0];
+        const speakerIdx = speakerOrder.indexOf(turn.speaker);
+        // Even-index speaker (Speaker 1) → left; odd-index (Speaker 2) → right
+        const isRight = speakerIdx % 2 === 1;
+        // Avatar initials: first letter of last word in speaker name
+        const initial = (turn.speaker.trim().split(/\s+/).pop() ?? "?")[0].toUpperCase();
+
         return (
-          <div key={i} className={`rounded-xl border p-3.5 ${col.bubble}`} data-testid={`turn-${i}`}>
-            <div className={`flex items-center gap-1.5 mb-1.5 ${rtl ? "justify-end" : ""}`}>
-              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${col.badge}`}>{turn.speaker}</span>
+          <div key={i} className={`flex items-end gap-2.5 ${isRight ? "flex-row-reverse" : "flex-row"}`} data-testid={`turn-${i}`}>
+            {/* Avatar */}
+            <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-sm ${col.badge.split(" ")[0]}`}>
+              {initial}
             </div>
-            <p className="text-sm leading-relaxed text-foreground/85" style={{ textAlign: rtl ? "right" : "left" }}>
-              {turn.text}
-            </p>
+
+            {/* Bubble */}
+            <div className={`max-w-[78%] space-y-1 ${isRight ? "items-end" : "items-start"} flex flex-col`}>
+              <span className={`text-[10px] font-semibold px-1 ${col.name} ${isRight ? "self-end" : "self-start"}`}>
+                {turn.speaker}
+              </span>
+              <div className={cn(
+                "px-4 py-3 border shadow-sm",
+                col.bubble,
+                isRight
+                  ? "rounded-2xl rounded-br-md"
+                  : "rounded-2xl rounded-bl-md",
+              )}>
+                <p
+                  className="text-sm leading-[1.9] text-foreground/90 tracking-wide"
+                  dir={rtl ? "rtl" : "ltr"}
+                  style={{ textAlign: rtl ? "right" : "left", fontFamily: rtl ? "'Noto Sans Arabic', 'Segoe UI', sans-serif" : undefined }}
+                >
+                  {turn.text}
+                </p>
+              </div>
+            </div>
           </div>
         );
       })}
@@ -342,12 +372,15 @@ function StatPill({ label, value, sub }: { label: string; value: string | number
 function InputPanel({
   method, setMethod, lang, setLang,
   onUpload, uploadPending,
+  onUploadGemini, geminiPending,
   pasteText, setPasteText, onPaste, pastePending,
   label = "Source",
 }: any) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const handleFile = (file: File) => onUpload(file);
+  const [engine, setEngine] = useState<"whisper" | "gemini">("whisper");
+  const activeUploadPending = engine === "gemini" ? geminiPending : uploadPending;
+  const handleFile = (file: File) => engine === "gemini" ? onUploadGemini(file) : onUpload(file);
 
   return (
     <div className="space-y-4">
@@ -375,9 +408,29 @@ function InputPanel({
       {/* Upload */}
       {method === "upload" && (
         <motion.div key="up" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          {/* Engine + language row */}
           <div className="flex gap-2 items-center flex-wrap">
+            {/* Engine toggle */}
+            <div className="flex gap-1 p-0.5 bg-muted/50 rounded-lg border border-border/40">
+              {(["whisper", "gemini"] as const).map((eng) => (
+                <button
+                  key={eng}
+                  type="button"
+                  onClick={() => setEngine(eng)}
+                  data-testid={`button-engine-${eng}`}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150",
+                    engine === eng
+                      ? "bg-white dark:bg-slate-800 shadow-sm text-fuchsia-600 dark:text-fuchsia-400"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {eng === "whisper" ? "Whisper" : "✦ Gemini"}
+                </button>
+              ))}
+            </div>
             <Select value={lang} onValueChange={setLang}>
-              <SelectTrigger className="h-9 text-xs w-44" data-testid={`select-lang-${label.toLowerCase()}`}>
+              <SelectTrigger className="h-9 text-xs w-40" data-testid={`select-lang-${label.toLowerCase()}`}>
                 <Languages className="w-3.5 h-3.5 mr-1 shrink-0" />
                 <SelectValue />
               </SelectTrigger>
@@ -387,8 +440,13 @@ function InputPanel({
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-[11px] text-muted-foreground/60">Select language or auto-detect</span>
           </div>
+          {engine === "gemini" && (
+            <p className="text-[11px] text-fuchsia-600 dark:text-fuchsia-400 flex items-center gap-1.5 px-0.5">
+              <Brain className="w-3 h-3" />
+              Gemini transcription — better for Arabic dialects · max 20 MB
+            </p>
+          )}
           <input
             ref={fileRef}
             type="file"
@@ -409,10 +467,12 @@ function InputPanel({
                 : "border-border/50 hover:border-fuchsia-300 hover:bg-muted/30"
             )}
           >
-            {uploadPending ? (
+            {activeUploadPending ? (
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 text-fuchsia-500 animate-spin" />
-                <p className="text-sm font-medium">Transcribing with Whisper AI…</p>
+                <p className="text-sm font-medium">
+                  Transcribing with {engine === "gemini" ? "Gemini AI" : "Whisper"}…
+                </p>
                 <p className="text-xs text-muted-foreground">This may take a moment for longer recordings</p>
               </div>
             ) : (
@@ -422,7 +482,9 @@ function InputPanel({
                 </div>
                 <div>
                   <p className="text-sm font-semibold">Drop audio or video here</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed max-w-sm mx-auto">{ACCEPTED_AUDIO_VIDEO_LABEL} · max 25 MB</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed max-w-sm mx-auto">
+                    {ACCEPTED_AUDIO_VIDEO_LABEL} · max {engine === "gemini" ? "20" : "25"} MB
+                  </p>
                 </div>
                 <Button size="sm" variant="outline" className="h-8 text-xs mt-1" onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} data-testid={`button-browse-file-${label.toLowerCase()}`}>
                   <Upload className="w-3 h-3 mr-1.5" /> Browse file
@@ -519,6 +581,23 @@ export default function SpeechLab() {
       toast({ title: "Transcribed!", description: `Detected: ${data.language} · ${data.stats?.words?.toLocaleString() ?? "?"} words` });
     },
     onError: (e: any) => toast({ title: "Transcription failed", description: e.message, variant: "destructive" }),
+  });
+
+  const srcGeminiUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData(); fd.append("audio", file); if (srcLang !== "auto") fd.append("language", srcLang);
+      const res = await fetch("/api/speech/transcribe-gemini", { method: "POST", body: fd });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Gemini transcription failed"); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setSrcData(data);
+      setSpeakersResult("");
+      setActiveTab("transcript");
+      speakersMutation.mutate(data.corpusId);
+      toast({ title: "Transcribed with Gemini!", description: `${data.stats?.words?.toLocaleString() ?? "?"} words` });
+    },
+    onError: (e: any) => toast({ title: "Gemini transcription failed", description: e.message, variant: "destructive" }),
   });
 
   const srcPasteMutation = useMutation({
@@ -815,6 +894,7 @@ export default function SpeechLab() {
                       method={srcMethod} setMethod={setSrcMethod}
                       lang={srcLang} setLang={setSrcLang}
                       onUpload={(f: File) => srcUploadMutation.mutate(f)} uploadPending={srcUploadMutation.isPending}
+                      onUploadGemini={(f: File) => srcGeminiUploadMutation.mutate(f)} geminiPending={srcGeminiUploadMutation.isPending}
                       pasteText={srcPasteText} setPasteText={setSrcPasteText}
                       onPaste={() => srcPasteMutation.mutate()} pastePending={srcPasteMutation.isPending}
                       label="Source"

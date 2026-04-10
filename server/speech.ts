@@ -1,6 +1,11 @@
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const geminiAi = new GoogleGenAI({
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+  httpOptions: { apiVersion: "", baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL },
+});
 
 export interface TranscriptSegment {
   text: string;
@@ -334,4 +339,56 @@ export function computeBilingualSpeechStats(sourceText: string, targetText: stri
     isCompressed: compressionRatio < 0.9,
     isExpanded: compressionRatio > 1.1,
   };
+}
+
+// Map common audio/video extensions → MIME types accepted by Gemini
+function toAudioMimeType(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    mp3: "audio/mp3", mp4: "audio/mp4", wav: "audio/wav",
+    m4a: "audio/m4a", ogg: "audio/ogg", flac: "audio/flac",
+    webm: "audio/webm", aac: "audio/aac", opus: "audio/opus",
+    wma: "audio/x-ms-wma", mkv: "video/x-matroska",
+    mov: "video/quicktime", avi: "video/x-msvideo",
+    mpeg: "audio/mpeg", mpga: "audio/mpeg",
+  };
+  return map[ext] ?? "audio/mp3";
+}
+
+export async function transcribeWithGemini(
+  buffer: Buffer,
+  filename: string,
+  language?: string,
+): Promise<{ text: string; language: string }> {
+  const mimeType = toAudioMimeType(filename);
+  const base64Data = buffer.toString("base64");
+  const langHint = language && language !== "auto"
+    ? `The audio language is ${language}. Transcribe accordingly.`
+    : "Detect the language automatically and transcribe.";
+
+  const response = await geminiAi.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType, data: base64Data } },
+          {
+            text: `Transcribe this audio recording with maximum accuracy. ${langHint}
+
+Rules:
+- Output ONLY the spoken text — no timestamps, no speaker labels, no explanations, no preamble.
+- Preserve the exact words spoken including filler words, hesitations, and repetitions.
+- For Arabic: use Modern Standard Arabic spellings where ambiguous.
+- If multiple speakers are present, run their speech together in the order spoken (no labels).
+- If you cannot detect any speech, output only the word: [inaudible]`,
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = (response.text ?? "").trim();
+  const detectedLang = language && language !== "auto" ? language : "detected";
+  return { text, language: detectedLang };
 }
