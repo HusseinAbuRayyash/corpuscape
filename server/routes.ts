@@ -1470,6 +1470,11 @@ Format with clear headings and specific examples from each corpus.`);
       const result = await transcribeWithGemini(req.file.buffer, req.file.originalname, language);
       const corpusId = generateCorpusId();
       storeCorpus(corpusId, result.text);
+      // Cache the Gemini-diarized speaker transcript so the Speakers tab can use it
+      // directly (audio-based diarization) instead of re-analyzing blind text.
+      if (result.labeledTranscript) {
+        storeCorpus(`${corpusId}_speakers`, result.labeledTranscript);
+      }
       const stats = computeSpeechStats(result.text, language || "ar");
       res.json({ ...result, corpusId, stats, segments: [] });
     } catch (err: any) {
@@ -1556,6 +1561,33 @@ Format with clear headings and specific examples from each corpus.`);
   app.post("/api/speech/ai/speakers", async (req, res) => {
     try {
       const { corpusId, text } = req.body;
+      // If Gemini already diarized the audio during transcription, use that result directly —
+      // it is far more accurate than re-analyzing blind text.
+      if (corpusId) {
+        const cached = getCorpus(`${corpusId}_speakers`);
+        if (cached) {
+          const hasProfile = /speaker\s*profile/i.test(cached);
+          if (hasProfile) return res.json({ result: cached });
+          // Build a structured Speaker Profile section from the turn data
+          // so the frontend profile-card parser gets the format it expects.
+          const speakerMap = new Map<string, { roleStr: string; turns: string[] }>();
+          for (const line of cached.split("\n")) {
+            const m = line.trim().match(/^(Speaker\s+\d+)(?:\s*\(([^)]+)\))?\s*:\s*(.+)/i);
+            if (!m) continue;
+            const id = m[1].trim();
+            if (!speakerMap.has(id)) speakerMap.set(id, { roleStr: m[2]?.trim() ?? "", turns: [] });
+            speakerMap.get(id)!.turns.push(m[3].trim());
+          }
+          const profileLines = ["Speaker Profile:"];
+          for (const [id, { roleStr, turns }] of speakerMap) {
+            const wc = turns.join(" ").split(/\s+/).filter(Boolean).length;
+            const parts = roleStr.split(",").map(s => s.trim());
+            const role = parts[0] || "Speaker"; const lang = parts[1] || "";
+            profileLines.push(`${id}: Role: ${role}${lang ? " (" + lang + ")" : ""}. Turn count: ${turns.length}. Words: ~${wc}. ${role}${lang ? " speaking " + lang : ""} with ${turns.length} turn${turns.length !== 1 ? "s" : ""}. Identified via Gemini audio diarization.`);
+          }
+          return res.json({ result: cached + "\n\n" + profileLines.join("\n") });
+        }
+      }
       const transcript = corpusId ? getCorpus(corpusId) : text;
       if (!transcript) return res.status(400).json({ error: "Transcript text is required" });
       const result = await detectAndLabelSpeakers(transcript);

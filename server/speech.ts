@@ -370,36 +370,71 @@ export async function transcribeWithGemini(
   buffer: Buffer,
   filename: string,
   language?: string,
-): Promise<{ text: string; language: string }> {
+): Promise<{ text: string; language: string; labeledTranscript?: string }> {
   const mimeType = toAudioMimeType(filename);
   const isAutoDetect = !language || language === "auto";
   const langHint = isAutoDetect
-    ? "The audio may be in one language or may switch between multiple languages (code-switching). Detect all languages present."
-    : `The audio is primarily in ${language}, but may also contain segments in other languages.`;
+    ? "The audio may contain one language or may switch between multiple languages — detect all that are present."
+    : `The audio is primarily in ${language} but may include other languages.`;
 
+  // Ask Gemini to produce BOTH plain corpus text and a speaker-diarized transcript
+  // in a single pass, using its audio perception of different voices/accents/genders.
   const transcriptionPrompt = `Transcribe this audio recording with maximum accuracy. ${langHint}
 
-Rules:
-- Output ONLY the spoken text — no timestamps, no speaker labels, no explanations, no preamble.
-- MULTILINGUAL: If the audio contains more than one language (e.g. Arabic and English, French and Arabic, etc.), transcribe each word or phrase in the EXACT language it was spoken. Do NOT translate any segment into another language. Do NOT normalize everything into one language. Preserve code-switching exactly as it occurs.
-- Preserve the exact words spoken including filler words, hesitations, and repetitions.
-- For Arabic: use the spelling closest to what was spoken (dialect or MSA) rather than normalizing.
-- If multiple speakers are present, run their speech together in the order spoken (no labels).
-- If you cannot detect any speech, output only the word: [inaudible]`;
+Your response MUST contain EXACTLY TWO sections separated by the line ===SPEAKERS===
+
+SECTION 1 — before ===SPEAKERS=== (corpus text):
+- Output ONLY the spoken text. No speaker labels, no timestamps, no explanations.
+- MULTILINGUAL: Every word/phrase must be in the EXACT language it was spoken. Do NOT translate. Preserve all code-switching as-is.
+- Preserve all filler words, hesitations, repetitions exactly as heard.
+- For Arabic: spell closest to what was spoken (dialect or MSA), do not normalize.
+- If multiple speakers are present, run their speech together in spoken order — no labels.
+- If no speech detected, write [inaudible]
+
+===SPEAKERS===
+
+SECTION 2 — after ===SPEAKERS=== (speaker-diarized transcript):
+- Use your AUDIO PERCEPTION of distinct voices, genders, accents, and speech styles to identify each unique speaker.
+- Label every turn using EXACTLY this format (one turn per line):
+  Speaker N (Role, Language): [turn text verbatim]
+  where Role = inferred role such as Doctor, Interpreter, Patient, Husband, Wife, Host, Guest, Interviewer, Interviewee, Narrator, etc.
+  and Language = language of THAT turn, e.g. English, Spanish, Arabic, French
+- Number speakers by first appearance: Speaker 1 = first voice heard, Speaker 2 = second new voice, etc.
+- Do NOT merge turns — every time the speaker changes, start a new line.
+- If the same speaker says multiple distinct utterances consecutively (without interruption), keep on separate lines.
+- Preserve ALL text verbatim — only add the speaker tag.
+- For interpreting scenarios: the interpreter usually speaks right after the primary speaker, translating into another language. Label them as "Interpreter".
+- If no speech, write [inaudible] on its own line.
+
+Example for a medical consultation with interpreter:
+Speaker 1 (Doctor, English): I'm going to check your lungs first.
+Speaker 2 (Interpreter, Spanish): Voy a escuchar sus pulmones primero.
+Speaker 3 (Patient, Spanish): Está bien.
+Speaker 1 (Doctor, English): Take a deep breath.
+Speaker 4 (Companion/Husband, English): She has been having trouble breathing, doctor.`;
 
   const audioPart = { inlineData: { mimeType, data: buffer.toString("base64") } };
 
   const response = await geminiAi.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [audioPart as any, { text: transcriptionPrompt }],
-      },
-    ],
+    contents: [{ role: "user", parts: [audioPart as any, { text: transcriptionPrompt }] }],
   });
 
-  const text = (response.text ?? "").trim();
+  const raw = (response.text ?? "").trim();
+  const SEPARATOR = "===SPEAKERS===";
+  const sepIdx = raw.indexOf(SEPARATOR);
+
+  let text: string;
+  let labeledTranscript: string | undefined;
+
+  if (sepIdx !== -1) {
+    text = raw.slice(0, sepIdx).trim();
+    labeledTranscript = raw.slice(sepIdx + SEPARATOR.length).trim();
+  } else {
+    // Gemini didn't follow the format — use full output as plain text
+    text = raw;
+  }
+
   const detectedLang = language && language !== "auto" ? language : "detected";
-  return { text, language: detectedLang };
+  return { text, language: detectedLang, labeledTranscript };
 }

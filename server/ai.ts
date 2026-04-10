@@ -1080,24 +1080,36 @@ Discuss what the discourse marker profile reveals about:
 }
 
 export async function detectAndLabelSpeakers(text: string): Promise<string> {
-  const prompt = `You are an expert in conversation analysis and speaker diarization. Read the following transcript and label every speaker turn.
+  const prompt = `You are an expert in conversation analysis, speaker diarization, and interpreting studies. Read the transcript and attribute every utterance to the correct speaker.
 
-STRICT OUTPUT RULES — follow exactly or the result will be unusable:
-1. PLAIN TEXT ONLY. Do NOT use any markdown: no asterisks (*), no double-asterisks (**), no underscores (_), no hashes (#), no dashes as bullets, no bold, no italic. Plain text only.
-2. Each turn MUST be on its own line in EXACTLY this format (nothing before the speaker name, nothing after the colon except the text):
-   Speaker 1: [turn text]
-   Speaker 2: [turn text]
-3. Do NOT merge multiple conversational exchanges into a single long turn. Each time the speaker changes, start a new line with the speaker tag.
-4. Speaker numbering: the FIRST speaker to speak is Speaker 1, the SECOND new voice is Speaker 2, etc. Do not reassign numbers mid-transcript.
-5. Preserve ALL original text exactly — only add speaker tags, do not paraphrase or summarize.
-6. For interpreting/conference contexts: label as "Speaker 1 (source language)" and "Interpreter" if clearly distinguishable.
-7. After the labeled transcript, add a plain-text section starting with "Speaker Profile:" that lists each speaker's role, turn count, and style in 1-2 sentences each.
+STRICT OUTPUT RULES — follow exactly:
+1. PLAIN TEXT ONLY. No markdown: no asterisks, no bold, no italics, no hashes, no bullet dashes.
+2. Each turn on its own line in EXACTLY this format:
+   Speaker N (Role, Language): [turn text verbatim]
+   where Role = inferred role (Doctor, Interpreter, Patient, Husband, Wife, Host, Guest, Interviewer, Interviewee, Presenter, Respondent, Narrator, etc.)
+   and Language = language of that turn (English, Spanish, Arabic, French, etc.)
+3. Do NOT merge turns — every speaker change = new line.
+4. Speaker numbering: Speaker 1 = first to speak, Speaker 2 = second new voice, etc. Never reassign.
+5. Preserve ALL original text exactly — only add speaker tags.
+6. After the transcript, add "Speaker Profile:" section listing each speaker's role, turn count, word count estimate, and speaking style in 2 sentences.
+
+CRITICAL IDENTIFICATION RULES for multi-speaker / multilingual scenarios:
+A. INTERPRETING DETECTION: If you see pairs of utterances where one is in language A and the next covers the same semantic content in language B, the second is almost certainly an INTERPRETER, not the same speaker. Label them as separate speakers. Never merge interpreter output with source speaker output.
+B. MEDICAL CONSULTATIONS (Doctor + Interpreter + Patient + Companion): In a 4-person medical consultation:
+   - The Doctor typically speaks in the dominant/official language, gives instructions and asks clinical questions.
+   - The Interpreter translates immediately after each Doctor or Patient turn into the other language.
+   - The Patient answers in their native language (often shorter, more hesitant utterances).
+   - The Companion (husband/wife/relative) often interjects with background information, corrections, or on behalf of the patient.
+   Look for these role patterns and label them explicitly — do not collapse them into fewer speakers.
+C. LANGUAGE SWITCHES: A single utterance that switches mid-sentence (code-switching) belongs to ONE speaker. But if the language change happens at a turn boundary and the content is a translation, treat it as a new speaker (likely interpreter).
+D. VOICE GENDER / REGISTER CUES: Use any cues in the text (gendered pronouns, formal vs. informal register, question vs. answer patterns) to disambiguate.
 
 Identification strategy:
-- Topic shifts and question/answer pairs
-- Conversational role (host, guest, interpreter, questioner)
-- Changes in pronoun reference ("I said...", "you said...")
-- Greeting/acknowledgement patterns that signal speaker switches`;
+- Question/answer pairs signal speaker switches
+- Acknowledgements ("Okay", "Right", "Good") between clinical instructions signal Doctor continuing
+- Immediate language switch after a complete thought → likely Interpreter
+- Personal health observations ("I am fat", "she has pain") → Patient or Companion
+- Third-person references to the patient ("she", "her") → likely Companion or Doctor, not Patient`;
 
   return generateContentChunked(prompt, text);
 }
