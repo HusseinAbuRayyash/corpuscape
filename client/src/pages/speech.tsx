@@ -441,12 +441,6 @@ function InputPanel({
               </SelectContent>
             </Select>
           </div>
-          {engine === "gemini" && (
-            <p className="text-[11px] text-fuchsia-600 dark:text-fuchsia-400 flex items-center gap-1.5 px-0.5">
-              <Brain className="w-3 h-3" />
-              Gemini transcription — better for Arabic dialects · max 20 MB
-            </p>
-          )}
           <input
             ref={fileRef}
             type="file"
