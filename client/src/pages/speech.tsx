@@ -1011,9 +1011,9 @@ export default function SpeechLab() {
               <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${THEME.gradient} flex items-center justify-center mx-auto opacity-70`}>
                 <Mic2 className="w-7 h-7 text-white" />
               </div>
-              <p className="text-sm font-semibold text-muted-foreground/70">Select a mode and provide a YouTube link, audio file, or paste a transcript to begin</p>
+              <p className="text-sm font-semibold text-muted-foreground/70">Select a mode, upload an audio/video file, or paste a transcript to begin</p>
               <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground/50">
-                <span className="flex items-center gap-1"><Youtube className="w-3 h-3" /> YouTube captions</span>
+                <span className="flex items-center gap-1"><Headphones className="w-3 h-3" /> Audio / video upload</span>
                 <span className="flex items-center gap-1"><Mic2 className="w-3 h-3" /> Whisper transcription</span>
                 <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> Paste transcript</span>
               </div>
