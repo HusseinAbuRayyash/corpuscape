@@ -597,7 +597,9 @@ function InputPanel({
                 <p className="text-sm font-medium">
                   Transcribing with {engine === "gemini" ? "Gemini AI" : "Whisper"}…
                 </p>
-                <p className="text-xs text-muted-foreground">This may take a moment for longer recordings</p>
+                <p className="text-xs text-muted-foreground">
+                  {engine === "gemini" ? "Large files are uploaded to Gemini File API then transcribed — may take a minute" : "This may take a moment for longer recordings"}
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
@@ -607,7 +609,7 @@ function InputPanel({
                 <div>
                   <p className="text-sm font-semibold">Drop audio or video here</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed max-w-sm mx-auto">
-                    {ACCEPTED_AUDIO_VIDEO_LABEL} · max {engine === "gemini" ? "20" : "25"} MB
+                    {ACCEPTED_AUDIO_VIDEO_LABEL} · {engine === "gemini" ? "up to 500 MB (large files via File API)" : "max 25 MB"}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" className="h-8 text-xs mt-1" onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} data-testid={`button-browse-file-${label.toLowerCase()}`}>
