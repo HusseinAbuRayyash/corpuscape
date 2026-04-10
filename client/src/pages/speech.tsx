@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { AIAnalysisPanel } from "@/components/ai-analysis-panel";
 import { AIResultDisplay } from "@/components/ai-result-display";
+import { MarkdownRender } from "@/components/markdown-render";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,7 @@ import {
   Loader2, Copy, Download, Check, Waves, MessageSquare, Award,
   ChevronRight, Headphones, RefreshCw, Info, Languages, Users,
   Hash, BookOpen, Repeat2, UserCheck, Pencil, X,
+  Scissors, Globe, Activity,
 } from "lucide-react";
 
 const THEME = {
@@ -184,6 +186,84 @@ function parseSpeakerProfiles(result: string): { speaker: string; role: string; 
     const desc  = style || body.replace(/[~≈]?\d+\s+(?:words?|turns?)[^.]*\.?\s*/gi, "").trim();
     return { speaker, role, words, turns, style: desc };
   }).filter(p => p.speaker && p.speaker.length < 60);
+}
+
+// ── Disfluency section parser ──────────────────────────────────────────────
+type DisfluencyType = "hesitation" | "fillers" | "repairs" | "repetitions" | "prolongations" | "codeswitching" | "fluency" | "interpreting" | "other";
+
+interface DisfluencySection { title: string; body: string; type: DisfluencyType; }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DISF_META: Record<DisfluencyType, { icon: any; color: string; bg: string; border: string; badge: string }> = {
+  hesitation:    { icon: Mic2,        color: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-50 dark:bg-amber-950/20",    border: "border-amber-200 dark:border-amber-800/30",   badge: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"   },
+  fillers:       { icon: MessageSquare,color: "text-sky-600 dark:text-sky-400",      bg: "bg-sky-50 dark:bg-sky-950/20",        border: "border-sky-200 dark:border-sky-800/30",       badge: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"           },
+  repairs:       { icon: Scissors,    color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/20",  border: "border-orange-200 dark:border-orange-800/30", badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"},
+  repetitions:   { icon: Repeat2,     color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-950/20",  border: "border-violet-200 dark:border-violet-800/30", badge: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"},
+  prolongations: { icon: Waves,       color: "text-fuchsia-600 dark:text-fuchsia-400",bg:"bg-fuchsia-50 dark:bg-fuchsia-950/20",border:"border-fuchsia-200 dark:border-fuchsia-800/30",badge:"bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300"},
+  codeswitching: { icon: Globe,       color: "text-teal-600 dark:text-teal-400",     bg: "bg-teal-50 dark:bg-teal-950/20",      border: "border-teal-200 dark:border-teal-800/30",     badge: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"       },
+  fluency:       { icon: Activity,    color: "text-emerald-600 dark:text-emerald-400",bg:"bg-emerald-50 dark:bg-emerald-950/20",border:"border-emerald-200 dark:border-emerald-800/30",badge:"bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"},
+  interpreting:  { icon: Languages,   color: "text-rose-600 dark:text-rose-400",     bg: "bg-rose-50 dark:bg-rose-950/20",      border: "border-rose-200 dark:border-rose-800/30",     badge: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"       },
+  other:         { icon: FileText,    color: "text-muted-foreground",                bg: "bg-muted/20",                         border: "border-border/40",                            badge: "bg-muted text-muted-foreground"                                         },
+};
+
+function classifyDisfluency(title: string): DisfluencyType {
+  const t = title.toLowerCase();
+  if (/hesit/.test(t)) return "hesitation";
+  if (/fill|discourse/.test(t)) return "fillers";
+  if (/false|repair|self/.test(t)) return "repairs";
+  if (/repet/.test(t)) return "repetitions";
+  if (/prolong/.test(t)) return "prolongations";
+  if (/code|switch|mixing|bilingua|multilingua|transition/.test(t)) return "codeswitching";
+  if (/fluency|overall|profile|rating/.test(t)) return "fluency";
+  if (/interpr/.test(t)) return "interpreting";
+  return "other";
+}
+
+function parseDisfluencySections(result: string): { sections: DisfluencySection[]; rating: number | null; ratingLabel: string } {
+  // Extract fluency rating value
+  const ratingMatch = result.match(/\*\*Fluency Rating[^*]*?(\d+(?:\.\d+)?)\s*out of\s*5[^*]*?\*\*/i)
+    ?? result.match(/(\d+(?:\.\d+)?)\s*out of\s*5/i)
+    ?? result.match(/(\d+(?:\.\d+)?)\/5/i);
+  const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+
+  // Extract rating label (e.g. "Moderate Fluency")
+  const labelMatch = result.match(/\d+\s*out of\s*5\s*\(([^)]+)\)/i)
+    ?? result.match(/Fluency Rating[^:]*:\s*\**\d[^(]*\(([^)]+)\)/i);
+  const ratingLabel = labelMatch ? labelMatch[1].replace(/\*{1,3}/g, "").trim() : "";
+
+  // Split on bold numbered headers **N. Title** or ## headers
+  const SPLIT_RE = /(?=\n\s*\*\*\d+\.\s|\n#{2,3}\s)/g;
+  const chunks = result.split(SPLIT_RE);
+
+  const sections: DisfluencySection[] = [];
+
+  for (const chunk of chunks) {
+    const trimmed = chunk.trim();
+    if (trimmed.length < 30) continue;
+
+    // Match **N. Title** or ## Title or ### Title
+    const hm = trimmed.match(/^\*\*(\d+\.\s*[^*\n]+)\*\*/m)
+      ?? trimmed.match(/^#{2,3}\s+(.+?)(?:\n|$)/m);
+    if (!hm) continue;
+
+    const title = hm[1].replace(/\*{1,3}/g, "").replace(/←[^\n]*/g, "").trim();
+    const body  = trimmed.slice(hm[0].length).trim();
+    if (!title || body.length < 20) continue;
+
+    const type = classifyDisfluency(title);
+    sections.push({ title, body, type });
+  }
+
+  return { sections, rating, ratingLabel };
+}
+
+// Fluency rating bar color based on score
+function ratingColor(r: number) {
+  if (r >= 4.5) return { bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" };
+  if (r >= 3.5) return { bar: "bg-sky-500",     text: "text-sky-600 dark:text-sky-400" };
+  if (r >= 2.5) return { bar: "bg-amber-500",   text: "text-amber-600 dark:text-amber-400" };
+  if (r >= 1.5) return { bar: "bg-orange-500",  text: "text-orange-600 dark:text-orange-400" };
+  return { bar: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" };
 }
 
 // Extract only the speaker-labeled lines from an AI result (before profile section)
@@ -1232,37 +1312,152 @@ export default function SpeechLab() {
             )}
 
             {/* ── Disfluency ─────────────────────────────────────────── */}
-            {activeTab === "disfluencies" && srcData && (
-              <motion.div key="disfluencies" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-                <div className="polished-card p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className={`text-sm font-bold ${THEME.accent}`}>Disfluency & Fluency Analysis</h2>
-                      <p className="text-[11px] text-muted-foreground/60 mt-0.5">AI-powered deep analysis of hesitation, repair, and fluency patterns</p>
+            {activeTab === "disfluencies" && srcData && (() => {
+              const parsed = disfluencyResult ? parseDisfluencySections(disfluencyResult) : null;
+              const { sections = [], rating = null, ratingLabel = "" } = parsed ?? {};
+              const rc = rating !== null ? ratingColor(rating) : null;
+
+              return (
+                <motion.div key="disfluencies" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+
+                  {/* ── Header card ── */}
+                  <div className="polished-card p-5 space-y-5">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${THEME.gradient} flex items-center justify-center shadow-sm`}>
+                          <Waves className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h2 className={`text-sm font-bold ${THEME.accent}`}>Disfluency &amp; Fluency Analysis</h2>
+                          <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                            Hesitation · repairs · fillers · code-switching · interpreting implications
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {disfluencyResult && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                              onClick={() => navigator.clipboard.writeText(disfluencyResult)}
+                              data-testid="button-copy-disfluency">
+                              <Copy className="w-3 h-3" /> Copy
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                              onClick={() => disfluencyMutation.mutate()} disabled={disfluencyMutation.isPending}
+                              data-testid="button-rerun-disfluency">
+                              <RefreshCw className="w-3 h-3" /> Re-run
+                            </Button>
+                          </>
+                        )}
+                        {!disfluencyResult && (
+                          <Button
+                            onClick={() => disfluencyMutation.mutate()}
+                            disabled={disfluencyMutation.isPending}
+                            className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
+                            data-testid="button-run-disfluency"
+                          >
+                            {disfluencyMutation.isPending
+                              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analysing…</>
+                              : <><Waves className="w-4 h-4 mr-2" />Run Analysis</>}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    {!disfluencyResult && (
-                      <Button
-                        onClick={() => disfluencyMutation.mutate()}
-                        disabled={disfluencyMutation.isPending}
-                        className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm`}
-                        data-testid="button-run-disfluency"
-                      >
-                        {disfluencyMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Waves className="w-4 h-4 mr-2" />}
-                        {disfluencyMutation.isPending ? "Analysing…" : "Run Analysis"}
-                      </Button>
+
+                    {/* Loading skeleton */}
+                    {disfluencyMutation.isPending && (
+                      <div className="space-y-4 pt-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground/60 animate-pulse">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-fuchsia-500" />
+                          Analyzing hesitation patterns, repairs, and fluency profile…
+                        </div>
+                        {[92, 78, 85, 65, 72, 88, 55].map((w, i) => (
+                          <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Fluency rating banner */}
+                    {rating !== null && rc && (
+                      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                        className={`rounded-2xl border p-4 space-y-2 ${rc.bar === "bg-emerald-500" ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/30" : rc.bar === "bg-sky-500" ? "bg-sky-50 dark:bg-sky-950/20 border-sky-200 dark:border-sky-800/30" : rc.bar === "bg-amber-500" ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30" : "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800/30"}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Activity className={`w-4 h-4 ${rc.text}`} />
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">Fluency Rating</span>
+                          </div>
+                          <span className={`text-lg font-bold tabular-nums ${rc.text}`}>{rating} <span className="text-sm font-normal text-muted-foreground/60">/ 5</span></span>
+                        </div>
+                        {/* Progress bar */}
+                        <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${(rating / 5) * 100}%` }} transition={{ duration: 0.8, ease: "easeOut" }}
+                            className={`h-full rounded-full ${rc.bar}`} />
+                        </div>
+                        {ratingLabel && <p className={`text-xs font-semibold ${rc.text}`}>{ratingLabel}</p>}
+                      </motion.div>
+                    )}
+
+                    {/* Raw fallback if sections couldn't be parsed */}
+                    {disfluencyResult && sections.length === 0 && !disfluencyMutation.isPending && (
+                      <AIResultDisplay content={disfluencyResult} onContentChange={setDisfluencyResult} downloadFilename="Disfluency_Analysis" />
                     )}
                   </div>
-                  {disfluencyMutation.isPending && (
-                    <div className="space-y-2">{[100,88,75,60,45].map((w, i) => <Skeleton key={i} className="h-3 rounded-full" style={{ width: `${w}%` }} />)}</div>
-                  )}
-                  {disfluencyResult && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <AIResultDisplay content={disfluencyResult} onContentChange={setDisfluencyResult} downloadFilename="Disfluency_Analysis" />
+
+                  {/* ── Section cards ── */}
+                  {sections.length > 0 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                      {sections.map((sec, i) => {
+                        const meta = DISF_META[sec.type];
+                        const Icon = meta.icon;
+                        const isInterp = sec.type === "interpreting";
+
+                        return (
+                          <motion.div key={i}
+                            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                            className={`rounded-2xl border p-5 space-y-3 ${meta.bg} ${meta.border} ${isInterp ? "ring-1 ring-rose-300/50 dark:ring-rose-700/30" : ""}`}>
+
+                            {/* Section header */}
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${meta.badge}`}>
+                                <Icon className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className={`text-sm font-bold leading-tight ${meta.color}`}>{sec.title}</h3>
+                              </div>
+                              {isInterp && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                                  Interpreting Focus
+                                </span>
+                              )}
+                              {sec.type === "codeswitching" && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 whitespace-nowrap">
+                                  Bilingual
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Content via MarkdownRender (no download buttons here) */}
+                            <div className="pl-1">
+                              <MarkdownRender content={sec.body} showDownload={false} />
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+
+                      {/* Download bar */}
+                      <div className="polished-card px-4 py-3 flex items-center justify-between gap-4">
+                        <span className="text-[11px] text-muted-foreground/60">
+                          {sections.length} section{sections.length !== 1 ? "s" : ""} analysed
+                        </span>
+                        <div className="[&_.markdown-content]:hidden">
+                          <MarkdownRender content={disfluencyResult} showDownload={true} downloadFilename="Disfluency_Analysis" />
+                        </div>
+                      </div>
                     </motion.div>
                   )}
-                </div>
-              </motion.div>
-            )}
+                </motion.div>
+              );
+            })()}
 
             {/* ── Discourse ──────────────────────────────────────────── */}
             {activeTab === "discourse" && srcData && (
