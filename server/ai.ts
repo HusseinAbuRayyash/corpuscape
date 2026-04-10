@@ -976,18 +976,44 @@ IMPORTANT: Return ONLY a valid JSON array, no markdown fences:
 // ── Speech Lab AI functions ──────────────────────────────────────────────────
 
 export async function analyzeSpeechDisfluencies(text: string): Promise<string> {
-  const prompt = `You are a speech and corpus linguistics expert. Analyze the following speech transcript for disfluency features relevant to translation and interpreting research.
+  const prompt = `You are a speech and corpus linguistics expert specializing in bilingual, multilingual, and interpreted speech. Analyze the following transcript for disfluency features relevant to translation and interpreting research.
 
-Identify and discuss:
-1. **Hesitation markers** — um, uh, er, ah, hmm and equivalents in other languages
-2. **Fillers and discourse markers** — you know, I mean, like, well, so, basically, right
-3. **False starts and self-repairs** — where the speaker abandons and restarts an utterance
-4. **Repetitions** — word or phrase repetitions that indicate processing difficulty
-5. **Prolongations** — stretched sounds (often noted as "::") indicating planning time
-6. **Overall fluency profile** — what the disfluency pattern tells us about the speaker's cognitive load, spontaneity, and speaking style
-7. **Implications for interpreting** — how these features affect interpretability, what an interpreter must handle
+IMPORTANT — BILINGUAL & INTERPRETED SPEECH AWARENESS:
+If the transcript contains multiple languages, code-switching, or consecutive/simultaneous interpretation:
+- Analyze disfluencies for EACH language and speaker separately
+- Identify code-switching transition points as cognitive load markers
+- Distinguish interpreter-specific disfluencies (ear-voice span delays, anticipatory hesitations, reformulation pauses) from original speaker disfluencies
+- Compare native-language vs. working-language fluency profiles
+- Include a dedicated "Code-switching & Language Transitions" section
 
-Present findings in clear sections with examples from the transcript. Conclude with a brief fluency rating (1–5) with justification.`;
+Identify and discuss with SPECIFIC QUOTED EXAMPLES from the transcript:
+
+**1. Hesitation Markers**
+Vocalizations signaling pause/planning: English: um, uh, er, ah; Arabic: آـآـ, إإ, يعني used as filler; per-language patterns if bilingual.
+
+**2. Fillers & Discourse Markers**
+Floor-holding devices and conversation organizers: you know, I mean, like, well, so, basically; Arabic: يعني، طب، صح، زي ما قلت. Note whether patterns differ by speaker/language.
+
+**3. False Starts & Self-Repairs**
+Abandoned and restarted utterances; mid-switch language repairs; interpreter corrections and self-revisions in real time.
+
+**4. Repetitions**
+Word or phrase repetitions signaling processing difficulty or emphasis; compare across languages/speakers.
+
+**5. Prolongations**
+Stretched sounds indicating planning time; how they manifest in each language present.
+
+**6. Code-switching & Language Transitions** ← Include only if multiple languages are present
+Where and why language switches occur (avoidance, emphasis, audience design, register shift); effect on fluency for both speaker and interpreter; transition smoothness.
+
+**7. Overall Fluency Profile**
+If bilingual: separate profile per speaker/language — cognitive load, spontaneity, speaking style, and fluency under interpreting conditions.
+
+**8. Implications for Interpreting**
+How disfluencies, code-switching, and self-repairs affect interpretability; strategies the interpreter must employ; ear-voice span challenges; which features are hardest to handle in real-time.
+
+Format: use the bold headers exactly as numbered above. Quote specific examples using double quotes. Conclude with:
+**Fluency Rating: X out of 5 (Label)** — e.g. "3 out of 5 (Moderate Fluency)" — followed by a paragraph justification.`;
 
   return generateContentChunked(prompt, text);
 }
