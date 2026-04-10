@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Home, BookOpen, Globe, Sun, Moon, Newspaper, Scale, Image, User, Library, Mic2 } from "lucide-react";
+import { Home, BookOpen, Globe, Sun, Moon, Newspaper, Scale, Image, User, Library, Mic2, Presentation } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +26,7 @@ const navItems = [
   { title: "Speech Lab", url: "/speech", icon: Mic2 },
   { title: "Library", url: "/library", icon: Library },
   { title: "About", url: "/about", icon: User },
+  { title: "Presentation", url: "/presentation", icon: Presentation },
 ];
 
 export function AppSidebar() {
