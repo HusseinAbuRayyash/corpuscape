@@ -69,22 +69,111 @@ function useClipboard() {
   return { copy, copied };
 }
 
-function TranscriptBox({ data, label, accent }: { data: TranscriptData; label: string; accent?: string }) {
+// ── Speaker colour palette ────────────────────────────────────────────────────
+const SPEAKER_PALETTE = [
+  { badge: "bg-fuchsia-500 text-white", bubble: "bg-fuchsia-50 dark:bg-fuchsia-950/25 border-fuchsia-200/70 dark:border-fuchsia-800/40", name: "text-fuchsia-700 dark:text-fuchsia-300" },
+  { badge: "bg-violet-500 text-white",  bubble: "bg-violet-50 dark:bg-violet-950/25 border-violet-200/70 dark:border-violet-800/40",   name: "text-violet-700 dark:text-violet-300"   },
+  { badge: "bg-sky-500 text-white",     bubble: "bg-sky-50 dark:bg-sky-950/25 border-sky-200/70 dark:border-sky-800/40",               name: "text-sky-700 dark:text-sky-300"         },
+  { badge: "bg-emerald-500 text-white", bubble: "bg-emerald-50 dark:bg-emerald-950/25 border-emerald-200/70 dark:border-emerald-800/40", name: "text-emerald-700 dark:text-emerald-300" },
+  { badge: "bg-amber-500 text-white",   bubble: "bg-amber-50 dark:bg-amber-950/25 border-amber-200/70 dark:border-amber-800/40",        name: "text-amber-700 dark:text-amber-300"     },
+  { badge: "bg-rose-500 text-white",    bubble: "bg-rose-50 dark:bg-rose-950/25 border-rose-200/70 dark:border-rose-800/40",            name: "text-rose-700 dark:text-rose-300"       },
+  { badge: "bg-indigo-500 text-white",  bubble: "bg-indigo-50 dark:bg-indigo-950/25 border-indigo-200/70 dark:border-indigo-800/40",    name: "text-indigo-700 dark:text-indigo-300"   },
+];
+
+// Parse "Speaker N: text" or "A: text" patterns from a transcript
+function parseSpeakerTurns(text: string): { speaker: string; text: string }[] | null {
+  const SPEAKER_RE = /^([A-Za-z\u0600-\u06FF][\w\u0600-\u06FF\s]{0,40}?(?:\s*\([^)]{0,30}\))?)\s*:\s*(.+)/;
+  const lines = text.split(/\r?\n/);
+  const turns: { speaker: string; text: string }[] = [];
+  let curSpeaker = "";
+  let curText = "";
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(SPEAKER_RE);
+    if (m && m[2].trim()) {
+      if (curSpeaker) turns.push({ speaker: curSpeaker, text: curText.trim() });
+      curSpeaker = m[1].trim();
+      curText = m[2];
+    } else if (curSpeaker) {
+      curText += " " + line;
+    }
+  }
+  if (curSpeaker && curText.trim()) turns.push({ speaker: curSpeaker, text: curText.trim() });
+
+  // Only treat as speaker-labeled if we found ≥2 distinct speakers or ≥3 turns
+  const uniq = new Set(turns.map(t => t.speaker));
+  return (uniq.size >= 2 || turns.length >= 3) ? turns : null;
+}
+
+// Split plain text into readable paragraphs
+function toReadableParagraphs(text: string): string[] {
+  // Try punctuation-based splitting first (works for English, Arabic ،, etc.)
+  const bySentence = text.match(/[^.!?؟\n]+[.!?؟\n]*/g) ?? [];
+  if (bySentence.length >= 3) {
+    const CHUNK = 4;
+    const paras: string[] = [];
+    for (let i = 0; i < bySentence.length; i += CHUNK) {
+      const chunk = bySentence.slice(i, i + CHUNK).join("").trim();
+      if (chunk) paras.push(chunk);
+    }
+    return paras;
+  }
+  // Fallback: chunk by word count (~40 words per paragraph)
+  const words = text.trim().split(/\s+/);
+  const WORDS_PER_PARA = 40;
+  const paras: string[] = [];
+  for (let i = 0; i < words.length; i += WORDS_PER_PARA) {
+    paras.push(words.slice(i, i + WORDS_PER_PARA).join(" "));
+  }
+  return paras.length ? paras : [text];
+}
+
+// Detect RTL-dominant text (Arabic, Hebrew, Farsi, …)
+function isRtl(text: string): boolean {
+  const rtlChars = (text.match(/[\u0600-\u06FF\u0750-\u077F\u0590-\u05FF\u200F]/g) ?? []).length;
+  return rtlChars / text.length > 0.25;
+}
+
+function TranscriptBox({ data, label }: { data: TranscriptData; label: string }) {
   const { copy, copied } = useClipboard();
+  const [expanded, setExpanded] = useState(false);
   const downloadTxt = () => {
     const blob = new Blob([data.text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `${label.replace(/\s/g,"_")}_transcript.txt`; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url; a.download = `${label.replace(/\s/g, "_")}_transcript.txt`; a.click(); URL.revokeObjectURL(url);
   };
+
+  const turns = parseSpeakerTurns(data.text);
+  const rtl = isRtl(data.text);
+  const paragraphs = turns ? null : toReadableParagraphs(data.text);
+
+  // Assign consistent colour per speaker name
+  const speakerColorMap = new Map<string, (typeof SPEAKER_PALETTE)[0]>();
+  let colorIdx = 0;
+  turns?.forEach(({ speaker }) => {
+    if (!speakerColorMap.has(speaker)) {
+      speakerColorMap.set(speaker, SPEAKER_PALETTE[colorIdx % SPEAKER_PALETTE.length]);
+      colorIdx++;
+    }
+  });
+
   return (
     <div className="rounded-xl border border-border/50 overflow-hidden">
       <div className={`h-0.5 bg-gradient-to-r ${THEME.gradient}`} />
       <div className="p-4 bg-card/60">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${THEME.badge}`}>{data.language}</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{data.stats.words.toLocaleString()} words</span>
+            {turns && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-700 dark:text-fuchsia-300">
+                {speakerColorMap.size} speaker{speakerColorMap.size !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
           <div className="flex gap-1.5">
             <button onClick={() => copy(data.text)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Copy" data-testid="button-copy-transcript">
@@ -95,9 +184,73 @@ function TranscriptBox({ data, label, accent }: { data: TranscriptData; label: s
             </button>
           </div>
         </div>
-        <div className="max-h-72 overflow-y-auto pr-1">
-          <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">{data.text}</p>
+
+        {/* Speaker legend */}
+        {turns && speakerColorMap.size > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {[...speakerColorMap.entries()].map(([name, col]) => (
+              <span key={name} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
+                <span className={`w-2 h-2 rounded-full ${col.badge.split(" ")[0]}`} />
+                <span className={col.name}>{name}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Transcript body */}
+        <div
+          className={cn("overflow-y-auto pr-1 transition-all duration-300", expanded ? "max-h-[600px]" : "max-h-80")}
+          dir={rtl ? "rtl" : "ltr"}
+        >
+          {turns ? (
+            // ── Speaker-turn view ──────────────────────────────────────
+            <div className="space-y-3">
+              {turns.map((turn, i) => {
+                const col = speakerColorMap.get(turn.speaker) ?? SPEAKER_PALETTE[0];
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-xl border p-3.5 ${col.bubble}`}
+                    data-testid={`turn-${i}`}
+                  >
+                    <div className={`flex items-center gap-1.5 mb-1.5 ${rtl ? "flex-row-reverse" : ""}`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${col.badge}`}>
+                        {turn.speaker}
+                      </span>
+                    </div>
+                    <p className={`text-sm leading-relaxed text-foreground/85 ${col.name.replace("text-", "").includes("fuchsia") ? "" : ""}`}
+                      style={{ textAlign: rtl ? "right" : "left" }}>
+                      {turn.text}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            // ── Plain paragraph view ───────────────────────────────────
+            <div className="space-y-3">
+              {paragraphs!.map((para, i) => (
+                <p
+                  key={i}
+                  className="text-sm leading-[1.85] text-foreground/85 px-1"
+                  style={{ textAlign: rtl ? "right" : "left" }}
+                >
+                  {para}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Expand / collapse toggle */}
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="mt-3 w-full flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1"
+          data-testid="button-expand-transcript"
+        >
+          <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-200", expanded ? "rotate-[-90deg]" : "rotate-90")} />
+          {expanded ? "Show less" : "Show full transcript"}
+        </button>
       </div>
     </div>
   );
