@@ -15,7 +15,7 @@ import {
   Mic2, Upload, FileText, ArrowLeftRight, BarChart3, Brain,
   Loader2, Copy, Download, Check, Waves, MessageSquare, Award,
   ChevronRight, Headphones, RefreshCw, Info, Languages, Users,
-  Hash, BookOpen, Repeat2, UserCheck,
+  Hash, BookOpen, Repeat2, UserCheck, Pencil, X,
 } from "lucide-react";
 
 const THEME = {
@@ -136,20 +136,64 @@ function isRtl(text: string): boolean {
   return rtlChars / text.length > 0.25;
 }
 
-function TranscriptBox({ data, label }: { data: TranscriptData; label: string }) {
+// Extract only the speaker-labeled lines from an AI result (before profile section)
+function extractSpeakerTranscript(result: string): string {
+  const profileIdx = result.search(/(?:^|\n)\s*(?:\*{1,2})?speaker\s*profile|(?:^|\n)\s*---/im);
+  const raw = profileIdx > 0 ? result.slice(0, profileIdx) : result;
+  return raw.trim();
+}
+
+// Shared speaker-turn renderer used by both TranscriptBox and the Speaker tab preview
+function SpeakerTurnsView({
+  turns, colorMap, rtl,
+}: {
+  turns: { speaker: string; text: string }[];
+  colorMap: Map<string, (typeof SPEAKER_PALETTE)[0]>;
+  rtl: boolean;
+}) {
+  return (
+    <div className="space-y-2.5">
+      {turns.map((turn, i) => {
+        const col = colorMap.get(turn.speaker) ?? SPEAKER_PALETTE[0];
+        return (
+          <div key={i} className={`rounded-xl border p-3.5 ${col.bubble}`} data-testid={`turn-${i}`}>
+            <div className={`flex items-center gap-1.5 mb-1.5 ${rtl ? "justify-end" : ""}`}>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${col.badge}`}>{turn.speaker}</span>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/85" style={{ textAlign: rtl ? "right" : "left" }}>
+              {turn.text}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TranscriptBox({
+  data, label, editable = false,
+}: {
+  data: TranscriptData; label: string; editable?: boolean;
+}) {
   const { copy, copied } = useClipboard();
   const [expanded, setExpanded] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [localText, setLocalText] = useState(data.text);
+
+  // Keep localText in sync when new transcription arrives
+  useEffect(() => { setLocalText(data.text); }, [data.text]);
+
   const downloadTxt = () => {
-    const blob = new Blob([data.text], { type: "text/plain" });
+    const blob = new Blob([localText], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `${label.replace(/\s/g, "_")}_transcript.txt`; a.click(); URL.revokeObjectURL(url);
   };
 
-  const turns = parseSpeakerTurns(data.text);
-  const rtl = isRtl(data.text);
-  const paragraphs = turns ? null : toReadableParagraphs(data.text);
+  const displayText = localText;
+  const turns = parseSpeakerTurns(displayText);
+  const rtl = isRtl(displayText);
+  const paragraphs = turns ? null : toReadableParagraphs(displayText);
 
-  // Assign consistent colour per speaker name
   const speakerColorMap = new Map<string, (typeof SPEAKER_PALETTE)[0]>();
   let colorIdx = 0;
   turns?.forEach(({ speaker }) => {
@@ -163,6 +207,7 @@ function TranscriptBox({ data, label }: { data: TranscriptData; label: string })
     <div className="rounded-xl border border-border/50 overflow-hidden">
       <div className={`h-0.5 bg-gradient-to-r ${THEME.gradient}`} />
       <div className="p-4 bg-card/60">
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -175,82 +220,107 @@ function TranscriptBox({ data, label }: { data: TranscriptData; label: string })
               </span>
             )}
           </div>
-          <div className="flex gap-1.5">
-            <button onClick={() => copy(data.text)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Copy" data-testid="button-copy-transcript">
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
-            </button>
-            <button onClick={downloadTxt} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Download .txt" data-testid="button-download-transcript">
-              <Download className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
+          <div className="flex gap-1">
+            {editable && !editMode && (
+              <button
+                onClick={() => setEditMode(true)}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title="Edit transcript (fix typos)"
+                data-testid="button-edit-transcript"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {!editMode && (
+              <>
+                <button onClick={() => copy(localText)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Copy" data-testid="button-copy-transcript">
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+                </button>
+                <button onClick={downloadTxt} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Download .txt" data-testid="button-download-transcript">
+                  <Download className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Speaker legend */}
-        {turns && speakerColorMap.size > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {[...speakerColorMap.entries()].map(([name, col]) => (
-              <span key={name} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
-                <span className={`w-2 h-2 rounded-full ${col.badge.split(" ")[0]}`} />
-                <span className={col.name}>{name}</span>
-              </span>
-            ))}
+        {/* Edit mode */}
+        {editMode ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Pencil className="w-3.5 h-3.5 text-fuchsia-500" />
+              <span className="text-xs font-semibold text-fuchsia-600 dark:text-fuchsia-400">Edit mode — fix typos, then save</span>
+            </div>
+            <Textarea
+              value={localText}
+              onChange={(e) => setLocalText(e.target.value)}
+              className="min-h-[280px] text-sm leading-relaxed resize-y font-mono"
+              dir={rtl ? "rtl" : "ltr"}
+              data-testid="textarea-edit-transcript"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => setEditMode(false)}
+                className={`h-8 text-xs bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90`}
+                data-testid="button-save-transcript-edit"
+              >
+                <Check className="w-3.5 h-3.5 mr-1.5" /> Save changes
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setLocalText(data.text); setEditMode(false); }}
+                className="h-8 text-xs"
+                data-testid="button-cancel-transcript-edit"
+              >
+                <X className="w-3.5 h-3.5 mr-1.5" /> Revert
+              </Button>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Speaker legend */}
+            {turns && speakerColorMap.size > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {[...speakerColorMap.entries()].map(([name, col]) => (
+                  <span key={name} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
+                    <span className={`w-2 h-2 rounded-full ${col.badge.split(" ")[0]}`} />
+                    <span className={col.name}>{name}</span>
+                  </span>
+                ))}
+              </div>
+            )}
 
-        {/* Transcript body */}
-        <div
-          className={cn("overflow-y-auto pr-1 transition-all duration-300", expanded ? "max-h-[600px]" : "max-h-80")}
-          dir={rtl ? "rtl" : "ltr"}
-        >
-          {turns ? (
-            // ── Speaker-turn view ──────────────────────────────────────
-            <div className="space-y-3">
-              {turns.map((turn, i) => {
-                const col = speakerColorMap.get(turn.speaker) ?? SPEAKER_PALETTE[0];
-                return (
-                  <div
-                    key={i}
-                    className={`rounded-xl border p-3.5 ${col.bubble}`}
-                    data-testid={`turn-${i}`}
-                  >
-                    <div className={`flex items-center gap-1.5 mb-1.5 ${rtl ? "flex-row-reverse" : ""}`}>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${col.badge}`}>
-                        {turn.speaker}
-                      </span>
-                    </div>
-                    <p className={`text-sm leading-relaxed text-foreground/85 ${col.name.replace("text-", "").includes("fuchsia") ? "" : ""}`}
-                      style={{ textAlign: rtl ? "right" : "left" }}>
-                      {turn.text}
+            {/* Transcript body */}
+            <div
+              className={cn("overflow-y-auto pr-1 transition-all duration-300", expanded ? "max-h-[640px]" : "max-h-80")}
+              dir={rtl ? "rtl" : "ltr"}
+            >
+              {turns ? (
+                <SpeakerTurnsView turns={turns} colorMap={speakerColorMap} rtl={rtl} />
+              ) : (
+                <div className="space-y-3">
+                  {paragraphs!.map((para, i) => (
+                    <p key={i} className="text-sm leading-[1.9] text-foreground/85 px-0.5" style={{ textAlign: rtl ? "right" : "left" }}>
+                      {para}
                     </p>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            // ── Plain paragraph view ───────────────────────────────────
-            <div className="space-y-3">
-              {paragraphs!.map((para, i) => (
-                <p
-                  key={i}
-                  className="text-sm leading-[1.85] text-foreground/85 px-1"
-                  style={{ textAlign: rtl ? "right" : "left" }}
-                >
-                  {para}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Expand / collapse toggle */}
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1"
-          data-testid="button-expand-transcript"
-        >
-          <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-200", expanded ? "rotate-[-90deg]" : "rotate-90")} />
-          {expanded ? "Show less" : "Show full transcript"}
-        </button>
+            {/* Expand toggle */}
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="mt-3 w-full flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1"
+              data-testid="button-expand-transcript"
+            >
+              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-200", expanded ? "rotate-[-90deg]" : "rotate-90")} />
+              {expanded ? "Show less" : "Show full transcript"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -803,13 +873,121 @@ export default function SpeechLab() {
             {/* ── Transcript ─────────────────────────────────────────── */}
             {activeTab === "transcript" && srcData && (
               <motion.div key="transcript" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+
+                {/* Raw / editable transcript */}
                 <div className="polished-card p-5 space-y-4">
-                  <h2 className={`text-sm font-bold ${THEME.accent}`}>Transcript Viewer</h2>
-                  <TranscriptBox data={srcData} label={speechMode === "bilingual" ? "Source Speech" : "Transcript"} />
+                  <div className="flex items-center justify-between">
+                    <h2 className={`text-sm font-bold ${THEME.accent}`}>Transcript Viewer</h2>
+                    <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                      <Pencil className="w-3 h-3" /> Click the pencil to correct typos
+                    </span>
+                  </div>
+                  <TranscriptBox
+                    data={srcData}
+                    label={speechMode === "bilingual" ? "Source Speech" : "Transcript"}
+                    editable
+                  />
                   {speechMode === "bilingual" && tgtData && (
-                    <TranscriptBox data={tgtData} label="Interpretation / Translation" />
+                    <TranscriptBox data={tgtData} label="Interpretation / Translation" editable />
                   )}
                 </div>
+
+                {/* Speaker Detection widget */}
+                {(() => {
+                  const speakerText = speakersResult ? extractSpeakerTranscript(speakersResult) : "";
+                  const speakerTurns = speakerText ? parseSpeakerTurns(speakerText) : null;
+                  const rtl = isRtl(srcData.text);
+
+                  // Build colour map for speaker turns
+                  const colorMap = new Map<string, (typeof SPEAKER_PALETTE)[0]>();
+                  let idx = 0;
+                  speakerTurns?.forEach(({ speaker }) => {
+                    if (!colorMap.has(speaker)) { colorMap.set(speaker, SPEAKER_PALETTE[idx % SPEAKER_PALETTE.length]); idx++; }
+                  });
+
+                  if (!speakersResult && !speakersMutation.isPending) {
+                    return (
+                      <div className="polished-card p-5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-sm font-bold flex items-center gap-2">
+                              <Users className="w-4 h-4 text-fuchsia-500" /> Speaker Identification
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                              AI will label each speaker turn — ideal for interviews, panels, and interpreted speech
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => speakersMutation.mutate()}
+                            className={`bg-gradient-to-r ${THEME.gradient} text-white border-0 hover:opacity-90 text-sm shrink-0`}
+                            data-testid="button-detect-speakers-transcript"
+                          >
+                            <UserCheck className="w-4 h-4 mr-2" /> Detect Speakers
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (speakersMutation.isPending) {
+                    return (
+                      <div className="polished-card p-5 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" />
+                          <span className="text-sm font-medium">Detecting speakers…</span>
+                        </div>
+                        <div className="space-y-2">{[100, 85, 72, 60, 45].map((w, i) => <Skeleton key={i} className="h-12 rounded-xl" style={{ width: `${w}%` }} />)}</div>
+                      </div>
+                    );
+                  }
+
+                  if (speakerTurns && speakerTurns.length > 0) {
+                    return (
+                      <div className="polished-card p-5 space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <h3 className={`text-sm font-bold flex items-center gap-2 ${THEME.accent}`}>
+                              <Users className="w-4 h-4" /> Speaker View
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground/60 mt-0.5">AI-labeled transcript — {colorMap.size} speaker{colorMap.size !== 1 ? "s" : ""} identified</p>
+                          </div>
+                          <Button
+                            size="sm" variant="outline"
+                            onClick={() => speakersMutation.mutate()}
+                            disabled={speakersMutation.isPending}
+                            className="h-8 text-xs"
+                            data-testid="button-redetect-speakers"
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1.5" /> Re-detect
+                          </Button>
+                        </div>
+
+                        {/* Speaker legend */}
+                        <div className="flex flex-wrap gap-2">
+                          {[...colorMap.entries()].map(([name, col]) => (
+                            <span key={name} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${col.bubble}`}>
+                              <span className={`w-2 h-2 rounded-full ${col.badge.split(" ")[0]}`} />
+                              <span className={col.name}>{name}</span>
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Speaker turns */}
+                        <div className="overflow-y-auto max-h-[640px] pr-1" dir={rtl ? "rtl" : "ltr"}>
+                          <SpeakerTurnsView turns={speakerTurns} colorMap={colorMap} rtl={rtl} />
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // speakersResult exists but couldn't parse turns — show raw result
+                  return (
+                    <div className="polished-card p-5 space-y-3">
+                      <h3 className={`text-sm font-bold ${THEME.accent}`}>Speaker Analysis Result</h3>
+                      <pre className="text-xs leading-relaxed text-foreground/80 whitespace-pre-wrap font-sans" dir={rtl ? "rtl" : "ltr"}>{speakerText}</pre>
+                    </div>
+                  );
+                })()}
               </motion.div>
             )}
 
