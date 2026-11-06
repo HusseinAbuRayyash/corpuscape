@@ -1,0 +1,11 @@
+WEBVTT
+
+NOTE exclude note
+private
+
+STYLE
+::cue {color:red}
+
+alpha
+00:01.000 --> 00:02.000
+Bonjour &amp; 你好

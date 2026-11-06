@@ -1,6 +1,8 @@
 export interface CorpusDocument {
   name: string;
   text: string;
+  /** Overrides the workspace language for this document. und uses browser ICU defaults. */
+  locale?: string;
 }
 export interface Options {
   locale: string;
@@ -37,13 +39,30 @@ export interface Analysis {
   averageSentence: number;
   frequencies: Frequency[];
   ngrams: Record<number, { term: string; count: number }[]>;
-  documentStats: { name: string; words: number; types: number }[];
+  documentStats: {
+    name: string;
+    words: number;
+    types: number;
+    hapax: number;
+    locale: string;
+  }[];
 }
 export const defaultOptions: Options = {
   locale: "und",
   caseSensitive: false,
   stopWords: [],
 };
+export function createTextFilter(query: string, locales: string[]) {
+  if (!query) return (_text: string) => true;
+  const variants = [...new Set(locales)].map((locale) => {
+    const tag = locale === "und" ? undefined : locale;
+    return { tag, query: query.normalize("NFC").toLocaleLowerCase(tag) };
+  });
+  return (text: string) =>
+    variants.some(({ tag, query }) =>
+      text.normalize("NFC").toLocaleLowerCase(tag).includes(query),
+    );
+}
 
 // Use the browser's ICU word boundaries: this includes dictionary segmentation for CJK.
 // NFC preserves meaningful letters and diacritics; no Latin-only or Arabic-only normalization.
@@ -51,13 +70,13 @@ export function tokenize(
   documents: CorpusDocument[],
   options: Options,
 ): Token[] {
-  const locale = options.locale === "und" ? undefined : options.locale;
-  const wordSegmenter = new Intl.Segmenter(locale, { granularity: "word" });
-  const sentenceSegmenter = new Intl.Segmenter(locale, {
-    granularity: "sentence",
-  });
   const result: Token[] = [];
   documents.forEach((doc, document) => {
+    const locale = effectiveLocale(doc, options);
+    const wordSegmenter = new Intl.Segmenter(locale, { granularity: "word" });
+    const sentenceSegmenter = new Intl.Segmenter(locale, {
+      granularity: "sentence",
+    });
     let sentence = 0;
     for (const part of sentenceSegmenter.segment(doc.text)) {
       for (const word of wordSegmenter.segment(part.segment)) {
@@ -80,8 +99,11 @@ export function tokenize(
   });
   return result;
 }
-function stopSet(options: Options) {
-  const locale = options.locale === "und" ? undefined : options.locale;
+function effectiveLocale(doc: CorpusDocument, options: Options) {
+  const locale = doc.locale ?? options.locale;
+  return locale === "und" ? undefined : locale;
+}
+function stopSet(options: Options, locale: string | undefined) {
   return new Set(
     options.stopWords.map((w) =>
       options.caseSensitive
@@ -95,14 +117,19 @@ export function analyze(
   options = defaultOptions,
 ): Analysis {
   const tokens = tokenize(documents, options),
-    stops = stopSet(options);
+    stops = documents.map((doc) =>
+      stopSet(options, effectiveLocale(doc, options)),
+    );
+  const perDocument = documents.map(() => new Map<string, number>());
   const counts = new Map<string, { count: number; documents: Set<number> }>();
   const unique = new Set<string>(),
     sentences = new Set<string>();
   for (const token of tokens) {
     unique.add(token.term);
     sentences.add(`${token.document}:${token.sentence}`);
-    if (stops.has(token.term)) continue;
+    const docCounts = perDocument[token.document];
+    docCounts.set(token.term, (docCounts.get(token.term) ?? 0) + 1);
+    if (stops[token.document].has(token.term)) continue;
     const entry = counts.get(token.term) ?? {
       count: 0,
       documents: new Set<number>(),
@@ -129,7 +156,7 @@ export function analyze(
           (t) =>
             t.document !== group[0].document ||
             t.sentence !== group[0].sentence ||
-            stops.has(t.term),
+            stops[t.document].has(t.term),
         )
       )
         continue;
@@ -142,11 +169,13 @@ export function analyze(
       .slice(0, 500);
   }
   const documentStats = documents.map((doc, i) => {
-    const subset = tokens.filter((t) => t.document === i);
+    const counts = perDocument[i];
     return {
       name: doc.name,
-      words: subset.length,
-      types: new Set(subset.map((t) => t.term)).size,
+      words: [...counts.values()].reduce((a, b) => a + b, 0),
+      types: counts.size,
+      hapax: [...counts.values()].filter((count) => count === 1).length,
+      locale: doc.locale ?? options.locale,
     };
   });
   return {
@@ -171,14 +200,20 @@ export function concordance(
   context = 55,
   maxHits = 1000,
 ): { hits: Hit[]; total: number } {
-  const tokens = tokenize(documents, options),
-    needle = tokenize([{ name: "", text: query }], options).map((t) => t.term);
+  if (!Number.isInteger(context) || context < 0 || context > 500)
+    throw new Error("Context must be between 0 and 500 graphemes.");
+  const tokens = tokenize(documents, options);
+  const needles = documents.map((doc) =>
+    tokenize([{ ...doc, text: query }], options).map((t) => t.term),
+  );
+  const boundaries = new Map<number, number[]>();
   const hits: Hit[] = [];
   let total = 0;
-  if (!needle.length) return { hits, total };
-  for (let i = 0; i <= tokens.length - needle.length; i++) {
+  for (let i = 0; i < tokens.length; i++) {
     const first = tokens[i],
-      last = tokens[i + needle.length - 1];
+      needle = needles[first.document];
+    if (!needle.length || i + needle.length > tokens.length) continue;
+    const last = tokens[i + needle.length - 1];
     if (
       first.document !== last.document ||
       first.sentence !== last.sentence ||
@@ -188,15 +223,60 @@ export function concordance(
     total++;
     if (hits.length >= maxHits) continue;
     const doc = documents[first.document];
+    let edges = boundaries.get(first.document);
+    if (!edges) {
+      edges = [];
+      for (const part of new Intl.Segmenter(effectiveLocale(doc, options), {
+        granularity: "grapheme",
+      }).segment(doc.text))
+        edges.push(part.index);
+      edges.push(doc.text.length);
+      boundaries.set(first.document, edges);
+    }
+    const start = lowerBound(edges, first.start),
+      end = lowerBound(edges, last.end);
     hits.push({
-      left: doc.text.slice(Math.max(0, first.start - context), first.start),
+      left: doc.text.slice(edges[Math.max(0, start - context)], first.start),
       match: doc.text.slice(first.start, last.end),
-      right: doc.text.slice(last.end, last.end + context),
+      right: doc.text.slice(
+        last.end,
+        edges[Math.min(edges.length - 1, end + context)],
+      ),
       document: doc.name,
       position: first.start,
     });
   }
   return { hits, total };
+}
+function lowerBound(values: number[], value: number) {
+  let lo = 0,
+    hi = values.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (values[mid] < value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+export function sortConcordance(hits: Hit[], order: string, locale = "und") {
+  const tag = locale === "und" ? undefined : locale;
+  const segmenter = new Intl.Segmenter(tag, { granularity: "word" });
+  const leftKey = (text: string) =>
+    [...segmenter.segment(text)]
+      .filter((part) => part.isWordLike)
+      .map((part) => part.segment.normalize("NFC").toLocaleLowerCase(tag))
+      .reverse()
+      .join("\u0000");
+  const keys = new Map(
+    hits.map((hit) => [hit, order === "left" ? leftKey(hit.left) : hit.right]),
+  );
+  return [...hits].sort((a, b) =>
+    order === "document"
+      ? a.document.localeCompare(b.document, tag) || a.position - b.position
+      : order === "left" || order === "right"
+        ? keys.get(a)!.localeCompare(keys.get(b)!, tag)
+        : 0,
+  );
 }
 export function collocations(
   documents: CorpusDocument[],
@@ -205,11 +285,27 @@ export function collocations(
   window = 5,
   minimum = 2,
 ) {
-  const tokens = tokenize(documents, options),
-    node = tokenize([{ name: "", text: query }], options);
-  if (node.length !== 1) return [];
-  const stops = stopSet(options),
-    nodeTerm = node[0].term;
+  if (
+    !Number.isInteger(window) ||
+    window < 1 ||
+    window > 50 ||
+    !Number.isInteger(minimum) ||
+    minimum < 1
+  )
+    throw new Error(
+      "Use a window of 1–50 tokens and a positive minimum count.",
+    );
+  const tokens = tokenize(documents, options);
+  const nodes = documents.map((doc) =>
+    tokenize([{ ...doc, text: query }], options),
+  );
+  if (nodes.some((node) => node.length !== 1))
+    throw new Error(
+      "Collocations require one segmented node word. Use Concordance for phrases.",
+    );
+  const stops = documents.map((doc) =>
+    stopSet(options, effectiveLocale(doc, options)),
+  );
   const pairs = new Map<string, number>(),
     rightMarginal = new Map<string, number>();
   let slots = 0,
@@ -231,14 +327,15 @@ export function collocations(
         tokens[j].term,
         (rightMarginal.get(tokens[j].term) ?? 0) + 1,
       );
-      if (tokens[i].term === nodeTerm) {
+      if (tokens[i].term === nodes[tokens[i].document][0].term) {
         nodeSlots++;
-        pairs.set(tokens[j].term, (pairs.get(tokens[j].term) ?? 0) + 1);
+        if (!stops[tokens[j].document].has(tokens[j].term))
+          pairs.set(tokens[j].term, (pairs.get(tokens[j].term) ?? 0) + 1);
       }
     }
   }
   return [...pairs]
-    .filter(([term, count]) => count >= minimum && !stops.has(term))
+    .filter(([, count]) => count >= minimum)
     .map(([term, count]) => ({
       term,
       count,
@@ -283,7 +380,7 @@ export function compare(a: Analysis, b: Analysis) {
 }
 export function alignByLine(source: string, target: string) {
   function lines(text: string) {
-    const rows = text.split(/\r?\n/);
+    const rows = text.split(/\r\n?|\n/);
     while (rows.length && !rows.at(-1)!.trim()) rows.pop();
     return rows;
   }
@@ -330,16 +427,41 @@ export function xmlEscape(value: string) {
   );
 }
 export function tmx(
-  pairs: { source: string; target: string }[],
+  pairs: { source: string; target: string; note?: string }[],
   sourceLocale: string,
   targetLocale: string,
 ) {
+  let source: string, target: string;
+  try {
+    source = Intl.getCanonicalLocales(sourceLocale)[0];
+    target = Intl.getCanonicalLocales(targetLocale)[0];
+  } catch {
+    throw new Error(
+      "TMX export needs valid BCP 47 source and target language tags.",
+    );
+  }
+  if (
+    !source ||
+    !target ||
+    source === target ||
+    source === "und" ||
+    target === "und"
+  )
+    throw new Error(
+      "Choose two different, explicit language tags for TMX export.",
+    );
+  const invalidXml =
+    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
+  if (pairs.some((p) => invalidXml.test(p.source + p.target + (p.note ?? ""))))
+    throw new Error(
+      "TMX contains characters forbidden in XML. Remove control characters before exporting.",
+    );
   return (
     `<?xml version="1.0" encoding="UTF-8"?><tmx version="1.4"><header creationtool="Corpuscape" creationtoolversion="2" segtype="sentence" o-tmf="Corpuscape" adminlang="en" srclang="${xmlEscape(sourceLocale)}" datatype="PlainText"/><body>` +
     pairs
       .map(
         (p) =>
-          `<tu><tuv xml:lang="${xmlEscape(sourceLocale)}"><seg>${xmlEscape(p.source)}</seg></tuv><tuv xml:lang="${xmlEscape(targetLocale)}"><seg>${xmlEscape(p.target)}</seg></tuv></tu>`,
+          `<tu>${p.note ? `<prop type="x-corpuscape-note">${xmlEscape(p.note)}</prop>` : ""}<tuv xml:lang="${xmlEscape(sourceLocale)}"><seg>${xmlEscape(p.source)}</seg></tuv><tuv xml:lang="${xmlEscape(targetLocale)}"><seg>${xmlEscape(p.target)}</seg></tuv></tu>`,
       )
       .join("") +
     "</body></tmx>"
