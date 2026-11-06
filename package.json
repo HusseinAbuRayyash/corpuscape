@@ -1,6 +1,6 @@
 {
   "name": "corpuscape",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -18,17 +18,21 @@
     "mammoth": "^1.11.0",
     "motion": "^14.9.1",
     "papaparse": "^5.5.3",
+    "parse5": "^8.1.0",
     "pdfjs-dist": "^6.5.438",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "read-excel-file": "^6.0.1"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.0.0",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
+    "fake-indexeddb": "^6.2.7",
+    "jsdom": "^31.0.0",
     "tsx": "^4.20.5",
     "typescript": "^5.6.3",
     "vite": "^7.3.0"

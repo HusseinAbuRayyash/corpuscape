@@ -1,14 +1,31 @@
 import type { CorpusDocument } from "./engine";
 import Papa from "papaparse";
+import {
+  decodeText,
+  parseTmx,
+  selectTmxPairs,
+  subtitleText,
+  tmxDocuments,
+  type TranslationMemory,
+} from "./import-parsers";
 export const MAX_CHARACTERS = 2_000_000;
 export const ACCEPT =
   ".txt,.md,.csv,.tsv,.docx,.pdf,.xlsx,.html,.htm,.srt,.vtt,.tmx";
 export interface Imported {
   documents: CorpusDocument[];
-  table?: { headers: string[]; rows: string[][] };
+  table?: {
+    headers: string[];
+    rows: string[][];
+    sheetNames?: string[];
+    sheet?: string;
+  };
   pairs?: { source: string; target: string; note: string }[];
+  translationMemory?: TranslationMemory;
 }
-export async function importFile(file: File): Promise<Imported> {
+export async function importFile(
+  file: File,
+  sheet?: string,
+): Promise<Imported> {
   if (file.size > 25 * 1024 * 1024)
     throw new Error(`${file.name}: maximum file size is 25 MB.`);
   const ext = file.name.split(".").pop()?.toLowerCase();
@@ -32,8 +49,8 @@ export async function importFile(file: File): Promise<Imported> {
       standardFontDataUrl: support + "standard_fonts/",
       wasmUrl: support + "wasm/",
     });
-    const pdf = await loadingTask.promise;
     try {
+      const pdf = await loadingTask.promise;
       const pages: string[] = [];
       let total = 0;
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -59,9 +76,14 @@ export async function importFile(file: File): Promise<Imported> {
         "No selectable text found in this PDF. Scanned PDFs need OCR in a separate tool before importing.",
       );
   } else if (ext === "xlsx") {
-    const { default: readXlsx } = await import("read-excel-file");
-    const data = await readXlsx(file);
-    return tableResult(
+    const { default: readXlsx, readSheetNames } =
+      await import("read-excel-file");
+    const sheetNames = await readSheetNames(file);
+    const selectedSheet = sheet ?? sheetNames[0];
+    if (!selectedSheet || !sheetNames.includes(selectedSheet))
+      throw new Error("Choose a worksheet present in this workbook.");
+    const data = await readXlsx(file, { sheet: selectedSheet });
+    const result = tableResult(
       data.map((row) =>
         row.map((cell) =>
           cell instanceof Date ? cell.toISOString() : String(cell ?? ""),
@@ -69,8 +91,14 @@ export async function importFile(file: File): Promise<Imported> {
       ),
       file.name,
     );
+    result.table = { ...result.table!, sheetNames, sheet: selectedSheet };
+    return result;
   } else {
-    text = await file.text();
+    text = decodeText(await file.arrayBuffer());
+    if (text.length > MAX_CHARACTERS)
+      throw new Error(
+        "This file exceeds the 2 million character import limit. Split it into smaller files.",
+      );
     if (ext === "csv" || ext === "tsv") {
       const parsed = Papa.parse<string[]>(text, {
         delimiter: ext === "tsv" ? "\t" : "",
@@ -83,44 +111,23 @@ export async function importFile(file: File): Promise<Imported> {
       return tableResult(parsed.data, file.name);
     }
     if (ext === "html" || ext === "htm") {
-      const doc = new DOMParser().parseFromString(text, "text/html");
-      doc
-        .querySelectorAll("script,style,noscript,nav,header,footer")
-        .forEach((node) => node.remove());
-      doc
-        .querySelectorAll("p,br,div,li,h1,h2,h3")
-        .forEach((node) => node.append("\n"));
-      text = doc.body.textContent ?? "";
+      const { htmlText } = await import("./html-text");
+      text = htmlText(text);
     }
     if (ext === "tmx") {
-      const doc = new DOMParser().parseFromString(text, "application/xml");
-      if (doc.querySelector("parsererror"))
-        throw new Error("This TMX file is not valid XML.");
-      const pairs = [...doc.querySelectorAll("tu")]
-        .map((tu) => {
-          const segs = tu.querySelectorAll("tuv seg");
-          return {
-            source: segs[0]?.textContent ?? "",
-            target: segs[1]?.textContent ?? "",
-            note: "",
-          };
-        })
-        .filter((p) => p.source || p.target);
-      if (!pairs.length)
-        throw new Error("No translation pairs found in this TMX file.");
+      const translationMemory = parseTmx(text);
+      const pairs = selectTmxPairs(
+        translationMemory,
+        translationMemory.sourceLocale,
+        translationMemory.targetLocale,
+      );
       return {
-        documents: [
-          { name: file.name, text: pairs.map((p) => p.source).join("\n") },
-        ],
+        documents: tmxDocuments(translationMemory, file.name),
         pairs,
+        translationMemory,
       };
     }
-    if (ext === "srt" || ext === "vtt")
-      text = text
-        .split(/\r?\n/)
-        .filter((line) => !/^\d+$|-->|^WEBVTT|^NOTE\b/.test(line.trim()))
-        .join("\n")
-        .replace(/<[^>]*>/g, "");
+    if (ext === "srt" || ext === "vtt") text = subtitleText(text);
     if (!["txt", "md", "html", "htm", "srt", "vtt"].includes(ext ?? ""))
       throw new Error(
         `Unsupported format: ${ext}. Use TXT, MD, CSV, TSV, DOCX, PDF, XLSX, HTML, SRT, VTT or TMX.`,
@@ -135,6 +142,13 @@ export async function importFile(file: File): Promise<Imported> {
 }
 function tableResult(data: string[][], name: string): Imported {
   if (!data.length) throw new Error("This table is empty.");
+  if (
+    data.reduce(
+      (sum, row) => sum + row.reduce((n, cell) => n + cell.length, 0),
+      0,
+    ) > MAX_CHARACTERS
+  )
+    throw new Error("This table exceeds the 2 million character import limit.");
   const width = data.reduce((max, row) => Math.max(max, row.length), 0);
   // Keep the first row as data until the visitor explicitly selects a header row.
   return {

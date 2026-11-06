@@ -32,16 +32,22 @@ Deploy **the contents of `dist/`**, not server JavaScript or the repository root
 
 ## Tools
 
-- Monolingual analysis: word counts, types, sentences, type–token ratio, document dispersion, raw and normalized frequencies, whole-word/phrase concordance, contiguous n-grams, window-based collocations, editable case and stop-list settings.
+- Monolingual and multilingual analysis: word counts, types, sentences, type–token ratio, document dispersion, raw and normalized frequencies, whole-word/phrase concordance, contiguous n-grams, window-based collocations, editable case and stop-list settings.
 - Corpus comparison: normalized counts, exploratory two-corpus G² and smoothed log₂ ratio.
-- Bilingual review: explicit line pairing, two-column table or TMX import, editable source/target segments, research notes, CSV and TMX exports. No inferred semantic alignment.
-- Figure studio: horizontal/vertical bars and lollipop plots; editable title, colour and item count; custom tab-separated data; editable SVG and CSV exports.
-- Local library: explicit browser saves and portable JSON backups. Reports export as self-contained HTML for printing to PDF.
-- Import TXT, Markdown, CSV, TSV, DOCX, selectable-text PDF, XLSX (first worksheet), saved HTML, SRT/VTT subtitle text and TMX (first two variants). Tables have explicit column and header selection. Scanned PDFs require separate OCR.
+- Bilingual review: explicit line pairing, table column selection including notes, tagged language-pair selection from multilingual TMX, editable source/target segments, duplicate/identical/missing-segment review flags, CSV and TMX exports with notes. No inferred semantic alignment.
+- Figure studio: horizontal/vertical bars and lollipop plots; wrapped multilingual labels, zero baseline, title/colour/item count, ordering, raw/per-million corpus values, validated CSV/TSV data, accessible value tables, SVG/PNG/CSV exports. Invalid custom data is reported and blocks export.
+- Local library: explicit browser saves update the current record; portable JSON backups retain case, stop list and language settings. Version 2 backups still restore. Deletion requires a review dialog. Reports include document languages and resolved segmentation locales and export as self-contained HTML for printing to PDF.
+- Import TXT, Markdown, CSV, TSV, DOCX, selectable-text PDF, XLSX (select a worksheet), saved HTML, SRT/VTT subtitle text and TMX (select tagged languages; corpus imports create a document per language). Tables have explicit column and header selection. Scanned PDFs require separate OCR.
+
+## Research audit, version 2.1
+
+The November 6 audit adds per-document language assignment, text editing, append/remove/undo, hapax and document-statistics exports, concordance context and left/right/document sorting, and safer import/export workflows. The ten-language teaching collection now carries explicit document language tags. Corpus text, settings and charts remain local and require no LLM keys.
+
+Run `npm test` for 142 automated checks: ten-language known-answer workflows, Unicode offsets, collocation/G² calculations, real text/DOCX/XLSX/TMX/subtitle fixtures, malformed inputs, IndexedDB, figure SVGs, keyboard focus, overlapping saves, and the 2M-character capacity case. Browser verification additionally covered all tool modes, real PDF imports, worksheet/column selection, editing, backups and actual CSV/TMX/SVG/PNG/report downloads. CI runs tests and a production build for pull requests and main.
 
 ## Multilingual methods
 
-All Unicode scripts are accepted, including Latin, Cyrillic, Arabic, CJK and Indic scripts. `Intl.Segmenter` provides locale-specific word and sentence boundaries, including dictionary segmentation for Chinese, Japanese and Thai. Select a language for reproducible language-specific analysis. The **Automatic / mixed languages** setting uses the browser's default locale; it does not perform language detection. Other languages can be selected with a BCP 47 locale code. Browser ICU support and version can affect boundaries.
+All Unicode scripts are accepted, including Latin, Cyrillic, Arabic, CJK and Indic scripts. `Intl.Segmenter` provides locale-specific word and sentence boundaries, including dictionary segmentation for Chinese, Japanese and Thai. Select the workspace language and override it for each document in the Documents tab when working with a multilingual collection. The **Automatic / mixed languages** setting uses the browser's default locale; it does not perform language detection. Other languages can be selected with a BCP 47 locale code. Browser ICU support and version can affect boundaries.
 
 NFC preserves letters and diacritics. Optional locale-aware lowercasing folds case; no stemming, transliteration or accent stripping is applied. Numbers marked word-like by the segmenter count as tokens. Sentence counts include only segments containing word tokens. Character counts use Unicode code points. Exact formulas, limits and privacy details are available in **Methods & privacy** inside the app.
 

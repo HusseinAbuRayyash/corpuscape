@@ -1,0 +1,359 @@
+{
+  "edition": "2.1.0",
+  "auditDate": "2026-11-06",
+  "scope": "Confirmed findings from the tested research workflows; this is not a proof of exhaustive correctness for arbitrary corpora or every browser.",
+  "automatedTests": 142,
+  "release": {
+    "status": "Validated locally; see the associated pull request and user audit report for final deployment verification."
+  },
+  "findings": [
+    {
+      "id": "R01",
+      "area": "Analysis",
+      "finding": "One global language for a mixed collection",
+      "resolution": "Per-document language overrides and explicit tags in the ten-language teaching corpus.",
+      "verification": "Ten-language matrix, mixed collection and Turkish override tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R02",
+      "area": "Research controls",
+      "finding": "Documents could only be inspected",
+      "resolution": "Add/edit/rename/remove documents, assign languages, append files and undo changes. Appending preserves the corpus name.",
+      "verification": "Browser edit/add/remove/undo/append tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R03",
+      "area": "Performance",
+      "finding": "Document statistics repeatedly scanned all tokens",
+      "resolution": "Accumulate document token/type/hapax counts in one pass.",
+      "verification": "100-document and 2M-character tests; exact aggregate totals.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R04",
+      "area": "Concordance",
+      "finding": "UTF-16 context slicing could cut emoji or combining sequences",
+      "resolution": "Context uses grapheme boundaries; original UTF-16 match offsets remain intact.",
+      "verification": "Emoji ZWJ, combining marks and exact-offset tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R05",
+      "area": "Research controls",
+      "finding": "Concordance lacked adjustable context, document selection and sorting",
+      "resolution": "20–500 grapheme context, document filter, nearest-word left sorting, right sorting and document sorting.",
+      "verification": "Browser Chinese-only search and sorting controls; lexical-order regression test.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R06",
+      "area": "Analysis",
+      "finding": "Multiword collocation queries silently returned no results",
+      "resolution": "A clear query-specific error requests one segmented node word; valid input clears the error.",
+      "verification": "Ten-language invalid-phrase tests and browser correction check.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R07",
+      "area": "Analysis",
+      "finding": "Core context/window/count parameters accepted invalid values",
+      "resolution": "Validate context, token-window and positive minimum-count boundaries.",
+      "verification": "Engine negative-context and parameter validation checks.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R08",
+      "area": "Unicode",
+      "finding": "Table search used generic case folding and unnormalized query text",
+      "resolution": "NFC-aware filters respect document and bilingual language tags, including Turkish I.",
+      "verification": "Turkish, French NFC and Arabic filter regression tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R09",
+      "area": "State",
+      "finding": "Older async failures and results could mislead the current view",
+      "resolution": "Version guards, reset query errors, explicit comparison errors, and cleared stale analysis while recomputing.",
+      "verification": "Browser rapid workflow changes; code review and production build.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R10",
+      "area": "Storage",
+      "finding": "Saving omitted case and stop-list settings",
+      "resolution": "Save and restore complete options and per-document languages; export version 3 backups and accept version 2.",
+      "verification": "IndexedDB and JSON round trips; browser changed-settings restore.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R11",
+      "area": "Storage",
+      "finding": "Malformed/null backup documents could crash restoration",
+      "resolution": "Deep validation of documents, locales, options, sizes and document counts; failed imports leave the current corpus available.",
+      "verification": "Malformed, null, empty, oversized and invalid-locale backup tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R12",
+      "area": "Storage",
+      "finding": "Every Save created a new record; rapid clicks could race",
+      "resolution": "Update the active record, serialize overlapping saves and guard against assigning a saved ID to a different active corpus.",
+      "verification": "Exclusive-save regression tests and browser double-click retest: one saved copy.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R13",
+      "area": "Storage",
+      "finding": "Library removal had no review step",
+      "resolution": "Review dialog with backup export and cancellation before removing the saved copy.",
+      "verification": "Browser cancellation and focus tests; storage deletion tested in an isolated test database.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R14",
+      "area": "Accessibility",
+      "finding": "Import/review dialogs did not confine keyboard focus",
+      "resolution": "Move focus into dialogs, make background inert, trap Tab, support Escape and restore focus.",
+      "verification": "Automated keyboard/focus test and browser TMX Escape cancellation.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R15",
+      "area": "TMX",
+      "finding": "The first two variants were used regardless of language",
+      "resolution": "Parse canonical language tags and choose the source/target pair; a corpus import creates one document per language.",
+      "verification": "Reordered/missing variants and ten-language TMX tests; browser en/fr selection.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R16",
+      "area": "TMX",
+      "finding": "Malformed, untagged or duplicate variants could be ambiguous",
+      "resolution": "Reject invalid XML, absent tags/segments and duplicate same-language variants.",
+      "verification": "Malformed/ambiguous TMX regression cases.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R17",
+      "area": "TMX",
+      "finding": "Inline formatting codes could become corpus words",
+      "resolution": "Remove formatting-code payloads while preserving readable segment text.",
+      "verification": "TMX bpt/ept/hi regression fixture.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R18",
+      "area": "Annotations",
+      "finding": "TMX exports and table imports lost research notes",
+      "resolution": "Round-trip a Corpuscape TMX note property and choose an optional note column for table imports.",
+      "verification": "All ten-language TMX note round trips, CSV annotation import and actual downloaded TMX validation.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R19",
+      "area": "TMX",
+      "finding": "Invalid or duplicate export tags and XML controls were not rejected",
+      "resolution": "Require two distinct explicit BCP 47 tags and XML-compatible text.",
+      "verification": "Invalid, duplicate, undetermined and XML-control tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R20",
+      "area": "Import state",
+      "finding": "Cancelling language selection could change existing pair metadata",
+      "resolution": "Keep pending TMX language choices separate until import succeeds.",
+      "verification": "Browser cancel retained en/ja tags, then en/fr import succeeded.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R21",
+      "area": "Subtitles",
+      "finding": "WebVTT comments/styles/regions and cue identifiers leaked into text",
+      "resolution": "Parse cue blocks and retain only decoded cue payloads; numeric cue text is preserved.",
+      "verification": "SRT/VTT file fixtures and NOTE/STYLE/REGION/identifier tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R22",
+      "area": "Encoding",
+      "finding": "Non-UTF-8 text could be silently replaced with corrupt characters",
+      "resolution": "Strict UTF-8 decoding, BOM-marked UTF-16 support, and actionable conversion errors.",
+      "verification": "UTF-8, UTF-16 LE/BE and invalid-byte tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R23",
+      "area": "Imports",
+      "finding": "Structured imports had inconsistent character-limit checks",
+      "resolution": "Enforce extracted table and raw-text limits before committing the import.",
+      "verification": "Oversized text/table/backup tests and real capacity import.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R24",
+      "area": "XLSX",
+      "finding": "Only the first worksheet was accessible",
+      "resolution": "Select a worksheet and then explicitly choose header and text/source/target/note columns.",
+      "verification": "Real two-sheet workbook test and browser second-sheet/header/column selection.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R25",
+      "area": "PDF",
+      "finding": "A failed PDF load could skip worker cleanup",
+      "resolution": "Destroy the PDF loading task in finally, including failed loads.",
+      "verification": "Production build; selectable-text PDF import; corrupt/empty-text error paths preserve the active corpus; cleanup reviewed.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R26",
+      "area": "Figures",
+      "finding": "Invalid rows were silently removed and blank numbers became zero",
+      "resolution": "Strict CSV/TSV parsing, optional explicit header, row-level errors and export blocking until corrected.",
+      "verification": "Malformed/blank/negative/nonfinite figures and browser invalid-input check.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R27",
+      "area": "Figures",
+      "finding": "An empty/invalid figure displayed teaching values",
+      "resolution": "Show an honest empty/error state; examples load only through an explicit button.",
+      "verification": "Empty-chart regression and browser zero-SVG/disabled-export assertion.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R28",
+      "area": "Figures",
+      "finding": "Long labels and titles were silently truncated",
+      "resolution": "Wrap full Unicode labels/titles, retain full values in SVG descriptions/tooltips, and handle RTL labels.",
+      "verification": "All three SVG styles with ten scripts, long labels and visual PNG inspection.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R29",
+      "area": "Research controls",
+      "finding": "Figures lacked normalized corpus units and ordering",
+      "resolution": "Raw counts or per-million values, source/value/label ordering and explicit item counts.",
+      "verification": "Browser units/order/limit checks and ten-language value tests.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R30",
+      "area": "Figures",
+      "finding": "Chart values lacked readable axes and an accessible data view",
+      "resolution": "Zero-baseline grid/ticks, explicit units, complete label/value table and unrounded CSV.",
+      "verification": "SVG geometry tests, browser value-table check and actual CSV validation.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R31",
+      "area": "Figures",
+      "finding": "There was no raster export",
+      "resolution": "Add a 2x PNG export alongside editable SVG and CSV.",
+      "verification": "Actual downloaded PNG signature and 1600×916 pixel dimensions verified; all ten labels visually checked.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R32",
+      "area": "Rendering",
+      "finding": "SVG title child arrays caused React warnings",
+      "resolution": "Use a single text value for each SVG title/description.",
+      "verification": "Server-rendered chart tests and browser console check.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R33",
+      "area": "Samples",
+      "finding": "Teaching samples could inherit unrelated analysis/pair settings",
+      "resolution": "Reset case/stop defaults for corpus examples and load parallel sample texts, tags and pairs together.",
+      "verification": "Browser sample workflow and exact mixed-corpus statistics.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R34",
+      "area": "Accessibility",
+      "finding": "Parallel input textareas lacked accessible names",
+      "resolution": "Add explicit Source segments and Target segments names.",
+      "verification": "Browser accessible-tree verification.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R35",
+      "area": "Display",
+      "finding": "Very small positive TTR rounded to a misleading zero",
+      "resolution": "Use four significant digits in metrics and reports.",
+      "verification": "Regression: 1/400000 displays as 0.00025%.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R36",
+      "area": "Verification",
+      "finding": "Only a small core test suite existed",
+      "resolution": "Expand to 142 tests covering calculations, real file fixtures, storage, Unicode, figures, focus, saving races and maximum capacity.",
+      "verification": "npm test and production build; browser workflow matrix.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R37",
+      "area": "Maintenance",
+      "finding": "No automated research-quality gate for changes",
+      "resolution": "Run tests and the production build on pull requests and main.",
+      "verification": "GitHub Actions quality workflow; release run linked after merge.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R38",
+      "area": "Responsive accessibility",
+      "finding": "The closed mobile sidebar remained keyboard/screen-reader accessible",
+      "resolution": "Hide the closed drawer from focus, add an explicit close control, trap focus in the open drawer, support Escape, restore focus, and close it when importing or moving to desktop.",
+      "verification": "391px browser viewport: closed sidebar invisible, open drawer isolated from the workspace, Shift+Tab wraps, Escape closes; no page overflow.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R39",
+      "area": "HTML import",
+      "finding": "HTML table cells could merge words; DOM parsing was not an isolated text-parser contract",
+      "resolution": "Use a lazy plain-AST HTML parser with table/block separators; scripts, embedded resources and structural boilerplate never become active browser content.",
+      "verification": "Offline HTML regression checks table boundaries, entities, excluded tags and multilingual text without DOM globals; real HTML file import.",
+      "status": "Resolved"
+    },
+    {
+      "id": "R40",
+      "area": "Development",
+      "finding": "Development hot reload could initialize a second React root",
+      "resolution": "Reuse the development root across hot module updates; production creates one root normally.",
+      "verification": "TypeScript and production build; final browser checks use the built static site rather than hot-reloaded sources.",
+      "status": "Resolved"
+    }
+  ],
+  "limits": [
+    "Word and sentence boundaries depend on the browser ICU implementation. These tests verify the fixtures and formulas, not a linguistic gold standard for every language or orthography. No automatic language detection, lemmatization, POS tagging, semantic alignment or translation-quality scoring is claimed.",
+    "Scanned PDFs require OCR elsewhere. PDF text order and embedded-font extraction depend on the source document. Imported saved HTML is cleaned text, not a remote website scraper.",
+    "Workspace limits remain 100 documents, 2,000,000 UTF-16 units of selected corpus text, 25 MB per file and 10,000 parallel pairs. Browser memory/storage limits still apply.",
+    "Concordance retains the first 1,000 hits and reports the full total. N-grams/collocates retain up to 500 rows; comparison retains up to 1,000. Figures display up to 30 rows and report the selected count. Sorting applies to retained results.",
+    "Library data is per origin/browser/device; explicit backup is necessary for portability. Unsaved text, pair edits and figure settings are session data. Parallel CSV/TMX exports preserve reviewed segments and notes.",
+    "CSV strings that could execute spreadsheet formulas are neutralized with an apostrophe. CSV values and JSON retain full numeric precision; on-screen numbers and plot labels are formatted.",
+    "G² and smoothed log-ratio comparisons are exploratory. Counts across different languages are not automatically semantically comparable; corpus design and human interpretation remain necessary.",
+    "Testing used the available Chromium browser and Node test runtime. Firefox, Safari, assistive technology and every mobile device have not been exhaustively certified."
+  ],
+  "sources": [
+    {
+      "title": "Unicode UAX #29: Text Segmentation",
+      "url": "https://www.unicode.org/reports/tr29/"
+    },
+    {
+      "title": "Lancaster UCREL log-likelihood formula",
+      "url": "https://ucrel.lancaster.ac.uk/llwizard.html"
+    },
+    {
+      "title": "W3C WebVTT specification",
+      "url": "https://www.w3.org/TR/webvtt1/"
+    },
+    {
+      "title": "MDN DOMParser behavior and resource-loading caveat",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/DOMParser/parseFromString"
+    }
+  ]
+}

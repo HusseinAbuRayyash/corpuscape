@@ -10,11 +10,12 @@ self.onmessage = ({ data }) => {
       window,
       minimum,
       reference,
+      context,
     } = data;
     let result;
     if (action === "analyze") result = analyze(documents, options);
     else if (action === "concordance")
-      result = concordance(documents, options, query);
+      result = concordance(documents, options, query, context);
     else if (action === "collocations")
       result = collocations(documents, options, query, window, minimum);
     else if (action === "compare") {
