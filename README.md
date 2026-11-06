@@ -39,7 +39,7 @@ Deploy **the contents of `dist/`**, not server JavaScript or the repository root
 - Local library: explicit browser saves update the current record; portable JSON backups retain case, stop list and language settings. Version 2 backups still restore. Deletion requires a review dialog. Reports include document languages and resolved segmentation locales and export as self-contained HTML for printing to PDF.
 - Import TXT, Markdown, CSV, TSV, DOCX, selectable-text PDF, XLSX (select a worksheet), saved HTML, SRT/VTT subtitle text and TMX (select tagged languages; corpus imports create a document per language). Tables have explicit column and header selection. The Text extraction workspace processes scanned PDFs and images locally with Tesseract; multiple files, selectable-text fallback, editable page outputs, language selection and corpus handoff are included.
 
-## Research upgrade, version 2.2
+## Research upgrade, version 2.2.1
 
 The new Figure Studio replaces the earlier three-chart utility. **Research reports** connects to Qwen3-0.6B or Qwen3-1.7B (multilingual), or SmolLM2-135M (English-focused), through Transformers.js. No API key or hosted inference service is used. Models download only after the visitor requests a connection, and are cached for reuse. The default Qwen download is about 618 MB on CPU / 570 MB on WebGPU; the larger model is about 1.7 GB / 1.4 GB. GPU compatibility is checked, automatic mode falls back to CPU, and cancellation terminates the model worker.
 
@@ -47,7 +47,7 @@ Reporting supports results, methods, discussions, figure captions, linguistic ob
 
 The old fixed file/document/character/pair/result quotas have been removed. Whole-workspace backups include corpus settings, comparison reference text, bilingual notes, chart settings and report drafts. Autosave can be paused; the preference persists. Models and OCR language data are downloaded separately rather than embedded in backups.
 
-Run `npm test` for 169 automated checks, including known-answer workflows in ten languages, real Vega compilation and SVG rendering for all 12 chart types, malformed inputs, full-result retention, statistical probability oracles, BH adjustment, project round trips, IndexedDB bundles, Unicode, report-language checks and real import fixtures. Optional real-model checks: `node scripts/local-ai-smoke.mjs` and `npx tsx scripts/local-ai-report-smoke.ts` (download weights on first use). Browser QA has verified actual Qwen CPU inference, SVG/PNG/PDF downloads and bilingual OCR from a PNG and scanned PDF. See [the 2.2 verification record](docs/figure-studio-2.2.md). CI runs tests and the production build.
+Run `npm test` for 170 automated checks, including known-answer workflows in ten languages, real Vega compilation and SVG rendering for all 12 chart types, malformed inputs, full-result retention, statistical probability oracles, BH adjustment, project round trips, IndexedDB bundles, Unicode, report-language checks and real import fixtures. Optional real-model checks: `node scripts/local-ai-smoke.mjs` and `npx tsx scripts/local-ai-report-smoke.ts` (download weights on first use). Browser QA has verified actual Qwen CPU inference, SVG/PNG/PDF downloads and bilingual OCR from a PNG and scanned PDF. See [the 2.2 verification record](docs/figure-studio-2.2.md). CI runs tests and the production build.
 
 The earlier [2.1 audit](docs/research-audit-2026-11-06.json) is retained as a historical record; its old quotas and OCR limitations are superseded by 2.2.
 

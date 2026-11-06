@@ -200,6 +200,23 @@ export function unknownEvidenceReferences(text: string, evidence: Evidence[]) {
     ),
   ];
 }
+export function unsupportedClaimNotice(
+  text: string,
+  evidence: Evidence[],
+): string {
+  const inferential =
+    /\bsignifican\w*|\bsignificati(?:v|f)\w*|\bsignifik\w*|значим[а-яё]*|显著|有意|دال[ة]?\s+إحصائي|ذو\s+دلالة/iu;
+  const correlation =
+    /\bcorrelat\w*|\bcorrelac\w*|\bcau[sz]al\w*|коррел|相关性|相関|ارتباط\s+إحصائي/iu;
+  if (correlation.test(text))
+    return "Review correlation or causal claims: Corpuscape has not computed a correlation or causal model. These statements are not established by the supplied counts or G² comparisons.";
+  if (
+    inferential.test(text) &&
+    !evidence.some((item) => /^R\d+$/.test(item.id))
+  )
+    return "Review claims of statistical significance: the selected evidence contains no comparison test results. Descriptive counts do not establish significance. Remove or independently substantiate these claims.";
+  return "";
+}
 export function exactReport(input: ReportInput) {
   const a = input.analysis;
   if (!a) return "Load a corpus to build a statistical report.";
