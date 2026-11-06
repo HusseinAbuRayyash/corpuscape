@@ -33,6 +33,31 @@ export interface OcrProgress {
   pages: number;
   progress: number;
 }
+// Tesseract termination does not settle outstanding recognize() jobs.
+export function withOcrCancellation<T>(
+  operation: Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) return operation;
+  return new Promise((resolve, reject) => {
+    const cancel = () => {
+      signal.removeEventListener("abort", cancel);
+      reject(new Error("Text extraction cancelled."));
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+    operation.then(
+      (value) => {
+        signal.removeEventListener("abort", cancel);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", cancel);
+        reject(error);
+      },
+    );
+    if (signal.aborted) cancel();
+  });
+}
 export async function extractWithOcr(
   file: File,
   languages: string[],
@@ -45,7 +70,8 @@ export async function extractWithOcr(
   let pageNumber = 1,
     totalPages = 1;
   const base = new URL("../ocr-runtime/", import.meta.url).href;
-  const worker = await createWorker(languages.join("+"), 1, {
+  const creating = createWorker(languages.join("+"), 1, {
+    errorHandler: () => {},
     ...(import.meta.env.PROD
       ? {
           workerPath: base + "worker.min.js",
@@ -53,13 +79,22 @@ export async function extractWithOcr(
           workerBlobURL: false,
         }
       : {}),
-    logger: (entry) =>
+    logger: (entry) => {
+      if (signal?.aborted) return;
       onProgress({
         stage: entry.status,
         page: pageNumber,
         pages: totalPages,
         progress: entry.progress ?? 0,
-      }),
+      });
+    },
+  });
+  const worker = await withOcrCancellation(creating, signal).catch((error) => {
+    void creating.then(
+      (worker) => worker.terminate(),
+      () => {},
+    );
+    throw error;
   });
   const abort = () => {
     void worker.terminate();
@@ -139,7 +174,10 @@ export async function extractWithOcr(
               "image/png",
             ),
           );
-          const result = await worker.recognize(blob);
+          const result = await withOcrCancellation(
+            worker.recognize(blob),
+            signal,
+          );
           pages.push({
             name: `${file.name} · page ${index}`,
             text: result.data.text,
@@ -156,7 +194,7 @@ export async function extractWithOcr(
         await task.destroy();
       }
     }
-    const result = await worker.recognize(file);
+    const result = await withOcrCancellation(worker.recognize(file), signal);
     check();
     return [
       {
