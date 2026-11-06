@@ -2,6 +2,12 @@
 
 A free, multilingual corpus analysis workspace. This browser edition has no accounts, LLM API keys, paid-model SDKs, database server or text upload endpoint. Imported texts are processed locally; explicitly saved corpora use the visitor's IndexedDB.
 
+## Live website and restoration status
+
+[Open Corpuscape](https://www.corpuscape.com/) — both `www.corpuscape.com` and `corpuscape.com` were restored on November 6, 2026, with the redesigned static edition. The [GitHub Pages mirror](https://husseinaburayyash.github.io/corpuscape/) remains available. Both original domain addresses returned HTTP 200 HTML, and multilingual corpus analysis was verified on the restored domain.
+
+The Vercel project now uses Vite, Node 24, `npm ci`, `npm run build` and `dist`. Its environment-variable inventory was empty, with zero hidden production variables; no model secrets needed deletion there. Separate provider or Replit credentials have not been revoked. The migration and domain observations below describe the earlier state and the available recovery routes.
+
 ## Run and build
 
 Use Node.js 22.13+ (Node 24 recommended).
