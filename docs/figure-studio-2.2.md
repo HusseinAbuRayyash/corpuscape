@@ -30,6 +30,8 @@
 - Browser-rendered ten-language, two-series figure; downloaded SVG, 2700×2175 PNG and a valid one-page PDF. SVG text includes Cyrillic, Arabic, Chinese, Japanese, French and the caption.
 - Real Qwen3-0.6B CPU inference in both Node and the browser, without API credentials. Numeric overview tests preserved the ten-document teaching corpus totals. Small-model writing quality varied: invented IDs and English copied into a Spanish request were observed. Citation and statistical language-mismatch notices surface these problems for review rather than calling the text verified research findings.
 - Real Tesseract English+French recognition of a PNG and an image-only PDF: both recovered “Le français ouvre des fenêtres.” and “Exact sample number: 2026.” The two outputs were loaded into Corpus Explorer.
+- Qwen3-1.7B could not initialize on the tested browser in either GPU or CPU mode. It remains an optional high-memory model for compatible devices; it is not counted as a successful inference test. GPU fallback now releases the failed worker before trying CPU, and failed runtimes are terminated before retry.
+- Report excerpt length is configurable; zero includes complete selected documents. Prompts exceeding the model's actual context are rejected explicitly.
 - Production compilation, test summary, deployment revision and live screenshot are recorded with the release.
 
 ## Remaining practical constraints
