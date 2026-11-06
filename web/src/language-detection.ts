@@ -35,3 +35,20 @@ export function detectLanguage(text: string): LanguageSuggestion {
       "Local character-trigram language suggestion. Ranking is not an accuracy probability; review before applying.",
   };
 }
+export function draftLanguageNotice(text: string, requested: string): string {
+  if (text.length < 100 || !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(requested))
+    return "";
+  let expected: string;
+  try {
+    expected = Intl.getCanonicalLocales(requested)[0].split("-")[0];
+  } catch {
+    return "";
+  }
+  const detected = detectLanguage(text);
+  if (detected.tag === "und" || detected.tag.split("-")[0] === expected)
+    return "";
+  const name =
+    new Intl.DisplayNames(["en"], { type: "language" }).of(expected) ??
+    requested;
+  return `Language check suggests ${detected.name}; the draft requested ${name}. Review the language or try the larger model. This statistical check is a suggestion, especially for mixed text.`;
+}

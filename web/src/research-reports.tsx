@@ -60,6 +60,7 @@ export function ResearchReports(input: ReportInput) {
     [includeExcerpts, setIncludeExcerpts] = useState(false),
     [maxTokens, setMaxTokens] = useState(512);
   const [evidencePage, setEvidencePage] = useState(0);
+  const [languageNotice, setLanguageNotice] = useState("");
   const [evidenceScope, setEvidenceScope] = useState("overview");
   const [text, setText] = useState(""),
     [evidence, setEvidence] = useState<Evidence[]>([]),
@@ -166,6 +167,29 @@ export function ResearchReports(input: ReportInput) {
     evidenceScope,
   ]);
   useEffect(() => setEvidencePage(0), [evidence, previewEvidence]);
+  useEffect(() => {
+    let active = true;
+    setLanguageNotice("");
+    if (
+      status === "generating" ||
+      !current ||
+      current.model.includes("Deterministic") ||
+      text.length < 100
+    )
+      return;
+    const timer = setTimeout(() => {
+      void import("./language-detection")
+        .then(({ draftLanguageNotice }) => {
+          if (active)
+            setLanguageNotice(draftLanguageNotice(text, current.language));
+        })
+        .catch(() => {});
+    }, 600);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [text, status, current]);
   const unknown = useMemo(
     () => unknownEvidenceReferences(text, evidence),
     [text, evidence],
@@ -638,6 +662,11 @@ export function ResearchReports(input: ReportInput) {
             </div>
           )}
           {notice && <div className="research-notice">{notice}</div>}
+          {languageNotice && (
+            <div className="research-notice" role="status">
+              {languageNotice}
+            </div>
+          )}
           {error && (
             <div className="research-error" role="alert">
               {error}
