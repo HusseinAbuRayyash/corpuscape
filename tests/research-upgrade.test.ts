@@ -13,6 +13,7 @@ import {
   buildEvidence,
   reportMessages,
   unknownEvidenceReferences,
+  unsupportedClaimNotice,
   validateReportSession,
   exactReport,
 } from "../web/src/report-model";
@@ -116,8 +117,17 @@ test("AI evidence contains exact engine statistics and exposes explicit scope", 
     ["F99"],
   );
   assert.ok(exactReport(input).includes("3 word tokens"));
-  const longText='Research text. '.repeat(300);
-  assert.equal(buildEvidence({...input,documents:[{name:'full',text:longText}]},1,true,undefined,0).find(item=>item.id==='T1')?.value,longText);
+  const longText = "Research text. ".repeat(300);
+  assert.equal(
+    buildEvidence(
+      { ...input, documents: [{ name: "full", text: longText }] },
+      1,
+      true,
+      undefined,
+      0,
+    ).find((item) => item.id === "T1")?.value,
+    longText,
+  );
 });
 test("workspace, references and parallel notes survive complete local recovery", async () => {
   const workspace = {
@@ -212,4 +222,26 @@ test("report language checks surface a clear mismatch without certifying mixed o
   assert.equal(draftLanguageNotice(english, "en"), "");
   assert.equal(draftLanguageNotice("hola", "es"), "");
   assert.equal(draftLanguageNotice(english, "Spanish"), "");
+});
+test("research drafts flag unsupported significance and correlation language", () => {
+  const counts = buildEvidence(input).filter((item) => item.id === "C1");
+  assert.match(
+    unsupportedClaimNotice("La relación es significativa. [C1]", counts),
+    /no comparison test/,
+  );
+  assert.match(
+    unsupportedClaimNotice("These data show a strong correlation.", counts),
+    /not computed a correlation/,
+  );
+  assert.equal(
+    unsupportedClaimNotice("The corpus has three word tokens. [C1]", counts),
+    "",
+  );
+  assert.equal(
+    unsupportedClaimNotice("The difference is significant.", [
+      ...counts,
+      { id: "R1", label: "Comparison", value: { pValue: 0.01 } },
+    ]),
+    "",
+  );
 });

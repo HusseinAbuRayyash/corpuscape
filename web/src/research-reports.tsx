@@ -16,6 +16,7 @@ import {
   localModels,
   reportMessages,
   unknownEvidenceReferences,
+  unsupportedClaimNotice,
   validateReportSession,
   type Evidence,
   type ModelId,
@@ -195,6 +196,10 @@ export function ResearchReports(input: ReportInput) {
   }, [text, status, current]);
   const unknown = useMemo(
     () => unknownEvidenceReferences(text, evidence),
+    [text, evidence],
+  );
+  const claimNotice = useMemo(
+    () => unsupportedClaimNotice(text, evidence),
     [text, evidence],
   );
   function runtimeWorker() {
@@ -698,6 +703,12 @@ export function ResearchReports(input: ReportInput) {
           {languageNotice && (
             <div className="research-notice" role="status">
               {languageNotice}
+            </div>
+          )}
+          {claimNotice && (
+            <div className="research-error" role="alert">
+              {claimNotice} AI drafts require human review; these checks do not
+              verify every statement.
             </div>
           )}
           {error && (
