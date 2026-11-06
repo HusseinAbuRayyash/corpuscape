@@ -117,7 +117,7 @@ test("concordance uses whole words, returns original offsets and does not match 
   assert.equal(text.slice(r.hits[0].position, r.hits[0].position + 3), "Cat");
   assert.equal(concordance(docs(text), defaultOptions, "   ").total, 0);
 });
-test("phrase matching stays inside documents and reports totals beyond display cap", () => {
+test("phrase matching stays inside documents and returns all matches beyond the former cap", () => {
   assert.equal(
     concordance(
       [
@@ -131,7 +131,7 @@ test("phrase matching stays inside documents and reports totals beyond display c
   );
   const r = concordance(docs("cat ".repeat(1005)), defaultOptions, "cat");
   assert.equal(r.total, 1005);
-  assert.equal(r.hits.length, 1000);
+  assert.equal(r.hits.length, 1005);
 });
 test("collocation event marginals have correct PMI and Dice", () => {
   // a -> b, b -> a, b -> a, a -> b: 4 slots. 2 start at a, 2 end at b.

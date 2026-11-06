@@ -1,6 +1,6 @@
 {
   "name": "corpuscape",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -14,6 +14,9 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
+    "@huggingface/transformers": "3.8.1",
+    "franc-all": "^7.2.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.453.0",
     "mammoth": "^1.11.0",
     "motion": "^14.9.1",
@@ -22,7 +25,11 @@
     "pdfjs-dist": "^6.5.438",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "read-excel-file": "^6.0.1"
+    "read-excel-file": "^6.0.1",
+    "tesseract.js": "^7.0.0",
+    "vega": "^6.4.0",
+    "vega-embed": "^7.3.0",
+    "vega-lite": "^6.5.0"
   },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",
@@ -39,5 +46,8 @@
   },
   "engines": {
     "node": ">=22.13.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
   }
 }

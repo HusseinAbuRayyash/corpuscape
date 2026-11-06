@@ -119,7 +119,10 @@ export function CorpusStart({
           <Upload size={16} />
           Import corpus
         </button>
-        <small>TXT, DOCX, PDF, CSV, XLSX and more · Up to 100 files</small>
+        <small>
+          Documents, tables, subtitles, scanned PDFs and images · no fixed file
+          quota
+        </small>
       </section>
       <section className="panel dataset-panel">
         <div className="panel-head">
@@ -141,6 +144,8 @@ type DashboardView =
   | "bilingual"
   | "compare"
   | "figures"
+  | "reports"
+  | "ocr"
   | "library"
   | "methods";
 export function Dashboard({
@@ -187,6 +192,20 @@ export function Dashboard({
       icon: BarChart3,
       code: "04",
     },
+    {
+      id: "reports" as const,
+      name: "Research reports",
+      detail: "Evidence-based drafts with local open models. No API key.",
+      icon: BookOpen,
+      code: "05",
+    },
+    {
+      id: "ocr" as const,
+      name: "Text extraction",
+      detail: "Turn scanned PDFs and images into editable corpus text.",
+      icon: FileText,
+      code: "06",
+    },
   ];
   return (
     <>
@@ -211,7 +230,7 @@ export function Dashboard({
         <section className="quick-tools">
           <div className="section-label">
             <h2>Research tools</h2>
-            <span>4 workspaces</span>
+            <span>6 workspaces</span>
           </div>
           <div className="tool-grid">
             {tools.map((tool) => (
