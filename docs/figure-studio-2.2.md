@@ -24,11 +24,11 @@
 
 ## Evidence
 
-- 168 automated tests, including ten-language known-answer cases and real Vega grammar compilation/rendering for every chart type.
+- 169 automated tests, including ten-language known-answer cases and real Vega grammar compilation/rendering for every chart type.
 - Independent chi-square reference values at p=.05, .01 and .001 and a small BH reference family.
 - Full retention beyond the former 500/1,000 result limits; backups beyond 100 documents / 2M characters.
 - Browser-rendered ten-language, two-series figure; downloaded SVG, 2700×2175 PNG and a valid one-page PDF. SVG text includes Cyrillic, Arabic, Chinese, Japanese, French and the caption.
-- Real Qwen3-0.6B CPU inference in both Node and the browser, without API credentials. Numeric overview tests preserved the ten-document teaching corpus totals. Small-model writing quality varied and invented IDs were observed; these are surfaced for review rather than called verified research findings.
+- Real Qwen3-0.6B CPU inference in both Node and the browser, without API credentials. Numeric overview tests preserved the ten-document teaching corpus totals. Small-model writing quality varied: invented IDs and English copied into a Spanish request were observed. Citation and statistical language-mismatch notices surface these problems for review rather than calling the text verified research findings.
 - Real Tesseract English+French recognition of a PNG and an image-only PDF: both recovered “Le français ouvre des fenêtres.” and “Exact sample number: 2026.” The two outputs were loaded into Corpus Explorer.
 - Production compilation, test summary, deployment revision and live screenshot are recorded with the release.
 

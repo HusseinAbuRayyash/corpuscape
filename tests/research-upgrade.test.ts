@@ -18,7 +18,10 @@ import {
 } from "../web/src/report-model";
 import { validateWorkspace } from "../web/src/workspace-session";
 import { saveSessions, loadSession } from "../web/src/library";
-import { detectLanguage } from "../web/src/language-detection";
+import {
+  detectLanguage,
+  draftLanguageNotice,
+} from "../web/src/language-detection";
 import { ocrDocuments } from "../web/src/ocr-engine";
 globalThis.indexedDB = indexedDB;
 test("result families no longer stop at the old 500/1000 cutoffs", () => {
@@ -199,4 +202,12 @@ test("local language suggestions and OCR document preparation preserve scripts",
   assert.equal(docs.length, 1);
   assert.equal(docs[0].locale, "fr");
   assert.equal(docs[0].text, "Français 语言");
+});
+test("report language checks surface a clear mismatch without certifying mixed or short text", () => {
+  const english =
+    "The corpus contains ten documents and a collection of words from several languages. This analysis counts individual words and different vocabulary types in the complete research collection.";
+  assert.match(draftLanguageNotice(english, "es"), /suggests English/);
+  assert.equal(draftLanguageNotice(english, "en"), "");
+  assert.equal(draftLanguageNotice("hola", "es"), "");
+  assert.equal(draftLanguageNotice(english, "Spanish"), "");
 });
