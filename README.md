@@ -8,6 +8,14 @@ A free, multilingual corpus analysis workspace. This browser edition has no acco
 
 The Vercel project now uses Vite, Node 24, `npm ci`, `npm run build` and `dist`. Its environment-variable inventory was empty, with zero hidden production variables; no model secrets needed deletion there. Separate provider or Replit credentials have not been revoked. The migration and domain observations below describe the earlier state and the available recovery routes.
 
+## Approved interface update
+
+The public homepage adapts Velora UI's free animated SaaS template. The research workspace follows Shadcn Admin's navigation and data layout. Both source projects are MIT licensed; their notices are retained in `THIRD_PARTY_NOTICES.txt`.
+
+The multilingual orbit uses real text and CSS animation, alongside a rotating headline, ambient background movement, sample-data charts and scroll reveals. Visitors can pause motion; device reduced-motion preferences are respected unless the visitor explicitly enables animations. The choice lasts for the browser session. Sample language previews use the same original teaching texts as the analyzer.
+
+The homepage opens at `#overview`, the import dashboard at `#workspace`, and existing direct tool routes remain available. No hosted model, account or API key is added by the design update.
+
 ## Run and build
 
 Use Node.js 22.13+ (Node 24 recommended).

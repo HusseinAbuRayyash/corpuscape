@@ -52,12 +52,18 @@ import {
   FigureSource,
   ChartStyles,
   ColorPalette,
-} from "./workspace-visuals";
-import "./style.css";
-import "./workspace.css";
+  Dashboard,
+} from "./product-components";
+import "@fontsource-variable/inter";
+import "./product.css";
+import { Landing } from "./landing";
+import { WorkspaceSearch } from "./workspace-search";
+import "./workspace-theme.css";
+import "./landing.css";
 
 type View =
   | "overview"
+  | "workspace"
   | "analysis"
   | "bilingual"
   | "compare"
@@ -65,12 +71,13 @@ type View =
   | "library"
   | "methods";
 const navigation = [
-  ["overview", "Overview", LayoutDashboard],
-  ["analysis", "Monolingual lab", FlaskConical],
-  ["bilingual", "Bilingual lab", Languages],
+  ["overview", "Home", Globe2],
+  ["workspace", "Workspace", LayoutDashboard],
+  ["analysis", "Corpus explorer", FileText],
+  ["bilingual", "Parallel workspace", Languages],
   ["compare", "Compare corpora", Columns2],
   ["figures", "Figure studio", BarChart3],
-  ["library", "My library", Library],
+  ["library", "Corpus library", Library],
   ["methods", "Methods & privacy", BookOpen],
 ] as const;
 const fmt = (n: number, maximumFractionDigits = 0) =>
@@ -282,7 +289,7 @@ function App() {
     [pairFilter, setPairFilter] = useState("");
   const [figureTitle, setFigureTitle] = useState("Word frequency"),
     [figureType, setFigureType] = useState("bar"),
-    [figureColor, setFigureColor] = useState("#357566"),
+    [figureColor, setFigureColor] = useState("#4f46e5"),
     [figureData, setFigureData] = useState(""),
     [figureLimit, setFigureLimit] = useState(12);
   const uploadRef = useRef<HTMLInputElement>(null),
@@ -310,6 +317,13 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view]);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
   useEffect(() => {
     const handler = () => {
       const next = location.hash.slice(1) as View;
@@ -619,10 +633,10 @@ function App() {
     <section className="panel import-panel">
       <div className="panel-head">
         <div>
-          <span className="eyebrow">YOUR NEXT DISCOVERY</span>
-          <h2>Start with a corpus</h2>
+          <span className="eyebrow">IMPORT DATA</span>
+          <h2>Add your texts</h2>
         </div>
-        <span className="step">01</span>
+        <span className="tag">LOCAL</span>
       </div>
       <div className="segmented">
         <button
@@ -657,10 +671,10 @@ function App() {
           <strong>
             {importing
               ? "Reading files on your device…"
-              : "Drop your texts here"}
+              : "Drop files to import"}
           </strong>
-          <span>
-            or <u>browse files</u> to get started
+          <span className="browse-action">
+            Choose files <ArrowUpRight size={13} />
           </span>
           <small>
             TXT, DOCX, PDF, CSV, XLSX & more
@@ -746,11 +760,18 @@ function App() {
             <i />
             <i />
           </span>
-          <span>
+          <span className="brand-name">
             corpuscape<span className="brand-dot">.</span>
-            <small>THE LANGUAGE DISCOVERY LAB</small>
+            <small>CORPUS RESEARCH WORKSPACE</small>
           </span>
         </a>
+        <button
+          className="sidebar-create"
+          onClick={() => uploadRef.current?.click()}
+        >
+          <Plus size={16} />
+          New corpus
+        </button>
         <div className="sidebar-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
           {navigation.map(([id, label, Icon]) => (
@@ -761,28 +782,18 @@ function App() {
               onClick={() => navigate(id)}
             >
               <Icon size={18} />
-              {label}
+              <span className="nav-label">{label}</span>
               {view === id && <span className="nav-dot" />}
             </button>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="open-card">
-            <span className="status-dot" />
-            OPEN TO EVERYONE
-            <h3>
-              Language has no limits.
-              <br />
-              Your tools shouldn’t either.
-            </h3>
-            <p>
-              Free to use. No account.
-              <br />
-              No API keys.
-            </p>
-            <button onClick={() => navigate("methods")}>
-              Explore our approach <ArrowUpRight size={15} />
-            </button>
+          <div className="sidebar-privacy">
+            <ShieldCheck size={17} />
+            <div>
+              <strong>Local by default</strong>
+              <span>Your texts stay on this device.</span>
+            </div>
           </div>
           <a
             className="maker"
@@ -792,7 +803,7 @@ function App() {
           >
             <span>HA</span>
             <div>
-              Hussein Abu-Rayyash<small>CREATOR · CORPUSCAPE</small>
+              Hussein Abu-Rayyash<small>PROJECT ON GITHUB</small>
             </div>
             <ArrowUpRight size={14} />
           </a>
@@ -819,12 +830,15 @@ function App() {
             <ChevronRight size={13} />
             <strong>{navigation.find(([id]) => id === view)?.[1]}</strong>
           </div>
-          <div className="header-status">
-            <span className="status-dot" />
-            All analysis runs locally
-            <span className="header-divider" />
-            <Globe2 size={15} />
-            <span>Multilingual</span>
+          <div className="header-actions">
+            <WorkspaceSearch onNavigate={navigate} />
+            <div className="header-status">
+              <span className="status-dot" />
+              All analysis runs locally
+              <span className="header-divider" />
+              <Globe2 size={15} />
+              <span>Multilingual</span>
+            </div>
           </div>
         </header>
         <main id="main">
@@ -876,151 +890,24 @@ function App() {
             </div>
           )}
           {view === "overview" && (
-            <>
-              <div className="hero">
-                <div className="hero-copy">
-                  <div className="eyebrow">
-                    <span className="tiny-line" /> BUILT FOR CURIOUS MINDS
-                  </div>
-                  <h1>
-                    Every text holds
-                    <br />a world of <em>patterns.</em>
-                  </h1>
-                  <p>
-                    A thoughtful workspace for exploring language.
-                    <br />
-                    Build corpora, uncover connections, and bring
-                    <br className="desktop-br" /> your research into focus.
-                  </p>
-                  <div className="hero-badges">
-                    <span>
-                      <ShieldCheck size={15} />
-                      Private by design
-                    </span>
-                    <span>
-                      <Globe2 size={15} />
-                      Across languages
-                    </span>
-                  </div>
-                </div>
-                <div
-                  className="language-art"
-                  aria-label="Language discovery illustration"
-                >
-                  <div className="orbit orbit-one" />
-                  <div className="orbit orbit-two" />
-                  <span className="art-label">WORDS BECOME DISCOVERIES</span>
-                  <div className="language-word w1">meaning</div>
-                  <div className="language-word w2">语言</div>
-                  <div className="language-word w3">palabras</div>
-                  <div className="language-word w4">язык</div>
-                  <div className="language-word w5">言葉</div>
-                  <div className="language-word w6" lang="ar">
-                    معنى
-                  </div>
-                  <div className="art-center">
-                    <Search size={36} />
-                  </div>
-                  <span className="art-foot">
-                    MANY LANGUAGES. ONE WORKSPACE.
-                  </span>
-                </div>
-              </div>
-              <div className="overview-grid">
-                {InputPanel}
-                <section className="panel pathways">
-                  <div className="panel-head">
-                    <div>
-                      <span className="eyebrow">FOLLOW YOUR CURIOSITY</span>
-                      <h2>A place for every question</h2>
-                    </div>
-                    <FlaskConical size={21} />
-                  </div>
-                  {[
-                    [
-                      "analysis",
-                      "Explore one corpus",
-                      "Frequencies, concordance, collocations & n-grams",
-                      FlaskConical,
-                      "mint",
-                    ],
-                    [
-                      "bilingual",
-                      "Read between languages",
-                      "Review parallel texts, annotate & export TMX",
-                      Languages,
-                      "sand",
-                    ],
-                    [
-                      "compare",
-                      "Put corpora in conversation",
-                      "Compare distributions & distinctive vocabulary",
-                      Columns2,
-                      "lavender",
-                    ],
-                    [
-                      "figures",
-                      "Make your findings visible",
-                      "Turn your data into clear, exportable figures",
-                      BarChart3,
-                      "rose",
-                    ],
-                  ].map(([id, title, description, Icon, color]) => {
-                    const I = Icon as typeof Search;
-                    return (
-                      <button
-                        className="pathway"
-                        key={String(id)}
-                        onClick={() => navigate(id as View)}
-                      >
-                        <span className={"pathway-icon " + color}>
-                          <I size={21} />
-                        </span>
-                        <span>
-                          <strong>{String(title)}</strong>
-                          <small>{String(description)}</small>
-                        </span>
-                        <ArrowUpRight size={18} />
-                      </button>
-                    );
-                  })}
-                  <div className="pathways-foot">
-                    <span className="status-dot" />
-                    Real counts. Transparent methods. Ready for research.
-                  </div>
-                </section>
-              </div>
-              <div className="section-heading">
-                <h2>A little inspiration to get started</h2>
-                <span>NO FILES? NO PROBLEM.</span>
-              </div>
-              <div className="sample-grid">
-                {samples.map((sample, i) => (
-                  <button
-                    className="sample-card"
-                    key={sample.name}
-                    onClick={() => loadSample(i)}
-                  >
-                    <span className={"sample-icon " + (i ? "sand" : "mint")}>
-                      {i ? <Globe2 size={22} /> : <BookOpen size={22} />}
-                    </span>
-                    <div>
-                      <span className="eyebrow">TEACHING SAMPLE</span>
-                      <h3>{sample.name}</h3>
-                      <p>{sample.description}</p>
-                    </div>
-                    <ArrowRight size={18} />
-                  </button>
-                ))}
-              </div>
-            </>
+            <Landing onNavigate={navigate} onSample={loadSample} />
+          )}
+          {view === "workspace" && (
+            <Dashboard
+              input={InputPanel}
+              onNavigate={navigate}
+              onSample={loadSample}
+              activeName={name}
+              documents={documents.length}
+              tokens={analysis?.words}
+            />
           )}
 
           {view === "analysis" && (
             <>
               <PageTitle
                 eyebrow="MONOLINGUAL LAB"
-                title="Look closer at language."
+                title="Corpus explorer"
                 description="Move from individual words to patterns in context."
               />
               {!documents.length ? (
@@ -1196,7 +1083,7 @@ function App() {
                                       value: r.count,
                                     }))}
                                     title="Word frequencies"
-                                    color="#357566"
+                                    color="#4f46e5"
                                     type="bar"
                                   />
                                   <button
@@ -1479,7 +1366,7 @@ function App() {
             <>
               <PageTitle
                 eyebrow="BILINGUAL LAB"
-                title="Two languages. A shared context."
+                title="Parallel workspace"
                 description="Review pre-aligned translations, annotate pairs, and build a translation memory."
               />
               <div className="notice neutral">
@@ -1492,7 +1379,7 @@ function App() {
                   <div className="editor-heading">
                     <span className="editor-number">A</span>
                     <div>
-                      <span className="eyebrow">THE ORIGINAL</span>
+                      <span className="eyebrow">SOURCE</span>
                       <h2>Source text</h2>
                     </div>
                     <FileText size={20} />
@@ -1514,7 +1401,7 @@ function App() {
                   <div className="editor-heading">
                     <span className="editor-number">B</span>
                     <div>
-                      <span className="eyebrow">THE TRANSLATION</span>
+                      <span className="eyebrow">TARGET</span>
                       <h2>Target text</h2>
                     </div>
                     <Languages size={20} />
@@ -1690,7 +1577,7 @@ function App() {
             <>
               <PageTitle
                 eyebrow="CORPUS COMPARISON"
-                title="Let the differences speak."
+                title="Compare corpora"
                 description="Compare word distributions with normalized counts and transparent statistics."
               />
               {(!documents.length || !reference.length) && (
@@ -1726,13 +1613,13 @@ function App() {
                   </h2>
                   <p>
                     {documents.length
-                      ? `${documents.length} documents · ${analysis ? fmt(analysis.words) : "…"} word tokens`
+                      ? `${documents.length} ${documents.length === 1 ? "document" : "documents"} · ${analysis ? fmt(analysis.words) : "…"} word tokens`
                       : "Load a corpus in the Monolingual lab first."}
                   </p>
                   <button
                     className="button secondary"
                     onClick={() =>
-                      navigate(documents.length ? "analysis" : "overview")
+                      navigate(documents.length ? "analysis" : "workspace")
                     }
                   >
                     Open corpus A <ArrowUpRight size={15} />
@@ -1788,7 +1675,7 @@ function App() {
                 onChange={(locale) => setOptions({ ...options, locale })}
                 label="Segmentation language for both corpora"
               />
-              {documents.length && reference.length && !comparison && (
+              {documents.length > 0 && reference.length > 0 && !comparison && (
                 <p role="status" className="loading">
                   Comparing on your device…
                 </p>
@@ -1894,12 +1781,12 @@ function App() {
             <>
               <PageTitle
                 eyebrow="FIGURE STUDIO"
-                title="Give your findings a clear form."
+                title="Figure studio"
                 description="Create publication-friendly figures from corpus frequencies or your own data."
               />
               <div className="figure-layout">
                 <section className="panel figure-settings">
-                  <h2>Make it yours</h2>
+                  <h2>Figure settings</h2>
                   <label>
                     Figure title
                     <input
@@ -2042,7 +1929,7 @@ function App() {
             <>
               <PageTitle
                 eyebrow="YOUR LOCAL LIBRARY"
-                title="Keep a collection of curiosities."
+                title="Corpus library"
                 description="Corpora you choose to save are stored only in this browser, on this device."
               />
               <div className="notice neutral">
@@ -2111,7 +1998,7 @@ function App() {
               ) : !saved.length ? (
                 <LibraryStart
                   onStart={() =>
-                    navigate(documents.length ? "analysis" : "overview")
+                    navigate(documents.length ? "analysis" : "workspace")
                   }
                 />
               ) : (
@@ -2186,7 +2073,7 @@ function App() {
             <>
               <PageTitle
                 eyebrow="METHODS & PRIVACY"
-                title="Know what’s behind the numbers."
+                title="Methods & privacy"
                 description="A free, multilingual research workspace with methods you can inspect."
               />
               <div className="methods-grid">
@@ -2327,13 +2214,15 @@ function App() {
               </div>
             </>
           )}
-          <footer>
-            <span>
-              corpuscape<span className="brand-dot">.</span>{" "}
-              <span>A little closer to language.</span>
-            </span>
-            <span>Free to explore. Built for discovery.</span>
-          </footer>
+          {view !== "overview" && (
+            <footer>
+              <span>
+                corpuscape<span className="brand-dot">.</span>{" "}
+                <span>Corpus research workspace.</span>
+              </span>
+              <span>Local processing · No account required</span>
+            </footer>
+          )}
         </main>
       </div>
       {tableImport?.table && (
@@ -2442,8 +2331,8 @@ function CorpusToolbar({
           onChange={(e) => setName(e.target.value)}
         />
         <small>
-          {documents.length} documents ·{" "}
-          {busy ? "Analyzing…" : "Local workspace"}
+          {documents.length} {documents.length === 1 ? "document" : "documents"}{" "}
+          · {busy ? "Analyzing…" : "Local workspace"}
         </small>
       </div>
       <button className="button secondary small" onClick={onImport}>
@@ -2598,7 +2487,7 @@ function FrequencyChart({
         fontFamily="system-ui,sans-serif"
         fontSize="19"
         fontWeight="600"
-        fill="#243b35"
+        fill="#303744"
       >
         {title}
       </text>
@@ -2607,7 +2496,7 @@ function FrequencyChart({
         y="57"
         fontFamily="system-ui,sans-serif"
         fontSize="11"
-        fill="#687a74"
+        fill="#9ca3af"
       >
         Observed values · Corpuscape
       </text>
@@ -2633,7 +2522,7 @@ function FrequencyChart({
               textAnchor="middle"
               fontFamily="system-ui,sans-serif"
               fontSize="11"
-              fill="#243b35"
+              fill="#303744"
             >
               {fmt(r.value, 2)}
             </text>
@@ -2643,7 +2532,7 @@ function FrequencyChart({
               transform={`rotate(35,${x + bw / 2},338)`}
               fontFamily="system-ui,sans-serif"
               fontSize="11"
-              fill="#53665f"
+              fill="#6b7280"
             >
               {r.label.slice(0, 20)}
             </text>
@@ -2656,7 +2545,7 @@ function FrequencyChart({
               textAnchor="end"
               fontFamily="system-ui,sans-serif"
               fontSize="13"
-              fill="#243b35"
+              fill="#303744"
             >
               {r.label.length > 20 ? r.label.slice(0, 18) + "…" : r.label}
             </text>
@@ -2680,7 +2569,7 @@ function FrequencyChart({
               y={y + 13}
               fontFamily="system-ui,sans-serif"
               fontSize="12"
-              fill="#53665f"
+              fill="#6b7280"
             >
               {fmt(r.value, 2)}
             </text>
@@ -2692,7 +2581,7 @@ function FrequencyChart({
         y={height - 16}
         fontFamily="system-ui,sans-serif"
         fontSize="10"
-        fill="#6d7e78"
+        fill="#9ca3af"
       >
         Descriptive visualization · corpuscape
       </text>
