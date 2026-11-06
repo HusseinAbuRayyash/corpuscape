@@ -16,6 +16,7 @@ import {
   localModels,
   reportMessages,
   unknownEvidenceReferences,
+  unsupportedClaimNotice,
   validateReportSession,
   type Evidence,
   type ModelId,
@@ -36,6 +37,7 @@ type Draft = {
   task: string;
   inputTokens?: number;
   outputTokens?: number;
+  incomplete?: boolean;
 };
 function download(name: string, text: string, type: string) {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -197,6 +199,10 @@ export function ResearchReports(input: ReportInput) {
     () => unknownEvidenceReferences(text, evidence),
     [text, evidence],
   );
+  const claimNotice = useMemo(
+    () => unsupportedClaimNotice(text, evidence),
+    [text, evidence],
+  );
   function runtimeWorker() {
     if (worker.current) return worker.current;
     const w = new Worker(new URL("./local-ai.worker.ts", import.meta.url), {
@@ -234,10 +240,6 @@ export function ResearchReports(input: ReportInput) {
         textRef.current += data.text;
         setText(textRef.current);
       } else if (data.type === "done") {
-        if (data.budgetReached)
-          setNotice(
-            "The draft reached the selected output-token budget and may end mid-sentence. Increase Draft output tokens for a longer draft.",
-          );
         const draft: Draft = {
           id: crypto.randomUUID(),
           title: input.name,
@@ -249,6 +251,7 @@ export function ResearchReports(input: ReportInput) {
           task: metadata.current.task,
           inputTokens: data.inputTokens,
           outputTokens: data.outputTokens,
+          incomplete: !!data.budgetReached,
         };
         setText(data.text);
         textRef.current = data.text;
@@ -325,6 +328,17 @@ export function ResearchReports(input: ReportInput) {
     textRef.current = "";
     setText("");
     setError("");
+    setCurrent({
+      id: crypto.randomUUID(),
+      title: input.name,
+      text: "",
+      evidence: previewEvidence,
+      model: metadata.current.model,
+      generatedAt: new Date().toISOString(),
+      language,
+      task,
+      incomplete: true,
+    });
     setStatus("generating");
     runtimeWorker().postMessage({
       type: "generate",
@@ -695,9 +709,22 @@ export function ResearchReports(input: ReportInput) {
             </div>
           )}
           {notice && <div className="research-notice">{notice}</div>}
+          {current?.incomplete && status !== "generating" && (
+            <div className="research-notice">
+              This model generation reached its token budget or was stopped.
+              Check the ending before using the draft; you can edit the text or
+              request a longer generation.
+            </div>
+          )}
           {languageNotice && (
             <div className="research-notice" role="status">
               {languageNotice}
+            </div>
+          )}
+          {claimNotice && (
+            <div className="research-error" role="alert">
+              {claimNotice} AI drafts require human review; these checks do not
+              verify every statement.
             </div>
           )}
           {error && (

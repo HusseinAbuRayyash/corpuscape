@@ -343,8 +343,8 @@
 }
 .studio-paper {
   position: relative;
-  margin: auto;
-  align-self: center;
+  margin: 0 auto;
+  align-self: flex-start;
   background: white;
   flex-shrink: 0;
   box-shadow:
