@@ -45,7 +45,16 @@ import {
   type SavedCorpus,
 } from "./library";
 import { samples, locales } from "./samples";
+import {
+  ToolHeading,
+  CorpusStart,
+  LibraryStart,
+  FigureSource,
+  ChartStyles,
+  ColorPalette,
+} from "./workspace-visuals";
 import "./style.css";
+import "./workspace.css";
 
 type View =
   | "overview"
@@ -695,8 +704,19 @@ function App() {
         [fmt(analysis.types), "Unique types"],
         [fmt(analysis.sentences), "Sentences"],
         [fmt(analysis.ttr * 100, 1) + "%", "Type–token ratio"],
-      ].map(([value, label]) => (
-        <div key={label}>
+      ].map(([value, label], index) => (
+        <div key={label} className={`metric-card metric-${index}`}>
+          <span className="metric-symbol">
+            {index === 0 ? (
+              <FileText size={20} />
+            ) : index === 1 ? (
+              <Languages size={20} />
+            ) : index === 2 ? (
+              <Columns2 size={20} />
+            ) : (
+              <BarChart3 size={20} />
+            )}
+          </span>
           <span>{label}</span>
           <strong>{value}</strong>
         </div>
@@ -704,20 +724,14 @@ function App() {
     </div>
   );
   const Empty = (
-    <section className="panel empty">
-      <FlaskConical size={38} />
-      <h2>Your corpus, a little closer.</h2>
-      <p>Import texts or explore a teaching sample to begin.</p>
-      <button className="button primary" onClick={() => navigate("overview")}>
-        Choose a corpus <ArrowRight size={16} />
-      </button>
-      <button className="text-button" onClick={() => loadSample(0)}>
-        Try the English sample
-      </button>
-    </section>
+    <CorpusStart
+      onUpload={() => uploadRef.current?.click()}
+      onSample={loadSample}
+    />
   );
+
   return (
-    <div className="app">
+    <div className={`app workspace-view-${view}`}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -1177,12 +1191,10 @@ function App() {
                                     MOST FREQUENT WORDS
                                   </span>
                                   <FrequencyChart
-                                    rows={frequencies
-                                      .slice(0, 12)
-                                      .map((r) => ({
-                                        label: r.term,
-                                        value: r.count,
-                                      }))}
+                                    rows={frequencies.slice(0, 12).map((r) => ({
+                                      label: r.term,
+                                      value: r.count,
+                                    }))}
                                     title="Word frequencies"
                                     color="#357566"
                                     type="bar"
@@ -1476,8 +1488,15 @@ function App() {
                 equivalence or evaluate translation quality.
               </div>
               <div className="pair-inputs">
-                <section className="panel">
-                  <h2>Source text</h2>
+                <section className="panel source-panel">
+                  <div className="editor-heading">
+                    <span className="editor-number">A</span>
+                    <div>
+                      <span className="eyebrow">THE ORIGINAL</span>
+                      <h2>Source text</h2>
+                    </div>
+                    <FileText size={20} />
+                  </div>
                   <LocaleSelect
                     value={sourceLocale}
                     onChange={setSourceLocale}
@@ -1491,8 +1510,15 @@ function App() {
                     maxLength={MAX_CHARACTERS}
                   />
                 </section>
-                <section className="panel">
-                  <h2>Target text</h2>
+                <section className="panel target-panel">
+                  <div className="editor-heading">
+                    <span className="editor-number">B</span>
+                    <div>
+                      <span className="eyebrow">THE TRANSLATION</span>
+                      <h2>Target text</h2>
+                    </div>
+                    <Languages size={20} />
+                  </div>
                   <LocaleSelect
                     value={targetLocale}
                     onChange={setTargetLocale}
@@ -1667,8 +1693,33 @@ function App() {
                 title="Let the differences speak."
                 description="Compare word distributions with normalized counts and transparent statistics."
               />
+              {(!documents.length || !reference.length) && (
+                <div className="comparison-intro">
+                  <div>
+                    <strong>See a comparison in action.</strong>
+                    <span>
+                      Explore two original teaching texts, then bring your own
+                      corpora.
+                    </span>
+                  </div>
+                  <button
+                    className="button secondary"
+                    onClick={() => {
+                      setDocuments([samples[0].documents[0]]);
+                      setName("Teaching sample · Translation practice");
+                      setReference([samples[0].documents[1]]);
+                      setOptions({ ...options, locale: "en" });
+                      notify(
+                        "Two original English teaching samples loaded for comparison.",
+                      );
+                    }}
+                  >
+                    Try a working comparison <ArrowRight size={15} />
+                  </button>
+                </div>
+              )}
               <div className="comparison-inputs">
-                <section className="panel">
+                <section className="panel comparison-a">
                   <span className="eyebrow">CORPUS A · ACTIVE CORPUS</span>
                   <h2>
                     {documents.length ? name : "Choose your first corpus"}
@@ -1687,7 +1738,7 @@ function App() {
                     Open corpus A <ArrowUpRight size={15} />
                   </button>
                 </section>
-                <section className="panel">
+                <section className="panel comparison-b">
                   <span className="eyebrow">CORPUS B · REFERENCE</span>
                   <h2>
                     {reference.length
@@ -1856,17 +1907,7 @@ function App() {
                       onChange={(e) => setFigureTitle(e.target.value)}
                     />
                   </label>
-                  <label>
-                    Chart type
-                    <select
-                      value={figureType}
-                      onChange={(e) => setFigureType(e.target.value)}
-                    >
-                      <option value="bar">Horizontal bars</option>
-                      <option value="column">Vertical bars</option>
-                      <option value="lollipop">Lollipop</option>
-                    </select>
-                  </label>
+                  <ChartStyles value={figureType} onChange={setFigureType} />
                   <label>
                     Accent colour
                     <input
@@ -1875,6 +1916,7 @@ function App() {
                       onChange={(e) => setFigureColor(e.target.value)}
                     />
                   </label>
+                  <ColorPalette value={figureColor} onChange={setFigureColor} />
                   <label>
                     Number of items
                     <select
@@ -1935,20 +1977,44 @@ function App() {
                       Download SVG
                     </button>
                   </div>
+                  <FigureSource
+                    name={
+                      figureRows.length
+                        ? name
+                        : "Example preview · teaching values"
+                    }
+                    count={figureRows.length || 5}
+                    custom={figureRows.length > 0 && !!figureData.trim()}
+                  />
                   <div id="figure-preview">
                     <FrequencyChart
-                      rows={figureRows}
-                      title={figureTitle}
+                      rows={
+                        figureRows.length
+                          ? figureRows
+                          : [
+                              { label: "Translation", value: 24 },
+                              { label: "Language", value: 18 },
+                              { label: "Research", value: 12 },
+                              { label: "Context", value: 9 },
+                              { label: "Culture", value: 7 },
+                            ]
+                      }
+                      title={
+                        figureRows.length
+                          ? figureTitle
+                          : "Example: word frequency"
+                      }
                       color={figureColor}
                       type={figureType}
                     />
                   </div>
                   {!figureRows.length && (
-                    <div className="empty-inline">
-                      <BarChart3 size={32} />
-                      <p>
-                        Load a corpus or enter custom data to draw a figure.
-                      </p>
+                    <div className="figure-demo-note">
+                      <span className="status-dot" />
+                      <span>
+                        Example preview. Choose a corpus or use the example data
+                        to start editing and exporting.
+                      </span>
                     </div>
                   )}
                   <p className="fine">
@@ -1957,6 +2023,7 @@ function App() {
                   </p>
                   <button
                     className="text-button"
+                    disabled={!figureRows.length}
                     onClick={() =>
                       exportCsv("figure-data", [
                         ["Label", "Value"],
@@ -2042,14 +2109,11 @@ function App() {
               {!libraryReady ? (
                 <p>Opening your local library…</p>
               ) : !saved.length ? (
-                <section className="panel empty">
-                  <Library size={36} />
-                  <h2>A fresh shelf.</h2>
-                  <p>
-                    Save a corpus from the Monolingual lab to find it here next
-                    time.
-                  </p>
-                </section>
+                <LibraryStart
+                  onStart={() =>
+                    navigate(documents.length ? "analysis" : "overview")
+                  }
+                />
               ) : (
                 <div className="library-grid">
                   {saved
@@ -2346,23 +2410,7 @@ function App() {
     </div>
   );
 }
-function PageTitle({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="page-title">
-      <span className="eyebrow">{eyebrow}</span>
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </div>
-  );
-}
+const PageTitle = ToolHeading;
 function CorpusToolbar({
   name,
   setName,
