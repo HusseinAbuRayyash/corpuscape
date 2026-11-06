@@ -1,10 +1,11 @@
-import type { CorpusDocument } from "./engine";
+import type { CorpusDocument, Options } from "./engine";
 export interface SavedCorpus {
   id: string;
   name: string;
   locale: string;
   savedAt: string;
   documents: CorpusDocument[];
+  options?: Options;
 }
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
