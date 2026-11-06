@@ -1,5 +1,5 @@
 import { analyze, concordance, collocations, compare } from "./engine";
-self.onmessage = ({ data }) => {
+self.onmessage = async ({ data }) => {
   try {
     const {
       id,
@@ -13,7 +13,12 @@ self.onmessage = ({ data }) => {
       context,
     } = data;
     let result;
-    if (action === "analyze") result = analyze(documents, options);
+    if (action === "detect") {
+      const { detectLanguage } = await import("./language-detection");
+      result = documents.map((doc: { text: string }) =>
+        detectLanguage(doc.text),
+      );
+    } else if (action === "analyze") result = analyze(documents, options);
     else if (action === "concordance")
       result = concordance(documents, options, query, context);
     else if (action === "collocations")

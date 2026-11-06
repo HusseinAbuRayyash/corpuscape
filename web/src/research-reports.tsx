@@ -1,0 +1,869 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Sparkles,
+  Download,
+  Square,
+  Cpu,
+  Check,
+  BookOpen,
+  Loader2,
+  FileText,
+  ChevronDown,
+} from "lucide-react";
+import {
+  buildEvidence,
+  exactReport,
+  localModels,
+  reportMessages,
+  unknownEvidenceReferences,
+  validateReportSession,
+  type Evidence,
+  type ModelId,
+  type ReportInput,
+} from "./report-model";
+import { loadSession, saveSession } from "./library";
+import { xmlEscape } from "./engine";
+import { locales } from "./samples";
+import "./research-tools.css";
+type Draft = {
+  id: string;
+  title: string;
+  text: string;
+  evidence: Evidence[];
+  model: string;
+  generatedAt: string;
+  language: string;
+  task: string;
+  inputTokens?: number;
+  outputTokens?: number;
+};
+function download(name: string, text: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+export function ResearchReports(input: ReportInput) {
+  const [model, setModel] = useState<ModelId>("qwen-small"),
+    [device, setDevice] = useState("auto"),
+    [status, setStatus] = useState("not-loaded"),
+    [runtime, setRuntime] = useState(""),
+    [progress, setProgress] = useState({ loaded: 0, total: 0, file: "" }),
+    [notice, setNotice] = useState(""),
+    [error, setError] = useState("");
+  const [task, setTask] = useState("Results and interpretation"),
+    [language, setLanguage] = useState("en"),
+    [instructions, setInstructions] = useState(""),
+    [evidenceCount, setEvidenceCount] = useState(12),
+    [includeExcerpts, setIncludeExcerpts] = useState(false),
+    [maxTokens, setMaxTokens] = useState(512);
+  const [evidencePage, setEvidencePage] = useState(0);
+  const [evidenceScope, setEvidenceScope] = useState("overview");
+  const [text, setText] = useState(""),
+    [evidence, setEvidence] = useState<Evidence[]>([]),
+    [drafts, setDrafts] = useState<Draft[]>([]),
+    [current, setCurrent] = useState<Draft | null>(null),
+    [figure, setFigure] = useState<unknown>(null),
+    [saved, setSaved] = useState(false),
+    [storageReady, setStorageReady] = useState(false);
+  const loaded = useRef(false);
+  const restoreInput = useRef<HTMLInputElement>(null);
+  const worker = useRef<Worker | null>(null),
+    textRef = useRef(""),
+    evidenceRef = useRef<Evidence[]>([]),
+    metadata = useRef({ model: "", language: "en", task: "", inputTokens: 0 });
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      loadSession<{
+        drafts: Draft[];
+        text: string;
+        current: Draft | null;
+        evidence: Evidence[];
+      }>("research-reports-v1"),
+      loadSession<unknown>("figure-report-context"),
+    ])
+      .then(([data, context]) => {
+        if (!active) return;
+        if (data) {
+          setDrafts(data.drafts ?? []);
+          setText(data.text ?? "");
+          textRef.current = data.text ?? "";
+          setCurrent(data.current ?? null);
+          setEvidence(data.evidence ?? []);
+        }
+        setFigure(context ?? null);
+        if (context) {
+          setTask("Figure caption");
+          setText("");
+          textRef.current = "";
+          setCurrent(null);
+          setEvidence([]);
+          setNotice(
+            "Current figure evidence is selected. Connect a local model to draft its caption.",
+          );
+          void saveSession("figure-report-context", null).catch(() => {});
+        }
+      })
+      .catch(() =>
+        setNotice(
+          "Browser storage is unavailable. Export drafts to keep them.",
+        ),
+      )
+      .finally(() => {
+        if (active) setStorageReady(true);
+      });
+    return () => {
+      active = false;
+      worker.current?.terminate();
+    };
+  }, []);
+  useEffect(() => {
+    if (!storageReady) return;
+    setSaved(false);
+    const timer = setTimeout(() => {
+      saveSession("research-reports-v1", { drafts, text, current, evidence })
+        .then(() => setSaved(true))
+        .catch(() =>
+          setNotice("Could not save locally. Download a report backup."),
+        );
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [drafts, text, current, evidence, storageReady]);
+  const modelInfo = localModels.find((m) => m.id === model)!;
+  const previewEvidence = useMemo(() => {
+    try {
+      const records = buildEvidence(
+        input,
+        evidenceCount,
+        includeExcerpts,
+        task === "Figure caption" ? figure : undefined,
+      );
+      if (task === "Figure caption")
+        return records.filter((item) => item.id === "V1");
+      return evidenceScope === "overview"
+        ? records.filter(
+            (item) =>
+              item.id === "C1" ||
+              (task === "Methods section" && item.id === "M1"),
+          )
+        : records;
+    } catch {
+      return [];
+    }
+  }, [
+    input.analysis,
+    input.documents,
+    input.options,
+    input.comparison,
+    input.pairs,
+    evidenceCount,
+    includeExcerpts,
+    figure,
+    task,
+    evidenceScope,
+  ]);
+  useEffect(() => setEvidencePage(0), [evidence, previewEvidence]);
+  const unknown = useMemo(
+    () => unknownEvidenceReferences(text, evidence),
+    [text, evidence],
+  );
+  function runtimeWorker() {
+    if (worker.current) return worker.current;
+    const w = new Worker(new URL("./local-ai.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.current = w;
+    w.onmessage = ({ data }) => {
+      if (data.type === "progress") {
+        setProgress({
+          loaded: data.loaded ?? 0,
+          total: data.total ?? 0,
+          file: data.file ?? "",
+        });
+      } else if (data.type === "notice") setNotice(data.message);
+      else if (data.type === "ready") {
+        loaded.current = true;
+        setStatus("ready");
+        setRuntime(`${data.model} · ${data.device}`);
+      } else if (data.type === "generating") {
+        metadata.current.inputTokens = data.inputTokens;
+        setStatus("generating");
+      } else if (data.type === "delta") {
+        textRef.current += data.text;
+        setText(textRef.current);
+      } else if (data.type === "done") {
+        if (data.budgetReached)
+          setNotice(
+            "The draft reached the selected output-token budget and may end mid-sentence. Increase Draft output tokens for a longer draft.",
+          );
+        const draft: Draft = {
+          id: crypto.randomUUID(),
+          title: input.name,
+          text: data.text,
+          evidence: evidenceRef.current,
+          model: metadata.current.model,
+          generatedAt: new Date().toISOString(),
+          language: metadata.current.language,
+          task: metadata.current.task,
+          inputTokens: data.inputTokens,
+          outputTokens: data.outputTokens,
+        };
+        setText(data.text);
+        textRef.current = data.text;
+        setCurrent(draft);
+        setDrafts((old) => [draft, ...old]);
+        setStatus("ready");
+      } else if (data.type === "unloaded") {
+        setStatus("not-loaded");
+        setRuntime("");
+      } else if (data.type === "error") {
+        setError(data.message);
+        setStatus(loaded.current ? "ready" : "not-loaded");
+      }
+    };
+    w.onerror = (event) => {
+      setError(
+        `Local model worker stopped: ${event.message || "browser memory or runtime error"}. Try the small model or CPU mode.`,
+      );
+      setStatus("not-loaded");
+      loaded.current = false;
+      w.terminate();
+      worker.current = null;
+    };
+    return w;
+  }
+  function stop() {
+    worker.current?.terminate();
+    worker.current = null;
+    loaded.current = false;
+    setStatus("not-loaded");
+    setRuntime("");
+    setNotice(
+      "Stopped. Any partial draft remains editable. Cached model files can be reused.",
+    );
+  }
+  function load() {
+    setError("");
+    setNotice("");
+    setStatus("loading");
+    setProgress({ loaded: 0, total: 0, file: "" });
+    const w = runtimeWorker();
+    w.postMessage({ type: "load", model, device });
+  }
+  function generate() {
+    if (!input.analysis && task !== "Figure caption") {
+      setError(
+        "Load a corpus first, or choose a figure caption with figure evidence.",
+      );
+      return;
+    }
+    if (!previewEvidence.length) {
+      setError("Choose a valid positive number of evidence rows.");
+      return;
+    }
+    if (!Number.isSafeInteger(maxTokens) || maxTokens < 1) {
+      setError("Choose a positive draft length.");
+      return;
+    }
+    evidenceRef.current = previewEvidence;
+    setEvidence(previewEvidence);
+    metadata.current = {
+      model: localModels.find((m) => m.id === model)!.repo,
+      language,
+      task,
+      inputTokens: 0,
+    };
+    textRef.current = "";
+    setText("");
+    setError("");
+    setStatus("generating");
+    runtimeWorker().postMessage({
+      type: "generate",
+      messages: reportMessages(previewEvidence, task, language, instructions),
+      maxTokens,
+    });
+  }
+  function computed() {
+    const all = buildEvidence(input, Math.max(1, input.documents.length));
+    const draft: Draft = {
+      id: crypto.randomUUID(),
+      title: input.name,
+      text: exactReport(input),
+      evidence: all,
+      model: "Deterministic statistics · no model",
+      generatedAt: new Date().toISOString(),
+      language: "en",
+      task: "Exact statistical report",
+    };
+    setText(draft.text);
+    textRef.current = draft.text;
+    setEvidence(all);
+    setCurrent(draft);
+    setDrafts((old) => [draft, ...old]);
+  }
+  return (
+    <section className="research-page">
+      <header className="research-heading">
+        <div>
+          <span className="research-kicker">CORPUSCAPE / RESEARCH WRITING</span>
+          <h1>
+            Research reports
+            <span>
+              <Sparkles size={14} />
+              Local AI
+            </span>
+          </h1>
+          <p>Connect your evidence to a clear, editable research draft.</p>
+        </div>
+        <span className="research-local-badge">
+          <span />
+          No API key · no account · local inference
+        </span>
+      </header>
+      <div className="research-report-layout">
+        <aside className="research-card report-settings">
+          <div className="research-card-heading">
+            <Cpu size={17} />
+            <h2>Model connection</h2>
+          </div>
+          <p className="research-muted">
+            Real open-model inference on this device. Loading downloads model
+            weights; your corpus and prompts stay in this browser.
+          </p>
+          <label>
+            Open model
+            <select
+              disabled={
+                status === "loading" ||
+                status === "generating" ||
+                status === "ready"
+              }
+              value={model}
+              onChange={(e) => setModel(e.target.value as ModelId)}
+            >
+              {localModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="model-spec">
+            <strong>{modelInfo.detail}</strong>
+            <span>
+              First download: about{" "}
+              {device === "gpu" ? modelInfo.gpuMB : modelInfo.cpuMB} MB plus
+              runtime files · {modelInfo.license}
+            </span>
+            <a
+              href={`https://huggingface.co/${modelInfo.repo}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Read model card ↗
+            </a>
+          </div>
+          <label>
+            Compute mode
+            <select
+              disabled={
+                status === "loading" ||
+                status === "generating" ||
+                status === "ready"
+              }
+              value={device}
+              onChange={(e) => setDevice(e.target.value)}
+            >
+              <option value="auto">Automatic · GPU with CPU fallback</option>
+              <option value="cpu">CPU / WASM · compatibility</option>
+              <option value="gpu">WebGPU · compatible GPU required</option>
+            </select>
+          </label>
+          {status === "not-loaded" ? (
+            <button className="research-button primary full" onClick={load}>
+              <Download size={15} />
+              Download & connect model
+            </button>
+          ) : status === "loading" ? (
+            <div className="model-progress">
+              <div>
+                <Loader2 size={15} className="spin" />
+                <span>Connecting model…</span>
+              </div>
+              {progress.total > 0 && (
+                <>
+                  <progress value={progress.loaded} max={progress.total} />
+                  <small>
+                    {(progress.loaded / 1e6).toFixed(1)} /{" "}
+                    {(progress.total / 1e6).toFixed(1)} MB downloaded
+                  </small>
+                </>
+              )}
+              <small>{progress.file}</small>
+              <button className="research-button full" onClick={stop}>
+                <Square size={13} />
+                Cancel download
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="model-connected">
+                <Check size={15} />
+                <div>
+                  <strong>Model connected</strong>
+                  <small>{runtime}</small>
+                </div>
+              </div>
+              <button className="research-text-button" onClick={stop}>
+                Disconnect & release memory
+              </button>
+            </>
+          )}
+          <hr />
+          <p className="research-muted">
+            Compact models can produce weak prose or incorrect claims. The
+            larger Qwen option may improve writing. Verify every draft against
+            the computed facts and evidence.
+          </p>
+          {status === "not-loaded" && (
+            <button
+              className="research-text-button"
+              onClick={async () => {
+                try {
+                  if (!("caches" in window))
+                    throw new Error(
+                      "Cache management is unavailable in this browser.",
+                    );
+                  await caches.delete("transformers-cache");
+                  setNotice(
+                    "Downloaded model cache cleared. Connecting again will download the weights.",
+                  );
+                } catch (error) {
+                  setError(
+                    error instanceof Error ? error.message : String(error),
+                  );
+                }
+              }}
+            >
+              Clear downloaded model cache
+            </button>
+          )}
+          <h2>Draft settings</h2>
+          <label>
+            Research task
+            <select
+              value={task}
+              onChange={(e) => {
+                setTask(e.target.value);
+                if (/Linguistic|Translation/.test(e.target.value)) {
+                  setEvidenceScope("tables");
+                  setIncludeExcerpts(true);
+                }
+              }}
+            >
+              {[
+                "Results and interpretation",
+                "Methods section",
+                "Discussion and next research questions",
+                "Figure caption",
+                "Linguistic observations and annotation suggestions",
+                "Translation review suggestions",
+              ].map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Output language
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              {locales
+                .filter(([id]) => id !== "und")
+                .map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Custom output language / BCP 47 code
+            <input
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="e.g. Swahili or sw"
+            />
+          </label>
+          <label>
+            Your research question / instructions
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="What do these patterns suggest about the language of…?"
+            />
+          </label>
+          <label>
+            Evidence selection
+            <select
+              value={evidenceScope}
+              onChange={(e) => setEvidenceScope(e.target.value)}
+            >
+              <option value="overview">Corpus overview · exact totals</option>
+              <option value="tables">Selected tables and excerpts</option>
+            </select>
+          </label>
+          <div className="research-two">
+            <label>
+              Evidence rows per table
+              <input
+                type="number"
+                min="1"
+                value={evidenceCount}
+                disabled={
+                  evidenceScope === "overview" || task === "Figure caption"
+                }
+                onChange={(e) => setEvidenceCount(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Draft output tokens
+              <input
+                type="number"
+                min="1"
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          <label className="research-check">
+            <input
+              type="checkbox"
+              checked={includeExcerpts}
+              disabled={
+                evidenceScope === "overview" || task === "Figure caption"
+              }
+              onChange={(e) => setIncludeExcerpts(e.target.checked)}
+            />
+            Include original excerpts / parallel pairs
+          </label>
+          <p className="research-muted">
+            Evidence selection is explicit. Models have a finite context window;
+            oversized prompts are rejected rather than silently truncated. Short
+            excerpts are 1,200 characters per selected document.
+          </p>
+          <button
+            className="research-button primary full"
+            onClick={generate}
+            disabled={status !== "ready" || !previewEvidence.length}
+          >
+            <Sparkles size={15} />
+            Generate research draft
+          </button>
+          <button
+            className="research-button full"
+            onClick={computed}
+            disabled={!input.analysis || status === "generating"}
+          >
+            <FileText size={15} />
+            Build exact statistical report
+          </button>
+        </aside>
+        <div className="report-main">
+          <input
+            ref={restoreInput}
+            hidden
+            type="file"
+            accept=".json"
+            onChange={async (e) => {
+              const element = e.currentTarget;
+              try {
+                const file = element.files?.[0];
+                if (!file) return;
+                const raw = JSON.parse(await file.text());
+                if (raw.format !== "corpuscape-report-v1")
+                  throw new Error("Choose a Corpuscape report backup.");
+                const data = validateReportSession({
+                  drafts: [raw],
+                  text: raw.text,
+                  current: raw,
+                  evidence: raw.evidence,
+                });
+                const draft = data.current as Draft;
+                setCurrent(draft);
+                setText(data.text);
+                textRef.current = data.text;
+                setEvidence(data.evidence);
+                setDrafts((old) => [
+                  draft,
+                  ...old.filter((d) => d.id !== draft.id),
+                ]);
+                setNotice("Report backup restored.");
+              } catch (error) {
+                setError(
+                  error instanceof Error ? error.message : String(error),
+                );
+              } finally {
+                element.value = "";
+              }
+            }}
+          />
+          <div className="report-backup-actions">
+            <button
+              className="research-text-button"
+              disabled={status === "generating"}
+              onClick={() => restoreInput.current?.click()}
+            >
+              Restore report backup
+            </button>
+          </div>
+          {input.analysis && (
+            <div className="report-facts" aria-label="Computed corpus facts">
+              <span>
+                <strong>{input.documents.length.toLocaleString()}</strong>{" "}
+                documents
+              </span>
+              <span>
+                <strong>{input.analysis.words.toLocaleString()}</strong> word
+                tokens
+              </span>
+              <span>
+                <strong>{input.analysis.types.toLocaleString()}</strong> types
+              </span>
+              <small>Computed counts · independent of AI text</small>
+            </div>
+          )}
+          {notice && <div className="research-notice">{notice}</div>}
+          {error && (
+            <div className="research-error" role="alert">
+              {error}
+            </div>
+          )}
+          <section className="research-card report-editor">
+            <div className="report-editor-toolbar">
+              <div>
+                <span
+                  className={
+                    status === "generating"
+                      ? "report-generating"
+                      : "report-state"
+                  }
+                >
+                  {status === "generating" ? (
+                    <Loader2 size={13} className="spin" />
+                  ) : (
+                    <Check size={13} />
+                  )}{" "}
+                  {status === "generating"
+                    ? "Writing locally…"
+                    : saved
+                      ? "Saved on this device"
+                      : "Editable draft"}
+                </span>
+                {current && (
+                  <small>
+                    {current.model.includes("Deterministic")
+                      ? "Computed report"
+                      : current.model.split("/").at(-1)}
+                  </small>
+                )}
+              </div>
+              <div>
+                {status === "generating" && (
+                  <button className="research-button" onClick={stop}>
+                    <Square size={13} />
+                    Stop
+                  </button>
+                )}
+                <button
+                  className="research-button"
+                  disabled={!text}
+                  onClick={() =>
+                    download(
+                      "corpuscape-research-report.md",
+                      text,
+                      "text/markdown;charset=utf-8",
+                    )
+                  }
+                >
+                  <Download size={14} />
+                  Markdown
+                </button>
+                <button
+                  className="research-button"
+                  disabled={!text}
+                  onClick={() =>
+                    download(
+                      "corpuscape-research-report.html",
+                      `<!doctype html><html lang="${xmlEscape(language)}"><meta charset="utf-8"><title>${xmlEscape(input.name)}</title><style>body{max-width:850px;margin:40px auto;padding:25px;font:16px/1.8 system-ui}pre{white-space:pre-wrap;font:inherit}small{color:#64748b}@media print{body{margin:0}}</style><h1>${xmlEscape(input.name)}</h1><small>${xmlEscape(current?.model ?? "Research draft")} · ${xmlEscape(current?.generatedAt ?? new Date().toISOString())}</small><pre dir="auto">${xmlEscape(text)}</pre><h2>Evidence</h2><pre>${xmlEscape(JSON.stringify(evidence, null, 2))}</pre></html>`,
+                      "text/html;charset=utf-8",
+                    )
+                  }
+                >
+                  HTML / print PDF
+                </button>
+                <button
+                  className="research-button"
+                  disabled={!text}
+                  onClick={() =>
+                    download(
+                      "corpuscape-report-backup.json",
+                      JSON.stringify(
+                        {
+                          format: "corpuscape-report-v1",
+                          ...(current ?? {
+                            id: crypto.randomUUID(),
+                            title: input.name,
+                            model: "Manual draft",
+                            generatedAt: new Date().toISOString(),
+                            language,
+                            task,
+                          }),
+                          text,
+                          evidence,
+                        },
+                        null,
+                        2,
+                      ),
+                      "application/json",
+                    )
+                  }
+                >
+                  Backup
+                </button>
+              </div>
+            </div>
+            <textarea
+              aria-label="Editable research report"
+              dir="auto"
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                textRef.current = e.target.value;
+              }}
+              placeholder="Your evidence-based draft will appear here. Connect a local model for AI writing, or build an exact statistical report without downloading a model."
+            />
+            <div className="report-editor-footer">
+              <span>
+                {text.length.toLocaleString()} characters · {evidence.length}{" "}
+                evidence records
+              </span>
+              <span>
+                AI drafts need review; corpus statistics remain computed by the
+                analysis engine.
+              </span>
+            </div>
+          </section>
+          {text &&
+            current &&
+            !current.model.includes("Deterministic") &&
+            !/\[[A-Z]\d+\]/.test(text) && (
+              <div className="research-notice">
+                This draft has no bracketed evidence citations. Check its claims
+                against the records below before using it.
+              </div>
+            )}
+          {unknown.length > 0 && (
+            <div className="research-error" role="alert">
+              Check unrecognized evidence references: {unknown.join(", ")}.
+              These IDs do not exist in the supplied data.
+            </div>
+          )}
+          <section className="research-card evidence-panel">
+            <div className="research-card-heading">
+              <BookOpen size={17} />
+              <h2>Evidence behind the words</h2>
+              <span>
+                {(evidence.length ? evidence : previewEvidence).length} records
+              </span>
+            </div>
+            <p className="research-muted">
+              Drafts cite these IDs. Open a record to inspect the exact values
+              supplied to the model.
+            </p>
+            <div className="evidence-list">
+              {(evidence.length ? evidence : previewEvidence)
+                .slice(evidencePage * 50, evidencePage * 50 + 50)
+                .map((item) => (
+                  <details key={item.id}>
+                    <summary>
+                      <code>{item.id}</code>
+                      <span>{item.label}</span>
+                      <ChevronDown size={13} />
+                    </summary>
+                    <pre dir="auto">
+                      {typeof item.value === "string"
+                        ? item.value
+                        : JSON.stringify(item.value, null, 2)}
+                    </pre>
+                  </details>
+                ))}
+            </div>
+            <div className="report-evidence-pages">
+              <button
+                disabled={!evidencePage}
+                onClick={() => setEvidencePage(evidencePage - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {evidencePage + 1} /{" "}
+                {Math.max(
+                  1,
+                  Math.ceil(
+                    (evidence.length ? evidence : previewEvidence).length / 50,
+                  ),
+                )}
+              </span>
+              <button
+                disabled={
+                  (evidencePage + 1) * 50 >=
+                  (evidence.length ? evidence : previewEvidence).length
+                }
+                onClick={() => setEvidencePage(evidencePage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </section>
+          {drafts.length > 0 && (
+            <section className="research-card report-history">
+              <div className="research-card-heading">
+                <h2>Saved drafts</h2>
+                <span>{drafts.length}</span>
+              </div>
+              {drafts.map((draft) => (
+                <button
+                  key={draft.id}
+                  onClick={() => {
+                    setCurrent(draft);
+                    setText(draft.text);
+                    textRef.current = draft.text;
+                    setEvidence(draft.evidence);
+                  }}
+                >
+                  <div>
+                    <strong>{draft.task}</strong>
+                    <small>
+                      {draft.title} ·{" "}
+                      {new Date(draft.generatedAt).toLocaleString()}
+                    </small>
+                  </div>
+                  <span>
+                    {draft.model.includes("Deterministic")
+                      ? "Computed"
+                      : "Local AI"}
+                  </span>
+                </button>
+              ))}
+            </section>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}

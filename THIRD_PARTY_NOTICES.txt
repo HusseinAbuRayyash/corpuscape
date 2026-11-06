@@ -23,6 +23,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+Research tools added in Corpuscape 2.2:
+Vega, Vega-Lite and Vega-Embed — BSD-3-Clause — https://vega.github.io/
+Transformers.js — Apache-2.0 — https://github.com/huggingface/transformers.js
+ONNX Runtime — MIT — https://github.com/microsoft/onnxruntime
+Tesseract.js and Tesseract.js Core — Apache-2.0 — https://github.com/naptha/tesseract.js
+franc — MIT — https://github.com/wooorm/franc
+jsPDF — MIT — https://github.com/parallax/jsPDF
+Model weights and OCR language data are downloaded separately, on request.
+Qwen3-0.6B, Qwen3-1.7B and SmolLM2-135M-Instruct: Apache-2.0; model cards are linked in the application.
+Full bundled notices are included in the licenses directory.
+
 Shadcn Admin — https://github.com/satnaing/shadcn-admin
 
 MIT License

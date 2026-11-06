@@ -21,7 +21,7 @@ test(
     assert.equal(result.ngrams[2][0].count, 399999);
     const analysisMs = performance.now() - started;
     const kwicStart = performance.now();
-    const hits = concordance(documents, defaultOptions, "word", 20);
+    const hits = concordance(documents, defaultOptions, "word", 20, 1000);
     assert.equal(hits.total, 400000);
     assert.equal(hits.hits.length, 1000);
     console.info(

@@ -9,9 +9,13 @@ export interface SavedCorpus {
 }
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("corpuscape-local-v2", 1);
-    req.onupgradeneeded = () =>
-      req.result.createObjectStore("corpora", { keyPath: "id" });
+    const req = indexedDB.open("corpuscape-local-v2", 2);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains("corpora"))
+        req.result.createObjectStore("corpora", { keyPath: "id" });
+      if (!req.result.objectStoreNames.contains("sessions"))
+        req.result.createObjectStore("sessions");
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () =>
       reject(
@@ -24,11 +28,12 @@ function open(): Promise<IDBDatabase> {
 async function transaction<T>(
   mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => IDBRequest<T>,
+  storeName = "corpora",
 ): Promise<T> {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("corpora", mode),
-      req = run(tx.objectStore("corpora"));
+    const tx = db.transaction(storeName, mode),
+      req = run(tx.objectStore(storeName));
     let result: T;
     req.onsuccess = () => {
       result = req.result;
@@ -53,3 +58,20 @@ export const saveCorpus = (corpus: SavedCorpus) =>
   transaction("readwrite", (s) => s.put(corpus));
 export const deleteCorpus = (id: string) =>
   transaction("readwrite", (s) => s.delete(id));
+export const loadSession = <T>(key: string) =>
+  transaction("readonly", (s) => s.get(key), "sessions") as Promise<
+    T | undefined
+  >;
+export const saveSession = (key: string, value: unknown) =>
+  transaction("readwrite", (s) => s.put(value, key), "sessions");
+export const saveSessions = (entries: Record<string, unknown>) =>
+  transaction(
+    "readwrite",
+    (store) => {
+      let last: IDBRequest = store.get("workspace-v1");
+      for (const [key, value] of Object.entries(entries))
+        last = store.put(value, key);
+      return last;
+    },
+    "sessions",
+  );

@@ -29,6 +29,12 @@ const destinations: { id: Page; title: string; detail: string }[] = [
     detail: "Charts, SVG exports and custom data",
   },
   {
+    id: "reports", title: "Research reports", detail: "Local Qwen AI writing, evidence and statistical reports",
+  },
+  {
+    id: "ocr", title: "Text extraction", detail: "Scanned PDF and image OCR in multiple languages",
+  },
+  {
     id: "library",
     title: "Corpus library",
     detail: "Locally saved corpora and JSON backups",

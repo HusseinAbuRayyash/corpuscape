@@ -34,6 +34,8 @@ export type Page =
   | "bilingual"
   | "compare"
   | "figures"
+  | "reports"
+  | "ocr"
   | "library"
   | "methods";
 const source = "https://github.com/HusseinAbuRayyash/corpuscape";

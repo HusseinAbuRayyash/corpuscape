@@ -8,9 +8,17 @@ import {
   tmxDocuments,
   type TranslationMemory,
 } from "./import-parsers";
-export const MAX_CHARACTERS = 2_000_000;
+// Compatibility export; imports are bounded by available browser memory, not a product quota.
+export const MAX_CHARACTERS = Number.MAX_SAFE_INTEGER;
 export const ACCEPT =
-  ".txt,.md,.csv,.tsv,.docx,.pdf,.xlsx,.html,.htm,.srt,.vtt,.tmx";
+  ".txt,.md,.csv,.tsv,.docx,.pdf,.xlsx,.html,.htm,.srt,.vtt,.tmx,.png,.jpg,.jpeg,.webp,.bmp";
+export class RequiresOcr extends Error {
+  constructor(public file: File) {
+    super(
+      "This file needs text extraction. Choose its languages in Text extraction.",
+    );
+  }
+}
 export interface Imported {
   documents: CorpusDocument[];
   table?: {
@@ -26,9 +34,9 @@ export async function importFile(
   file: File,
   sheet?: string,
 ): Promise<Imported> {
-  if (file.size > 25 * 1024 * 1024)
-    throw new Error(`${file.name}: maximum file size is 25 MB.`);
   const ext = file.name.split(".").pop()?.toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "bmp"].includes(ext ?? ""))
+    throw new RequiresOcr(file);
   let text = "";
   if (ext === "docx") {
     const mammoth = await import("mammoth/mammoth.browser");
@@ -61,20 +69,13 @@ export async function importFile(
           )
           .join("");
         total += page.length;
-        if (total > MAX_CHARACTERS)
-          throw new Error(
-            "This PDF exceeds the 2 million character workspace limit. Split it into smaller files.",
-          );
         pages.push(page);
       }
       text = pages.join("\n\n");
     } finally {
       await loadingTask.destroy();
     }
-    if (!text.trim())
-      throw new Error(
-        "No selectable text found in this PDF. Scanned PDFs need OCR in a separate tool before importing.",
-      );
+    if (!text.trim()) throw new RequiresOcr(file);
   } else if (ext === "xlsx") {
     const { default: readXlsx, readSheetNames } =
       await import("read-excel-file");
@@ -95,10 +96,6 @@ export async function importFile(
     return result;
   } else {
     text = decodeText(await file.arrayBuffer());
-    if (text.length > MAX_CHARACTERS)
-      throw new Error(
-        "This file exceeds the 2 million character import limit. Split it into smaller files.",
-      );
     if (ext === "csv" || ext === "tsv") {
       const parsed = Papa.parse<string[]>(text, {
         delimiter: ext === "tsv" ? "\t" : "",
@@ -134,21 +131,10 @@ export async function importFile(
       );
   }
   if (!text.trim()) throw new Error(`${file.name} contains no readable text.`);
-  if (text.length > MAX_CHARACTERS)
-    throw new Error(
-      "This file exceeds the 2 million character workspace limit.",
-    );
   return { documents: [{ name: file.name, text }] };
 }
 function tableResult(data: string[][], name: string): Imported {
   if (!data.length) throw new Error("This table is empty.");
-  if (
-    data.reduce(
-      (sum, row) => sum + row.reduce((n, cell) => n + cell.length, 0),
-      0,
-    ) > MAX_CHARACTERS
-  )
-    throw new Error("This table exceeds the 2 million character import limit.");
   const width = data.reduce((max, row) => Math.max(max, row.length), 0);
   // Keep the first row as data until the visitor explicitly selects a header row.
   return {

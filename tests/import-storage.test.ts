@@ -60,15 +60,12 @@ test("XLSX worksheet selection imports the requested sheet", async () => {
     /worksheet/,
   );
 });
-test("import validation rejects empty, malformed CSV, wrong format, encoding and size", async () => {
+test("import validation rejects empty, malformed CSV, wrong format and invalid encoding", async () => {
   for (const file of [
     new File([""], "empty.txt"),
     new File(['"unclosed'], "bad.csv"),
     new File(["hello"], "bad.exe"),
     new File([Uint8Array.from([0xff, 0x80])], "bad.txt"),
-    new File(["a".repeat(2000001)], "big.txt"),
-    new File(["a,b\n" + "x".repeat(2000001)], "big.csv"),
-    new File(["x".repeat(26 * 1024 * 1024)], "huge.txt"),
   ])
     await assert.rejects(importFile(file));
 });

@@ -232,29 +232,9 @@ for (const bad of [
   test(`malformed backup rejected: ${JSON.stringify(bad)}`, () =>
     assert.throws(() => validateBackup(bad)));
 }
-test("oversized backups are rejected before analysis", () => {
-  assert.throws(
-    () =>
-      validateBackup(
-        makeBackup(
-          "big",
-          [{ name: "big", text: "a".repeat(2000001) }],
-          defaultOptions,
-        ),
-      ),
-    /limit/,
-  );
-  assert.throws(
-    () =>
-      validateBackup(
-        makeBackup(
-          "many",
-          Array.from({ length: 101 }, () => ({ name: "a", text: "a" })),
-          defaultOptions,
-        ),
-      ),
-    /100/,
-  );
+test("large backups and collections are accepted without the old product quotas", () => {
+ const text="a".repeat(2000001); assert.equal(validateBackup(makeBackup("big",[{name:"big",text}],defaultOptions)).documents[0].text.length,text.length);
+ assert.equal(validateBackup(makeBackup("many",Array.from({length:101},()=>({name:"a",text:"a"})),defaultOptions)).documents.length,101);
 });
 test("TMX uses language tags when unit order differs and preserves unmatched units", () => {
   const memory = parseTmx(

@@ -1,3 +1,4 @@
+import { chiSquareOne, benjaminiHochberg } from "./statistics";
 export interface CorpusDocument {
   name: string;
   text: string;
@@ -165,8 +166,7 @@ export function analyze(
     }
     ngrams[n] = [...map]
       .map(([term, count]) => ({ term, count }))
-      .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
-      .slice(0, 500);
+      .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
   }
   const documentStats = documents.map((doc, i) => {
     const counts = perDocument[i];
@@ -198,10 +198,10 @@ export function concordance(
   options: Options,
   query: string,
   context = 55,
-  maxHits = 1000,
+  maxHits = Number.POSITIVE_INFINITY,
 ): { hits: Hit[]; total: number } {
-  if (!Number.isInteger(context) || context < 0 || context > 500)
-    throw new Error("Context must be between 0 and 500 graphemes.");
+  if (!Number.isSafeInteger(context) || context < 0)
+    throw new Error("Context must be a non-negative integer.");
   const tokens = tokenize(documents, options);
   const needles = documents.map((doc) =>
     tokenize([{ ...doc, text: query }], options).map((t) => t.term),
@@ -286,15 +286,12 @@ export function collocations(
   minimum = 2,
 ) {
   if (
-    !Number.isInteger(window) ||
+    !Number.isSafeInteger(window) ||
     window < 1 ||
-    window > 50 ||
-    !Number.isInteger(minimum) ||
+    !Number.isSafeInteger(minimum) ||
     minimum < 1
   )
-    throw new Error(
-      "Use a window of 1–50 tokens and a positive minimum count.",
-    );
+    throw new Error("Use a positive integer token window and minimum count.");
   const tokens = tokenize(documents, options);
   const nodes = documents.map((doc) =>
     tokenize([{ ...doc, text: query }], options),
@@ -342,8 +339,7 @@ export function collocations(
       pmi: Math.log2((count * slots) / (nodeSlots * rightMarginal.get(term)!)),
       dice: (2 * count) / (nodeSlots + rightMarginal.get(term)!),
     }))
-    .sort((a, b) => b.count - a.count || b.pmi - a.pmi)
-    .slice(0, 500);
+    .sort((a, b) => b.count - a.count || b.pmi - a.pmi);
 }
 export function compare(a: Analysis, b: Analysis) {
   const terms = new Set([
@@ -353,16 +349,20 @@ export function compare(a: Analysis, b: Analysis) {
   const left = new Map(a.frequencies.map((t) => [t.term, t.count])),
     right = new Map(b.frequencies.map((t) => [t.term, t.count]));
   if (!a.words || !b.words) return [];
-  return [...terms]
+  const rows = [...terms]
     .map((term) => {
       const ca = left.get(term) ?? 0,
         cb = right.get(term) ?? 0,
         total = ca + cb;
       const ea = (total * a.words) / (a.words + b.words),
         eb = (total * b.words) / (a.words + b.words);
-      const g2 =
+      const g2 = Math.max(
+        0,
         2 *
-        ((ca ? ca * Math.log(ca / ea) : 0) + (cb ? cb * Math.log(cb / eb) : 0));
+          ((ca ? ca * Math.log(ca / ea) : 0) +
+            (cb ? cb * Math.log(cb / eb) : 0)),
+      );
+      const probability = chiSquareOne(g2);
       return {
         term,
         a: ca,
@@ -373,10 +373,13 @@ export function compare(a: Analysis, b: Analysis) {
           (ca + 0.5) / (a.words + 0.5) / ((cb + 0.5) / (b.words + 0.5)),
         ),
         g2,
+        pValue: probability.p,
+        log10P: probability.logP / Math.LN10,
       };
     })
-    .sort((a, b) => b.g2 - a.g2)
-    .slice(0, 1000);
+    .sort((a, b) => b.g2 - a.g2);
+  const adjusted = benjaminiHochberg(rows.map((row) => row.pValue));
+  return rows.map((row, index) => ({ ...row, qValue: adjusted[index] }));
 }
 export function alignByLine(source: string, target: string) {
   function lines(text: string) {
