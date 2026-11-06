@@ -2475,6 +2475,13 @@ function App() {
                             "workspace-v1": workspace,
                           };
                           if (raw.figure) {
+                            if (
+                              typeof raw.figure.source !== "string" ||
+                              typeof raw.figure.text !== "string"
+                            )
+                              throw new Error(
+                                "Invalid figure source in workspace backup.",
+                              );
                             const checked = validateStudioProject({
                               format: "corpuscape-figure-v1",
                               config: raw.figure.config,

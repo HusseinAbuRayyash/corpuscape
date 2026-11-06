@@ -60,6 +60,7 @@ export function ResearchReports(input: ReportInput) {
     [includeExcerpts, setIncludeExcerpts] = useState(false),
     [maxTokens, setMaxTokens] = useState(512);
   const [evidencePage, setEvidencePage] = useState(0);
+  const [excerptCharacters, setExcerptCharacters] = useState(1200);
   const [languageNotice, setLanguageNotice] = useState("");
   const [evidenceScope, setEvidenceScope] = useState("overview");
   const [text, setText] = useState(""),
@@ -141,6 +142,7 @@ export function ResearchReports(input: ReportInput) {
         evidenceCount,
         includeExcerpts,
         task === "Figure caption" ? figure : undefined,
+        excerptCharacters,
       );
       if (task === "Figure caption")
         return records.filter((item) => item.id === "V1");
@@ -162,6 +164,7 @@ export function ResearchReports(input: ReportInput) {
     input.pairs,
     evidenceCount,
     includeExcerpts,
+    excerptCharacters,
     figure,
     task,
     evidenceScope,
@@ -201,6 +204,7 @@ export function ResearchReports(input: ReportInput) {
     });
     worker.current = w;
     w.onmessage = ({ data }) => {
+      if (worker.current !== w) return;
       if (data.type === "progress") {
         setProgress({
           loaded: data.loaded ?? 0,
@@ -208,7 +212,18 @@ export function ResearchReports(input: ReportInput) {
           file: data.file ?? "",
         });
       } else if (data.type === "notice") setNotice(data.message);
-      else if (data.type === "ready") {
+      else if (data.type === "fallback") {
+        w.terminate();
+        worker.current = null;
+        loaded.current = false;
+        setProgress({ loaded: 0, total: 0, file: "" });
+        setNotice(data.message);
+        runtimeWorker().postMessage({
+          type: "load",
+          model: data.model,
+          device: "cpu",
+        });
+      } else if (data.type === "ready") {
         loaded.current = true;
         setStatus("ready");
         setRuntime(`${data.model} · ${data.device}`);
@@ -245,10 +260,17 @@ export function ResearchReports(input: ReportInput) {
         setRuntime("");
       } else if (data.type === "error") {
         setError(data.message);
+        if (data.fatal) {
+          w.terminate();
+          worker.current = null;
+          loaded.current = false;
+          setRuntime("");
+        }
         setStatus(loaded.current ? "ready" : "not-loaded");
       }
     };
     w.onerror = (event) => {
+      if (worker.current !== w) return;
       setError(
         `Local model worker stopped: ${event.message || "browser memory or runtime error"}. Try the small model or CPU mode.`,
       );
@@ -577,9 +599,20 @@ export function ResearchReports(input: ReportInput) {
           </label>
           <p className="research-muted">
             Evidence selection is explicit. Models have a finite context window;
-            oversized prompts are rejected rather than silently truncated. Short
-            excerpts are 1,200 characters per selected document.
+            oversized prompts are rejected rather than silently truncated. Set
+            excerpt length to zero to include complete documents.
           </p>
+          {includeExcerpts && evidenceScope === "tables" && (
+            <label>
+              Excerpt characters · 0 = full text
+              <input
+                type="number"
+                min="0"
+                value={excerptCharacters}
+                onChange={(e) => setExcerptCharacters(Number(e.target.value))}
+              />
+            </label>
+          )}
           <button
             className="research-button primary full"
             onClick={generate}

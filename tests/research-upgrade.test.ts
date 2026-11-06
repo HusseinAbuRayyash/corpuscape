@@ -116,6 +116,8 @@ test("AI evidence contains exact engine statistics and exposes explicit scope", 
     ["F99"],
   );
   assert.ok(exactReport(input).includes("3 word tokens"));
+  const longText='Research text. '.repeat(300);
+  assert.equal(buildEvidence({...input,documents:[{name:'full',text:longText}]},1,true,undefined,0).find(item=>item.id==='T1')?.value,longText);
 });
 test("workspace, references and parallel notes survive complete local recovery", async () => {
   const workspace = {

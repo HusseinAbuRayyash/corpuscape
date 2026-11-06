@@ -66,13 +66,13 @@ async function load(id: ModelId, device: "auto" | "gpu" | "cpu") {
     generator = await create(gpu);
   } catch (error) {
     if (!gpu || device === "gpu") throw error;
-    gpu = false;
     self.postMessage({
-      type: "notice",
+      type: "fallback",
+      model: id,
       message:
-        "GPU initialization failed. Loading the CPU-compatible weights instead; you can cancel at any time.",
+        "GPU initialization failed. Releasing that worker and loading CPU-compatible weights; you can cancel at any time.",
     });
-    generator = await create(false);
+    return;
   }
   loadedKey = key;
   self.postMessage({
@@ -156,9 +156,15 @@ self.onmessage = async ({ data }) => {
       self.postMessage({ type: "unloaded" });
     }
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     self.postMessage({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      fatal:
+        data.type === "load" ||
+        /Aborted|out.of.memory|memory access|allocation/i.test(message),
+      message: /Aborted|out.of.memory|memory access|allocation/i.test(message)
+        ? "This device could not initialize or run the selected model. Release it and try a smaller model or another compute mode. Exact statistical reports remain available."
+        : message,
     });
   } finally {
     busy = false;
