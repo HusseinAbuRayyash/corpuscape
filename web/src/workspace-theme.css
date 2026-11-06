@@ -2442,3 +2442,20 @@ label,
     font-size: 12px;
   }
 }
+
+/* Research controls remain usable for long labels and compact screens. */
+.document-manager { margin-top: 24px; border-top: 1px solid var(--line, #e5e9ef); padding-top: 20px; }
+.document-manager label { display: grid; gap: 7px; margin: 14px 0; }
+.document-manager textarea { min-height: 160px; }
+.results-toolbar { flex-wrap: wrap; }
+.results-toolbar label { display: grid; gap: 5px; font-size: 12px; }
+#figure-preview { overflow-x: auto; max-width: 100%; }
+.figure-settings .notice p { margin: 4px 0; }
+.locale-select > small { display: block; margin: 7px 0; color: #626c7b; font-size: 11px; line-height: 1.5; }
+
+.mobile-navigation-close { display: none; }
+@media (max-width: 760px) {
+  .sidebar { visibility: hidden; }
+  .sidebar.open { visibility: visible; }
+  .mobile-navigation-close { display: flex; position: absolute; top: 18px; right: 10px; }
+}

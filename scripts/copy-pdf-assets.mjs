@@ -12,6 +12,8 @@ for (const [file, name] of [
   ["framer-motion/LICENSE.md", "Framer-Motion.txt"],
   ["motion-dom/LICENSE.md", "Motion-DOM.txt"],
   ["motion-utils/LICENSE.md", "Motion-Utils.txt"],
+  ["parse5/LICENSE", "parse5-MIT.txt"],
+  ["entities/LICENSE", "entities-BSD.txt"],
 ]) {
   cpSync(
     new URL(`../node_modules/${file}`, import.meta.url),

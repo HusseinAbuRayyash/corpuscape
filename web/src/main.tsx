@@ -30,6 +30,8 @@ import {
   alignByLine,
   csv,
   defaultOptions,
+  sortConcordance,
+  createTextFilter,
   tmx,
   xmlEscape,
   type Analysis,
@@ -38,6 +40,14 @@ import {
   type Hit,
 } from "./engine";
 import { importFile, ACCEPT, MAX_CHARACTERS, type Imported } from "./files";
+import { selectTmxPairs, type TranslationMemory } from "./import-parsers";
+import { makeBackup, validateBackup } from "./backup";
+import { parseFigureData, pngFromSvg } from "./figures";
+import { FrequencyChart } from "./figure-chart";
+import { DocumentManager } from "./document-manager";
+import { Modal } from "./modal";
+import { exclusiveSave } from "./save-queue";
+import { formatPercentage } from "./format";
 import {
   listCorpora,
   saveCorpus,
@@ -84,10 +94,12 @@ const fmt = (n: number, maximumFractionDigits = 0) =>
   n.toLocaleString(undefined, { maximumFractionDigits });
 function download(
   name: string,
-  content: string,
+  content: string | Blob,
   type = "text/plain;charset=utf-8",
 ) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+  const url = URL.createObjectURL(
+    content instanceof Blob ? content : new Blob([content], { type }),
+  );
   const a = document.createElement("a");
   a.href = url;
   a.download = name;
@@ -106,30 +118,39 @@ function useEngine() {
   );
   const id = useRef(0);
   useEffect(() => {
-    const w = new Worker(new URL("./analysis.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    worker.current = w;
-    w.onmessage = ({ data }) => {
-      const request = pending.current.get(data.id);
-      if (!request) return;
-      pending.current.delete(data.id);
-      data.error
-        ? request.reject(new Error(data.error))
-        : request.resolve(data.result);
-    };
-    w.onerror = () => {
-      pending.current.forEach((r) =>
-        r.reject(
-          new Error(
-            "The analysis worker stopped. Try a smaller corpus or refresh the page.",
+    let restarted = false;
+    const start = () => {
+      const w = new Worker(new URL("./analysis.worker.ts", import.meta.url), {
+        type: "module",
+      });
+      worker.current = w;
+      w.onmessage = ({ data }) => {
+        const request = pending.current.get(data.id);
+        if (!request) return;
+        pending.current.delete(data.id);
+        data.error
+          ? request.reject(new Error(data.error))
+          : request.resolve(data.result);
+      };
+      w.onerror = () => {
+        pending.current.forEach((r) =>
+          r.reject(
+            new Error(
+              "The analysis worker stopped. Try a smaller corpus or refresh the page.",
+            ),
           ),
-        ),
-      );
-      pending.current.clear();
+        );
+        pending.current.clear();
+        w.terminate();
+        if (!restarted) {
+          restarted = true;
+          start();
+        } else worker.current = undefined;
+      };
     };
+    start();
     return () => {
-      w.terminate();
+      worker.current?.terminate();
       pending.current.forEach((r) =>
         r.reject(new Error("Analysis cancelled.")),
       );
@@ -219,6 +240,11 @@ function LocaleSelect({
           <small>{localeError || `Applied language: ${value}`}</small>
         </div>
       )}
+      <small>
+        {value === "und"
+          ? "Uses browser ICU defaults, without language detection."
+          : `Word segmenter: ${new Intl.Segmenter(value).resolvedOptions().locale}${Intl.Segmenter.supportedLocalesOf([value]).length ? "" : " (browser fallback; inspect boundaries)"}`}
+      </small>
     </div>
   );
 }
@@ -229,8 +255,66 @@ function App() {
   );
   const [menu, setMenu] = useState(false),
     [optionsOpen, setOptionsOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null),
+    workspaceRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const compact = matchMedia("(max-width: 760px)");
+    if (!menu || !compact.matches) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    if (workspaceRef.current) workspaceRef.current.inert = true;
+    document.body.style.overflow = "hidden";
+    const buttons = () => [
+      ...(sidebarRef.current?.querySelectorAll<HTMLElement>(
+        "button:not(:disabled),a[href]",
+      ) ?? []),
+    ];
+    buttons()[0]?.focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const nodes = buttons(),
+        first = nodes[0],
+        last = nodes.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    const resize = () => {
+      if (!compact.matches) setMenu(false);
+    };
+    document.addEventListener("keydown", trap);
+    compact.addEventListener("change", resize);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      compact.removeEventListener("change", resize);
+      if (workspaceRef.current) workspaceRef.current.inert = false;
+      document.body.style.overflow = previousOverflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [menu]);
   const [documents, setDocuments] = useState<CorpusDocument[]>([]),
     [name, setName] = useState("Untitled corpus");
+  const activeId = useRef<string | null>(null);
+  const corpusEpoch = useRef(0);
+  function setActiveId(id: string | null) {
+    activeId.current = id;
+    corpusEpoch.current++;
+  }
+  const saveOnce = useRef(exclusiveSave());
+  const [appendImport, setAppendImport] = useState(false);
+  const [undoDocuments, setUndoDocuments] = useState<CorpusDocument[] | null>(
+    null,
+  );
+  const [deleteCandidate, setDeleteCandidate] = useState<SavedCorpus | null>(
+    null,
+  );
+  const [tmxImport, setTmxImport] = useState<TranslationMemory | null>(null);
+  const [tmxSource, setTmxSource] = useState("en"),
+    [tmxTarget, setTmxTarget] = useState("es");
   const [options, setOptions] = useState<Options>(defaultOptions),
     [stopText, setStopText] = useState("");
   const [analysis, setAnalysis] = useState<Analysis | null>(null),
@@ -241,15 +325,24 @@ function App() {
   const [paste, setPaste] = useState(""),
     [inputTab, setInputTab] = useState<"upload" | "paste">("upload");
   const [tableImport, setTableImport] = useState<
-    | (Imported & { name: string; destination: "main" | "reference" | "pairs" })
+    | (Imported & {
+        name: string;
+        destination: "main" | "reference" | "pairs";
+        append: boolean;
+        file: File;
+      })
     | null
   >(null);
   const [column, setColumn] = useState(0),
     [targetColumn, setTargetColumn] = useState(1),
+    [noteColumn, setNoteColumn] = useState(-1),
     [header, setHeader] = useState(false);
   const [tab, setTab] = useState("frequencies"),
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("");
+  const [contextSize, setContextSize] = useState(55),
+    [kwicSort, setKwicSort] = useState("position"),
+    [queryDocument, setQueryDocument] = useState("all");
   const [ngram, setNgram] = useState(2),
     [windowSize, setWindowSize] = useState(5),
     [minimum, setMinimum] = useState(2);
@@ -260,12 +353,14 @@ function App() {
   const [collocates, setCollocates] = useState<
     { term: string; count: number; pmi: number; dice: number }[]
   >([]);
+  const [queryError, setQueryError] = useState("");
   const [queryBusy, setQueryBusy] = useState(false),
     [page, setPage] = useState(0);
   const [saved, setSaved] = useState<SavedCorpus[]>([]),
     [libraryReady, setLibraryReady] = useState(false);
   const [reference, setReference] = useState<CorpusDocument[]>([]),
     [referencePaste, setReferencePaste] = useState("");
+  const [compareError, setCompareError] = useState("");
   const [comparison, setComparison] = useState<{
     a: Analysis;
     b: Analysis;
@@ -291,7 +386,10 @@ function App() {
     [figureType, setFigureType] = useState("bar"),
     [figureColor, setFigureColor] = useState("#4f46e5"),
     [figureData, setFigureData] = useState(""),
-    [figureLimit, setFigureLimit] = useState(12);
+    [figureLimit, setFigureLimit] = useState(12),
+    [figureUnit, setFigureUnit] = useState("count"),
+    [figureSort, setFigureSort] = useState("source"),
+    [figureExportBusy, setFigureExportBusy] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null),
     refUpload = useRef<HTMLInputElement>(null),
     pairUpload = useRef<HTMLInputElement>(null);
@@ -345,6 +443,7 @@ function App() {
       return;
     }
     setBusy(true);
+    setAnalysis(null);
     run("analyze", { documents, options })
       .then((result) => {
         if (version === analysisVersion.current) {
@@ -364,6 +463,7 @@ function App() {
     setPage(0);
     setHits({ hits: [], total: 0 });
     setCollocates([]);
+    setQueryError("");
     if (
       !query.trim() ||
       !documents.length ||
@@ -375,7 +475,17 @@ function App() {
     setQueryBusy(true);
     const timer = setTimeout(
       () =>
-        run(tab, { documents, options, query, window: windowSize, minimum })
+        run(tab, {
+          documents:
+            queryDocument === "all"
+              ? documents
+              : documents.filter((_, i) => String(i) === queryDocument),
+          options,
+          query,
+          window: windowSize,
+          minimum,
+          context: contextSize,
+        })
           .then((result) => {
             if (version !== queryVersion.current) return;
             if (tab === "concordance") setHits(result);
@@ -384,26 +494,39 @@ function App() {
           })
           .catch((e) => {
             if (version === queryVersion.current) {
-              fail(e);
+              setQueryError(e instanceof Error ? e.message : String(e));
               setQueryBusy(false);
             }
           }),
       300,
     );
     return () => clearTimeout(timer);
-  }, [documents, options, query, tab, windowSize, minimum]);
+  }, [
+    documents,
+    options,
+    query,
+    tab,
+    windowSize,
+    minimum,
+    contextSize,
+    queryDocument,
+  ]);
   useEffect(() => {
     setPage(0);
-  }, [filter, ngram, tab]);
+  }, [filter, ngram, tab, pairFilter, pairs.length]);
   useEffect(() => {
     const version = ++compareVersion.current;
     setComparison(null);
+    setCompareError("");
     if (!documents.length || !reference.length) return;
     run("compare", { documents, reference, options })
       .then((result) => {
         if (version === compareVersion.current) setComparison(result);
       })
-      .catch(fail);
+      .catch((e) => {
+        if (version === compareVersion.current)
+          setCompareError(e instanceof Error ? e.message : String(e));
+      });
   }, [documents, reference, options]);
   async function refreshLibrary() {
     try {
@@ -445,11 +568,24 @@ function App() {
           );
         setColumn(0);
         setTargetColumn(1);
+        setNoteColumn(-1);
         setHeader(false);
-        setTableImport({ ...results[0], name: files[0].name, destination });
+        setTableImport({
+          ...results[0],
+          name: files[0].name,
+          destination,
+          append: appendImport,
+          file: files[0],
+        });
         return;
       }
       if (destination === "pairs") {
+        if (results[0].translationMemory) {
+          setTmxImport(results[0].translationMemory);
+          setTmxSource(results[0].translationMemory.sourceLocale);
+          setTmxTarget(results[0].translationMemory.targetLocale);
+          return;
+        }
         if (!results[0].pairs)
           throw new Error(
             "Import a two-column CSV, TSV, XLSX or TMX file here. You can also paste source and target texts below.",
@@ -471,12 +607,18 @@ function App() {
         checkSize(docs);
         if (destination === "reference") setReference(docs);
         else {
-          setDocuments(docs);
-          setName(
-            files.length === 1
-              ? files[0].name.replace(/\.[^.]+$/, "")
-              : `${files.length} document corpus`,
-          );
+          const next = appendImport ? [...documents, ...docs] : docs;
+          checkSize(next);
+          setDocuments(next);
+          setQueryDocument("all");
+          setUndoDocuments(null);
+          if (!appendImport) setActiveId(null);
+          if (!appendImport)
+            setName(
+              files.length === 1
+                ? files[0].name.replace(/\.[^.]+$/, "")
+                : `${files.length} document corpus`,
+            );
           navigate("analysis");
         }
         notify(
@@ -487,6 +629,7 @@ function App() {
       fail(e);
     } finally {
       setImporting(false);
+      setAppendImport(false);
       [uploadRef, refUpload, pairUpload].forEach((ref) => {
         if (ref.current) ref.current.value = "";
       });
@@ -507,9 +650,11 @@ function App() {
           .map((row) => ({
             source: row[column] ?? "",
             target: row[targetColumn] ?? "",
-            note: "",
+            note: noteColumn < 0 ? "" : (row[noteColumn] ?? ""),
           }))
           .filter((p) => p.source || p.target);
+        if (!importedPairs.length)
+          throw new Error("The selected columns have no translation text.");
         checkSize([
           {
             name: "",
@@ -529,8 +674,13 @@ function App() {
           throw new Error("The selected column has no text.");
         if (tableImport.destination === "reference") setReference(docs);
         else {
-          setDocuments(docs);
-          setName(tableImport.name);
+          const next = tableImport.append ? [...documents, ...docs] : docs;
+          checkSize(next);
+          setDocuments(next);
+          setQueryDocument("all");
+          setUndoDocuments(null);
+          if (!tableImport.append) setActiveId(null);
+          if (!tableImport.append) setName(tableImport.name);
           navigate("analysis");
         }
       }
@@ -542,8 +692,16 @@ function App() {
   }
   function loadSample(index: number) {
     setDocuments(samples[index].documents);
+    setActiveId(null);
+    setQueryDocument("all");
+    setUndoDocuments(null);
     setName(samples[index].name);
-    setOptions({ ...options, locale: samples[index].locale });
+    setOptions({
+      ...defaultOptions,
+      locale: samples[index].locale,
+      stopWords: [],
+    });
+    setStopText("");
     navigate("analysis");
     notify("Original teaching sample loaded.");
   }
@@ -553,6 +711,9 @@ function App() {
       const docs = [{ name: "Pasted text", text: paste }];
       checkSize(docs);
       setDocuments(docs);
+      setQueryDocument("all");
+      setUndoDocuments(null);
+      setActiveId(null);
       setName("Pasted corpus");
       navigate("analysis");
     } catch (e) {
@@ -562,62 +723,73 @@ function App() {
   async function save() {
     if (!documents.length) return;
     try {
-      await saveCorpus({
-        id: crypto.randomUUID(),
-        name: name.trim() || "Untitled corpus",
-        locale: options.locale,
-        savedAt: new Date().toISOString(),
-        documents,
+      await saveOnce.current(async () => {
+        const epoch = corpusEpoch.current;
+        const id = activeId.current ?? crypto.randomUUID();
+        await saveCorpus({
+          id,
+          name: name.trim() || "Untitled corpus",
+          locale: options.locale,
+          savedAt: new Date().toISOString(),
+          documents,
+          options,
+        });
+        if (corpusEpoch.current === epoch) setActiveId(id);
+        notify(
+          "Saved in this browser. Export a backup to keep a copy outside this device.",
+        );
+        refreshLibrary();
       });
-      notify(
-        "Saved in this browser. Export a backup to keep a copy outside this device.",
-      );
-      refreshLibrary();
     } catch (e) {
       fail(e);
     }
   }
-  const frequencies = useMemo(
+  const termFilter = useMemo(
     () =>
-      (analysis?.frequencies ?? []).filter((r) =>
-        r.term.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
-      ),
-    [analysis, filter],
+      createTextFilter(filter, [
+        options.locale,
+        ...documents.map((doc) => doc.locale ?? options.locale),
+      ]),
+    [filter, options.locale, documents],
   );
-  const gramRows = (analysis?.ngrams[ngram] ?? []).filter((r) =>
-    r.term.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
+  const frequencies = useMemo(
+    () => (analysis?.frequencies ?? []).filter((row) => termFilter(row.term)),
+    [analysis, termFilter],
+  );
+  const gramRows = (analysis?.ngrams[ngram] ?? []).filter((row) =>
+    termFilter(row.term),
+  );
+  const pairMatches = useMemo(
+    () => createTextFilter(pairFilter, [sourceLocale, targetLocale]),
+    [pairFilter, sourceLocale, targetLocale],
   );
   const pairRows = pairs
     .map((p, i) => ({ ...p, index: i }))
-    .filter((p) =>
-      (p.source + p.target + p.note)
-        .toLocaleLowerCase()
-        .includes(pairFilter.toLocaleLowerCase()),
-    );
+    .filter((p) => pairMatches([p.source, p.target, p.note].join("\n")));
+  const parsedFigure = useMemo(() => parseFigureData(figureData), [figureData]);
   const figureRows = useMemo(() => {
-    if (!figureData.trim())
-      return (analysis?.frequencies ?? [])
-        .slice(0, figureLimit)
-        .map((r) => ({ label: r.term, value: r.count }));
-    return figureData
-      .trim()
-      .split("\n")
-      .map((line) => {
-        const parts = line.split("\t");
-        return {
-          label: parts.slice(0, -1).join(" "),
-          value: Number(parts.at(-1)),
-        };
-      })
-      .filter((p) => p.label.trim() && Number.isFinite(p.value) && p.value >= 0)
-      .slice(0, figureLimit);
-  }, [figureData, analysis, figureLimit]);
+    if (parsedFigure.errors.length) return [];
+    const rows = figureData.trim()
+      ? [...parsedFigure.rows]
+      : (analysis?.frequencies ?? []).map((r) => ({
+          label: r.term,
+          value: figureUnit === "count" ? r.count : r.perMillion,
+        }));
+    if (figureSort === "descending") rows.sort((a, b) => b.value - a.value);
+    if (figureSort === "label")
+      rows.sort((a, b) => a.label.localeCompare(b.label));
+    return rows.slice(0, figureLimit);
+  }, [figureData, parsedFigure, analysis, figureLimit, figureUnit, figureSort]);
+  const kwicHits = useMemo(
+    () => sortConcordance(hits.hits, kwicSort, options.locale),
+    [hits, kwicSort, options.locale],
+  );
   function exportReport() {
     if (!analysis) return;
     const escape = xmlEscape;
     download(
       "corpuscape-report.html",
-      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${fmt(analysis.ttr * 100, 2)}%</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(options.stopWords.join(", ") || "none")}. Descriptive frequency analysis; no semantic or AI inference. Counts include numbers. TTR is sensitive to corpus size.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)}: ${d.words} tokens, ${d.types} types</li>`).join("")}</ul><h2>Top 100 frequencies</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
+      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(options.stopWords.join(", ") || "none")}. Descriptive frequency analysis; no semantic or AI inference. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Top 100 frequencies</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
         .slice(0, 100)
         .map(
           (r) =>
@@ -717,7 +889,7 @@ function App() {
         [fmt(analysis.words), "Word tokens"],
         [fmt(analysis.types), "Unique types"],
         [fmt(analysis.sentences), "Sentences"],
-        [fmt(analysis.ttr * 100, 1) + "%", "Type–token ratio"],
+        [formatPercentage(analysis.ttr), "Type–token ratio"],
       ].map(([value, label], index) => (
         <div key={label} className={`metric-card metric-${index}`}>
           <span className="metric-symbol">
@@ -749,7 +921,21 @@ function App() {
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <aside className={menu ? "sidebar open" : "sidebar"}>
+      <aside
+        ref={sidebarRef}
+        id="workspace-navigation"
+        className={menu ? "sidebar open" : "sidebar"}
+        role={menu ? "dialog" : undefined}
+        aria-modal={menu || undefined}
+        aria-label="Workspace navigation"
+      >
+        <button
+          className="icon-button mobile-navigation-close"
+          aria-label="Close workspace navigation"
+          onClick={() => setMenu(false)}
+        >
+          <X size={20} />
+        </button>
         <a
           href="#overview"
           className="brand"
@@ -767,7 +953,11 @@ function App() {
         </a>
         <button
           className="sidebar-create"
-          onClick={() => uploadRef.current?.click()}
+          onClick={() => {
+            setMenu(false);
+            setAppendImport(false);
+            uploadRef.current?.click();
+          }}
         >
           <Plus size={16} />
           New corpus
@@ -816,12 +1006,14 @@ function App() {
           onClick={() => setMenu(false)}
         />
       )}
-      <div className="workspace">
+      <div className="workspace" ref={workspaceRef}>
         <header className="topbar">
           <div className="breadcrumb">
             <button
               className="icon-button menu-button"
               aria-label="Toggle navigation"
+              aria-expanded={menu}
+              aria-controls="workspace-navigation"
               onClick={() => setMenu(!menu)}
             >
               <Menu size={21} />
@@ -877,6 +1069,17 @@ function App() {
               </button>
             </div>
           )}
+          {!documents.length && undoDocuments && (
+            <button
+              className="button secondary"
+              onClick={() => {
+                setDocuments(undoDocuments);
+                setUndoDocuments(null);
+              }}
+            >
+              Undo document removal
+            </button>
+          )}
           {message && (
             <div role="status" className="notice success">
               <Check size={17} />
@@ -919,7 +1122,10 @@ function App() {
                     setName={setName}
                     busy={busy}
                     documents={documents}
-                    onImport={() => uploadRef.current?.click()}
+                    onImport={() => {
+                      setAppendImport(false);
+                      uploadRef.current?.click();
+                    }}
                     onSave={save}
                     onSettings={() => setOptionsOpen(!optionsOpen)}
                     onExport={exportReport}
@@ -1014,6 +1220,7 @@ function App() {
                                   onChange={setFilter}
                                   placeholder="Filter words…"
                                 />
+
                                 <span className="fine">
                                   {fmt(frequencies.length)} terms
                                 </span>
@@ -1172,6 +1379,65 @@ function App() {
                                       : "Enter one node word…"
                                   }
                                 />
+                                <label>
+                                  Search documents
+                                  <select
+                                    aria-label="Search documents"
+                                    value={queryDocument}
+                                    onChange={(e) =>
+                                      setQueryDocument(e.target.value)
+                                    }
+                                  >
+                                    <option value="all">All documents</option>
+                                    {documents.map((doc, i) => (
+                                      <option key={i} value={i}>
+                                        {doc.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                {tab === "concordance" && (
+                                  <>
+                                    <label>
+                                      Context
+                                      <select
+                                        value={contextSize}
+                                        onChange={(e) =>
+                                          setContextSize(Number(e.target.value))
+                                        }
+                                      >
+                                        {[20, 55, 100, 200, 500].map((n) => (
+                                          <option key={n} value={n}>
+                                            {n} graphemes
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <label>
+                                      Sort concordance
+                                      <select
+                                        value={kwicSort}
+                                        onChange={(e) => {
+                                          setKwicSort(e.target.value);
+                                          setPage(0);
+                                        }}
+                                      >
+                                        <option value="position">
+                                          Corpus order
+                                        </option>
+                                        <option value="left">
+                                          Left context (nearest first)
+                                        </option>
+                                        <option value="right">
+                                          Right context
+                                        </option>
+                                        <option value="document">
+                                          Document
+                                        </option>
+                                      </select>
+                                    </label>
+                                  </>
+                                )}
                                 {tab === "collocations" && (
                                   <>
                                     <label>
@@ -1216,7 +1482,7 @@ function App() {
                                             "Document",
                                             "Character position",
                                           ],
-                                          ...hits.hits.map((h) => [
+                                          ...kwicHits.map((h) => [
                                             h.left,
                                             h.match,
                                             h.right,
@@ -1244,6 +1510,11 @@ function App() {
                                   Export CSV
                                 </button>
                               </div>
+                              {queryError && (
+                                <p className="notice error" role="alert">
+                                  {queryError}
+                                </p>
+                              )}
                               {queryBusy ? (
                                 <div className="loading">
                                   Searching your corpus…
@@ -1270,7 +1541,7 @@ function App() {
                                       "Right context",
                                       "Document",
                                     ]}
-                                    rows={hits.hits
+                                    rows={kwicHits
                                       .slice(page * 50, page * 50 + 50)
                                       .map((h) => [
                                         <span dir="auto" className="kwic-left">
@@ -1323,17 +1594,101 @@ function App() {
                           )}
                           {tab === "documents" && (
                             <>
+                              <div className="action-row">
+                                <button
+                                  className="button secondary small"
+                                  onClick={() =>
+                                    download(
+                                      "corpuscape-backup.json",
+                                      JSON.stringify(
+                                        makeBackup(name, documents, options),
+                                        null,
+                                        2,
+                                      ),
+                                      "application/json",
+                                    )
+                                  }
+                                >
+                                  Export complete backup
+                                </button>
+                                <button
+                                  className="button secondary small"
+                                  onClick={() =>
+                                    exportCsv("document-statistics", [
+                                      [
+                                        "Document",
+                                        "Language",
+                                        "Tokens",
+                                        "Types",
+                                        "Hapax",
+                                        "Type/token ratio",
+                                      ],
+                                      ...analysis.documentStats.map((d) => [
+                                        d.name,
+                                        d.locale,
+                                        d.words,
+                                        d.types,
+                                        d.hapax,
+                                        d.words ? d.types / d.words : 0,
+                                      ]),
+                                    ])
+                                  }
+                                >
+                                  Export document statistics
+                                </button>
+                                <button
+                                  className="button secondary small"
+                                  onClick={() => {
+                                    setAppendImport(true);
+                                    uploadRef.current?.click();
+                                  }}
+                                >
+                                  Append files
+                                </button>
+                                {undoDocuments && (
+                                  <button
+                                    className="button secondary small"
+                                    onClick={() => {
+                                      setDocuments(undoDocuments);
+                                      setUndoDocuments(null);
+                                    }}
+                                  >
+                                    Undo document change
+                                  </button>
+                                )}
+                              </div>
                               <DataTable
                                 headers={[
                                   "Document",
+                                  "Language",
                                   "Word tokens",
                                   "Unique types",
+                                  "Hapax (once)",
                                 ]}
                                 rows={analysis.documentStats.map((d) => [
                                   d.name,
+                                  d.locale,
                                   fmt(d.words),
                                   fmt(d.types),
+                                  fmt(d.hapax),
                                 ])}
+                              />
+                              <DocumentManager
+                                documents={documents}
+                                onChange={(next) => {
+                                  try {
+                                    checkSize(next);
+                                    if (next.some((doc) => !doc.text.trim()))
+                                      throw new Error(
+                                        "Documents need readable text.",
+                                      );
+                                    setUndoDocuments(documents);
+                                    setDocuments(next);
+                                    setQueryDocument("all");
+                                  } catch (e) {
+                                    fail(e);
+                                  }
+                                }}
                               />
                               <p className="result-note">
                                 {documents.length} documents ·{" "}
@@ -1390,6 +1745,7 @@ function App() {
                     label="Source language tag"
                   />
                   <textarea
+                    aria-label="Source segments"
                     dir="auto"
                     value={sourceText}
                     onChange={(e) => setSourceText(e.target.value)}
@@ -1412,6 +1768,7 @@ function App() {
                     label="Target language tag"
                   />
                   <textarea
+                    aria-label="Target segments"
                     dir="auto"
                     value={targetText}
                     onChange={(e) => setTargetText(e.target.value)}
@@ -1434,6 +1791,7 @@ function App() {
                       if (p.length > 10000)
                         throw new Error("Pair up to 10,000 lines at a time.");
                       setPairs(p);
+                      setPage(0);
                       notify(
                         "Lines paired in order. Review missing or mismatched segments.",
                       );
@@ -1455,12 +1813,17 @@ function App() {
                 <button
                   className="text-button"
                   onClick={() => {
-                    setSourceText(
-                      "Language connects people.\nEvery text holds patterns.\nResearch begins with a question.",
-                    );
-                    setTargetText(
-                      "El lenguaje conecta a las personas.\nCada texto contiene patrones.\nLa investigación comienza con una pregunta.",
-                    );
+                    const source =
+                      "Language connects people.\nEvery text holds patterns.\nResearch begins with a question.";
+                    const target =
+                      "El lenguaje conecta a las personas.\nCada texto contiene patrones.\nLa investigación comienza con una pregunta.";
+                    setSourceText(source);
+                    setTargetText(target);
+                    setSourceLocale("en");
+                    setTargetLocale("es");
+                    setPairs(alignByLine(source, target));
+                    setPage(0);
+                    setPairFilter("");
                   }}
                 >
                   Try a parallel sample
@@ -1468,6 +1831,28 @@ function App() {
               </div>
               {pairs.length > 0 && (
                 <section className="panel results-panel">
+                  <p className="fine">
+                    Review checks:{" "}
+                    {
+                      pairs.filter((p) => !p.source.trim() || !p.target.trim())
+                        .length
+                    }{" "}
+                    incomplete ·{" "}
+                    {
+                      pairs.filter(
+                        (p) =>
+                          p.source.trim() &&
+                          p.source.trim() === p.target.trim(),
+                      ).length
+                    }{" "}
+                    identical source/target ·{" "}
+                    {pairs.length -
+                      new Set(
+                        pairs.map((p) => JSON.stringify([p.source, p.target])),
+                      ).size}{" "}
+                    duplicate pairs. These flags require human review and are
+                    not translation quality scores.
+                  </p>
                   <div className="results-toolbar">
                     <strong>{fmt(pairs.length)} pairs</strong>
                     <SearchField
@@ -1488,13 +1873,17 @@ function App() {
                     </button>
                     <button
                       className="button primary small"
-                      onClick={() =>
-                        download(
-                          "corpuscape.tmx",
-                          tmx(pairs, sourceLocale, targetLocale),
-                          "application/xml",
-                        )
-                      }
+                      onClick={() => {
+                        try {
+                          download(
+                            "corpuscape.tmx",
+                            tmx(pairs, sourceLocale, targetLocale),
+                            "application/xml",
+                          );
+                        } catch (e) {
+                          fail(e);
+                        }
+                      }}
                     >
                       Export TMX <ArrowDownToLine size={14} />
                     </button>
@@ -1563,10 +1952,9 @@ function App() {
                     onChange={setPage}
                   />
                   <p className="result-note">
-                    Edits remain in this session. Export CSV to preserve notes;
-                    TMX exports source and target segments only. TMX import
-                    reads the first two language variants in each translation
-                    unit.
+                    Edits remain in this session. Export CSV or TMX to keep
+                    them. TMX pairs are selected by language tags; Corpuscape
+                    preserves notes in a custom TMX property.
                   </p>
                 </section>
               )}
@@ -1593,9 +1981,15 @@ function App() {
                     className="button secondary"
                     onClick={() => {
                       setDocuments([samples[0].documents[0]]);
+                      setActiveId(null);
+                      setStopText("");
                       setName("Teaching sample · Translation practice");
                       setReference([samples[0].documents[1]]);
-                      setOptions({ ...options, locale: "en" });
+                      setOptions({
+                        ...defaultOptions,
+                        locale: "en",
+                        stopWords: [],
+                      });
                       notify(
                         "Two original English teaching samples loaded for comparison.",
                       );
@@ -1673,13 +2067,21 @@ function App() {
               <LocaleSelect
                 value={options.locale}
                 onChange={(locale) => setOptions({ ...options, locale })}
-                label="Segmentation language for both corpora"
+                label="Default segmentation language (document tags take precedence)"
               />
-              {documents.length > 0 && reference.length > 0 && !comparison && (
-                <p role="status" className="loading">
-                  Comparing on your device…
+              {compareError && (
+                <p role="alert" className="notice error">
+                  {compareError}
                 </p>
               )}
+              {documents.length > 0 &&
+                reference.length > 0 &&
+                !comparison &&
+                !compareError && (
+                  <p role="status" className="loading">
+                    Comparing on your device…
+                  </p>
+                )}
               {comparison && (
                 <>
                   <div className="metrics">
@@ -1790,6 +2192,7 @@ function App() {
                   <label>
                     Figure title
                     <input
+                      maxLength={200}
                       value={figureTitle}
                       onChange={(e) => setFigureTitle(e.target.value)}
                     />
@@ -1805,6 +2208,30 @@ function App() {
                   </label>
                   <ColorPalette value={figureColor} onChange={setFigureColor} />
                   <label>
+                    Corpus values
+                    <select
+                      value={figureUnit}
+                      onChange={(e) => setFigureUnit(e.target.value)}
+                      disabled={!!figureData.trim()}
+                    >
+                      <option value="count">Raw token counts</option>
+                      <option value="perMillion">
+                        Frequency per million tokens
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    Order
+                    <select
+                      value={figureSort}
+                      onChange={(e) => setFigureSort(e.target.value)}
+                    >
+                      <option value="source">Source order</option>
+                      <option value="descending">Value, descending</option>
+                      <option value="label">Label, alphabetical</option>
+                    </select>
+                  </label>
+                  <label>
                     Number of items
                     <select
                       value={figureLimit}
@@ -1816,7 +2243,7 @@ function App() {
                     </select>
                   </label>
                   <label>
-                    Custom data · label [TAB] value
+                    Custom data · CSV or label [TAB] value
                     <textarea
                       dir="auto"
                       value={figureData}
@@ -1829,8 +2256,21 @@ function App() {
                   <p className="fine">
                     Leave custom data empty to use the active corpus. Use one
                     label and one non-negative number per line, separated by a
-                    tab. Invalid rows are excluded.
+                    tab or comma. An optional Label,Value header is accepted.
+                    Correct every invalid row before previewing or exporting.
                   </p>
+                  {parsedFigure.errors.length > 0 && (
+                    <div className="notice error" role="alert">
+                      <div>
+                        {parsedFigure.errors.slice(0, 5).map((error) => (
+                          <p key={error}>{error}</p>
+                        ))}
+                        {parsedFigure.errors.length > 5 && (
+                          <p>{parsedFigure.errors.length - 5} more errors.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <button
                     className="text-button"
                     onClick={() =>
@@ -1845,6 +2285,32 @@ function App() {
                 <section className="panel figure-canvas">
                   <div className="panel-head">
                     <span className="eyebrow">LIVE PREVIEW</span>
+                    <button
+                      className="button secondary small"
+                      disabled={!figureRows.length || figureExportBusy}
+                      onClick={async () => {
+                        setFigureExportBusy(true);
+                        try {
+                          const svg = document.querySelector<SVGSVGElement>(
+                            "#figure-preview svg",
+                          );
+                          if (!svg)
+                            throw new Error("Create a valid figure first.");
+                          download(
+                            "corpuscape-figure.png",
+                            await pngFromSvg(svg),
+                            "image/png",
+                          );
+                        } catch (e) {
+                          fail(e);
+                        } finally {
+                          setFigureExportBusy(false);
+                        }
+                      }}
+                    >
+                      <ArrowDownToLine size={15} />
+                      {figureExportBusy ? "Rendering…" : "Download PNG"}
+                    </button>
                     <button
                       className="button secondary small"
                       disabled={!figureRows.length}
@@ -1865,42 +2331,32 @@ function App() {
                     </button>
                   </div>
                   <FigureSource
-                    name={
-                      figureRows.length
-                        ? name
-                        : "Example preview · teaching values"
-                    }
-                    count={figureRows.length || 5}
+                    name={name}
+                    count={figureRows.length}
                     custom={figureRows.length > 0 && !!figureData.trim()}
                   />
                   <div id="figure-preview">
                     <FrequencyChart
-                      rows={
-                        figureRows.length
-                          ? figureRows
-                          : [
-                              { label: "Translation", value: 24 },
-                              { label: "Language", value: 18 },
-                              { label: "Research", value: 12 },
-                              { label: "Context", value: 9 },
-                              { label: "Culture", value: 7 },
-                            ]
-                      }
-                      title={
-                        figureRows.length
-                          ? figureTitle
-                          : "Example: word frequency"
-                      }
+                      rows={figureRows}
+                      title={figureTitle}
                       color={figureColor}
                       type={figureType}
+                      unit={
+                        figureData.trim()
+                          ? "Custom values"
+                          : figureUnit === "count"
+                            ? "Token count"
+                            : "Frequency per million tokens"
+                      }
                     />
                   </div>
                   {!figureRows.length && (
                     <div className="figure-demo-note">
                       <span className="status-dot" />
                       <span>
-                        Example preview. Choose a corpus or use the example data
-                        to start editing and exporting.
+                        {parsedFigure.errors.length
+                          ? "Correct the custom data errors to create a figure."
+                          : "Choose a corpus or explicitly load the example data to create a figure."}
                       </span>
                     </div>
                   )}
@@ -1920,6 +2376,28 @@ function App() {
                   >
                     Export figure data <ArrowDownToLine size={15} />
                   </button>
+                  {figureRows.length > 0 && (
+                    <>
+                      <p className="fine">
+                        Showing {figureRows.length} of{" "}
+                        {figureData.trim()
+                          ? parsedFigure.rows.length
+                          : (analysis?.frequencies.length ?? 0)}{" "}
+                        rows. Columns with many items scroll horizontally. CSV
+                        contains full labels and unrounded values.
+                      </p>
+                      <details>
+                        <summary>View underlying figure values</summary>
+                        <DataTable
+                          headers={["Label", "Value"]}
+                          rows={figureRows.map((row) => [
+                            <span dir="auto">{row.label}</span>,
+                            String(row.value),
+                          ])}
+                        />
+                      </details>
+                    </>
+                  )}
                 </section>
               </div>
             </>
@@ -1959,32 +2437,25 @@ function App() {
                         if (!file) return;
                         if (file.size > 25 * 1024 * 1024)
                           throw new Error("Backup is too large.");
-                        const data = JSON.parse(await file.text());
-                        if (
-                          data.format !== "corpuscape-v2" ||
-                          !Array.isArray(data.documents) ||
-                          !data.documents.every(
-                            (d: any) =>
-                              typeof d.name === "string" &&
-                              typeof d.text === "string",
-                          )
-                        )
-                          throw new Error(
-                            "This is not a valid Corpuscape backup.",
-                          );
+                        const data = validateBackup(
+                          JSON.parse(await file.text()),
+                        );
                         checkSize(data.documents);
-                        const locale =
-                          typeof data.locale === "string" ? data.locale : "und";
-                        new Intl.Segmenter(locale);
                         setDocuments(data.documents);
-                        setName(String(data.name ?? "Restored corpus"));
-                        setOptions({ ...options, locale });
+                        setName(data.name);
+                        setOptions(data.options);
+                        setStopText(data.options.stopWords.join("\n"));
+                        setActiveId(null);
+                        setUndoDocuments(null);
+                        setQueryDocument("all");
                         navigate("analysis");
                         notify(
                           "Backup restored into the workspace. Save it to add it to this browser’s library.",
                         );
                       } catch (e) {
                         fail(e);
+                      } finally {
+                        e.target.value = "";
                       }
                     }}
                   />
@@ -2003,7 +2474,7 @@ function App() {
                 />
               ) : (
                 <div className="library-grid">
-                  {saved
+                  {[...saved]
                     .sort((a, b) => b.savedAt.localeCompare(a.savedAt))
                     .map((c) => (
                       <section className="panel library-card" key={c.id}>
@@ -2019,10 +2490,24 @@ function App() {
                           <button
                             className="button primary small"
                             onClick={() => {
-                              setDocuments(c.documents);
-                              setName(c.name);
-                              setOptions({ ...options, locale: c.locale });
-                              navigate("analysis");
+                              try {
+                                const restored = validateBackup({
+                                  format: "corpuscape-v3",
+                                  ...c,
+                                });
+                                setDocuments(restored.documents);
+                                setName(restored.name);
+                                setOptions(restored.options);
+                                setStopText(
+                                  restored.options.stopWords.join("\n"),
+                                );
+                                setUndoDocuments(null);
+                                setQueryDocument("all");
+                                setActiveId(c.id);
+                                navigate("analysis");
+                              } catch (e) {
+                                fail(e);
+                              }
                             }}
                           >
                             Open <ArrowRight size={14} />
@@ -2034,7 +2519,14 @@ function App() {
                               download(
                                 "corpuscape-backup.json",
                                 JSON.stringify(
-                                  { format: "corpuscape-v2", ...c },
+                                  makeBackup(
+                                    c.name,
+                                    c.documents,
+                                    c.options ?? {
+                                      ...defaultOptions,
+                                      locale: c.locale,
+                                    },
+                                  ),
                                   null,
                                   2,
                                 ),
@@ -2047,17 +2539,7 @@ function App() {
                           <button
                             className="icon-button danger"
                             aria-label={`Delete ${c.name}`}
-                            onClick={async () => {
-                              try {
-                                await deleteCorpus(c.id);
-                                refreshLibrary();
-                                notify(
-                                  "Removed from this browser library. An open workspace copy remains available.",
-                                );
-                              } catch (e) {
-                                fail(e);
-                              }
-                            }}
+                            onClick={() => setDeleteCandidate(c)}
                           >
                             <Trash2 size={17} />
                           </button>
@@ -2118,9 +2600,11 @@ function App() {
                   <p>
                     Concordance matches complete segmented words or token
                     sequences, with the selected case setting, and displays
-                    original text around each hit. Punctuation is not part of
-                    matching. Up to 1,000 hits are retained for display and
-                    export; the total match count is reported separately.
+                    original text around each hit. Context length counts
+                    grapheme clusters. Sorting applies to retained hits.
+                    Punctuation is not part of matching. Up to 1,000 hits are
+                    retained for display and export; the total match count is
+                    reported separately.
                   </p>
                   <p>
                     Collocations count directed neighbour pairs in a symmetric
@@ -2137,9 +2621,10 @@ function App() {
                     expected counts proportional to total corpus tokens. Zero
                     observed cells contribute zero. Effect size is
                     log₂(((A+0.5)/(total A+0.5)) ÷ ((B+0.5)/(total B+0.5))).
-                    Both corpora use the active segmentation and stop list.
-                    Results are exploratory and are not corrected for multiple
-                    testing.
+                    Both corpora use the active case setting and stop list.
+                    Document language tags override the default segmentation
+                    language. Results are exploratory and are not corrected for
+                    multiple testing.
                   </p>
                 </section>
                 <div>
@@ -2227,12 +2712,7 @@ function App() {
       </div>
       {tableImport?.table && (
         <div className="modal-backdrop">
-          <section
-            className="modal panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="table-title"
-          >
+          <Modal labelledBy="table-title" onClose={() => setTableImport(null)}>
             <div className="panel-head">
               <h2 id="table-title">Choose your text columns</h2>
               <button
@@ -2246,6 +2726,38 @@ function App() {
             <p>
               {tableImport.name} · {fmt(tableImport.table.rows.length)} rows
             </p>
+            {tableImport.table.sheetNames && (
+              <label>
+                Worksheet
+                <select
+                  disabled={importing}
+                  value={tableImport.table.sheet}
+                  onChange={async (e) => {
+                    const selected = e.target.value;
+                    const current = tableImport;
+                    setImporting(true);
+                    try {
+                      const result = await importFile(current.file, selected);
+                      setTableImport((open) =>
+                        open === current ? { ...current, ...result } : open,
+                      );
+                      setHeader(false);
+                      setColumn(0);
+                      setTargetColumn(1);
+                      setNoteColumn(-1);
+                    } catch (e) {
+                      fail(e);
+                    } finally {
+                      setImporting(false);
+                    }
+                  }}
+                >
+                  {tableImport.table.sheetNames.map((sheet) => (
+                    <option key={sheet}>{sheet}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="check-label">
               <input
                 type="checkbox"
@@ -2270,30 +2782,202 @@ function App() {
               </select>
             </label>
             {tableImport.destination === "pairs" && (
-              <label>
-                Target column
-                <select
-                  value={targetColumn}
-                  onChange={(e) => setTargetColumn(Number(e.target.value))}
-                >
-                  {tableImport.table.headers.map((h, i) => (
-                    <option key={i} value={i}>
-                      {header ? tableImport.table!.rows[0][i] || h : h}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <>
+                <label>
+                  Target column
+                  <select
+                    value={targetColumn}
+                    onChange={(e) => setTargetColumn(Number(e.target.value))}
+                  >
+                    {tableImport.table.headers.map((h, i) => (
+                      <option key={i} value={i}>
+                        {header ? tableImport.table!.rows[0][i] || h : h}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Research note column (optional)
+                  <select
+                    value={noteColumn}
+                    onChange={(e) => setNoteColumn(Number(e.target.value))}
+                  >
+                    <option value={-1}>No note column</option>
+                    {tableImport.table.headers.map((h, i) => (
+                      <option key={i} value={i}>
+                        {header ? tableImport.table!.rows[0][i] || h : h}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
             )}
             <DataTable
-              headers={["Preview text"]}
+              headers={
+                tableImport.destination === "pairs"
+                  ? ["Source preview", "Target preview", "Note preview"]
+                  : ["Preview text"]
+              }
               rows={tableImport.table.rows
                 .slice(header ? 1 : 0, header ? 5 : 4)
-                .map((row) => [<span dir="auto">{row[column]}</span>])}
+                .map((row) =>
+                  tableImport.destination === "pairs"
+                    ? [
+                        <span dir="auto">{row[column]}</span>,
+                        <span dir="auto">{row[targetColumn]}</span>,
+                        <span dir="auto">
+                          {noteColumn < 0 ? "" : row[noteColumn]}
+                        </span>,
+                      ]
+                    : [<span dir="auto">{row[column]}</span>],
+                )}
             />
-            <button className="button primary full" onClick={confirmTable}>
+            <button
+              className="button primary full"
+              disabled={importing}
+              onClick={confirmTable}
+            >
               Import selected text <ArrowRight size={16} />
             </button>
-          </section>
+          </Modal>
+        </div>
+      )}
+      {deleteCandidate && (
+        <div className="modal-backdrop">
+          <Modal
+            labelledBy="delete-title"
+            onClose={() => setDeleteCandidate(null)}
+          >
+            <h2 id="delete-title">Remove saved corpus?</h2>
+            <p>
+              This removes “{deleteCandidate.name}” from this browser’s library.
+              Export a backup first if you need a copy. The active workspace
+              stays open.
+            </p>
+            <div className="action-row">
+              <button
+                className="button secondary"
+                onClick={() =>
+                  download(
+                    "corpuscape-backup.json",
+                    JSON.stringify(
+                      makeBackup(
+                        deleteCandidate.name,
+                        deleteCandidate.documents,
+                        deleteCandidate.options ?? {
+                          ...defaultOptions,
+                          locale: deleteCandidate.locale,
+                        },
+                      ),
+                      null,
+                      2,
+                    ),
+                    "application/json",
+                  )
+                }
+              >
+                Export backup
+              </button>
+              <button
+                className="button secondary"
+                onClick={() => setDeleteCandidate(null)}
+              >
+                Keep corpus
+              </button>
+              <button
+                className="button primary"
+                onClick={async () => {
+                  try {
+                    await deleteCorpus(deleteCandidate.id);
+                    if (activeId.current === deleteCandidate.id)
+                      setActiveId(null);
+                    setDeleteCandidate(null);
+                    await refreshLibrary();
+                    notify(
+                      "Saved copy removed. Active workspace remains available.",
+                    );
+                  } catch (e) {
+                    fail(e);
+                  }
+                }}
+              >
+                Remove saved copy
+              </button>
+            </div>
+          </Modal>
+        </div>
+      )}
+      {tmxImport && (
+        <div className="modal-backdrop">
+          <Modal labelledBy="tmx-title" onClose={() => setTmxImport(null)}>
+            <div className="panel-head">
+              <h2 id="tmx-title">Choose TMX language pair</h2>
+              <button
+                className="icon-button"
+                aria-label="Cancel TMX import"
+                onClick={() => setTmxImport(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p>
+              {tmxImport.languages.length} tagged languages ·{" "}
+              {tmxImport.units.length} translation units. Units missing one
+              chosen language are kept with an empty segment.
+            </p>
+            <label>
+              TMX source language
+              <select
+                value={tmxSource}
+                onChange={(e) => setTmxSource(e.target.value)}
+              >
+                {tmxImport.languages.map((tag) => (
+                  <option key={tag}>{tag}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              TMX target language
+              <select
+                value={tmxTarget}
+                onChange={(e) => setTmxTarget(e.target.value)}
+              >
+                {tmxImport.languages.map((tag) => (
+                  <option key={tag}>{tag}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="button primary full"
+              onClick={() => {
+                try {
+                  const next = selectTmxPairs(tmxImport, tmxSource, tmxTarget);
+                  if (next.length > 10000)
+                    throw new Error("Import at most 10,000 pairs.");
+                  checkSize([
+                    {
+                      name: "TMX pairs",
+                      text: next
+                        .map((p) => p.source + p.target + p.note)
+                        .join(""),
+                    },
+                  ]);
+                  setPairs(next);
+                  setSourceLocale(tmxSource);
+                  setTargetLocale(tmxTarget);
+                  setPage(0);
+                  setTmxImport(null);
+                  notify(
+                    "Tagged translation pairs imported. Review missing segments before export.",
+                  );
+                } catch (e) {
+                  fail(e);
+                }
+              }}
+            >
+              Import selected language pair
+            </button>
+          </Modal>
         </div>
       )}
     </div>
@@ -2456,138 +3140,6 @@ function Pagination({
     </div>
   );
 }
-function FrequencyChart({
-  rows,
-  title,
-  color,
-  type,
-}: {
-  rows: { label: string; value: number }[];
-  title: string;
-  color: string;
-  type: string;
-}) {
-  if (!rows.length) return null;
-  const max = Math.max(...rows.map((r) => r.value), 1),
-    vertical = type === "column",
-    height = vertical ? 430 : Math.max(260, rows.length * 30 + 110),
-    width = 700;
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox={`0 0 ${width} ${height}`}
-      role="img"
-      aria-label={title}
-      style={{ width: "100%", height: "auto", display: "block" }}
-    >
-      <rect width={width} height={height} fill="#ffffff" />
-      <text
-        x="30"
-        y="35"
-        fontFamily="system-ui,sans-serif"
-        fontSize="19"
-        fontWeight="600"
-        fill="#303744"
-      >
-        {title}
-      </text>
-      <text
-        x="30"
-        y="57"
-        fontFamily="system-ui,sans-serif"
-        fontSize="11"
-        fill="#9ca3af"
-      >
-        Observed values · Corpuscape
-      </text>
-      {rows.map((r, i) => {
-        const y = 85 + i * 30,
-          bar = (r.value / max) * 400,
-          x = 55 + i * (600 / rows.length),
-          bw = Math.max(4, 600 / rows.length - 14),
-          bh = (r.value / max) * 235;
-        return vertical ? (
-          <g key={i}>
-            <rect
-              x={x}
-              y={320 - bh}
-              width={bw}
-              height={bh}
-              fill={color}
-              rx="3"
-            />
-            <text
-              x={x + bw / 2}
-              y={310 - bh}
-              textAnchor="middle"
-              fontFamily="system-ui,sans-serif"
-              fontSize="11"
-              fill="#303744"
-            >
-              {fmt(r.value, 2)}
-            </text>
-            <text
-              x={x + bw / 2}
-              y="338"
-              transform={`rotate(35,${x + bw / 2},338)`}
-              fontFamily="system-ui,sans-serif"
-              fontSize="11"
-              fill="#6b7280"
-            >
-              {r.label.slice(0, 20)}
-            </text>
-          </g>
-        ) : (
-          <g key={i}>
-            <text
-              x="165"
-              y={y + 13}
-              textAnchor="end"
-              fontFamily="system-ui,sans-serif"
-              fontSize="13"
-              fill="#303744"
-            >
-              {r.label.length > 20 ? r.label.slice(0, 18) + "…" : r.label}
-            </text>
-            {type === "lollipop" ? (
-              <>
-                <line
-                  x1="180"
-                  x2={180 + bar}
-                  y1={y + 8}
-                  y2={y + 8}
-                  stroke={color}
-                  strokeWidth="2"
-                />
-                <circle cx={180 + bar} cy={y + 8} r="6" fill={color} />
-              </>
-            ) : (
-              <rect x="180" y={y} width={bar} height="18" fill={color} rx="3" />
-            )}
-            <text
-              x={192 + bar}
-              y={y + 13}
-              fontFamily="system-ui,sans-serif"
-              fontSize="12"
-              fill="#6b7280"
-            >
-              {fmt(r.value, 2)}
-            </text>
-          </g>
-        );
-      })}
-      <text
-        x="30"
-        y={height - 16}
-        fontFamily="system-ui,sans-serif"
-        fontSize="10"
-        fill="#9ca3af"
-      >
-        Descriptive visualization · corpuscape
-      </text>
-    </svg>
-  );
-}
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: boolean }
@@ -2608,7 +3160,10 @@ class ErrorBoundary extends React.Component<
     );
   }
 }
-createRoot(document.getElementById("root")!).render(
+const root = (import.meta.hot?.data.root as ReturnType<typeof createRoot> | undefined)
+  ?? createRoot(document.getElementById("root")!);
+if (import.meta.hot) import.meta.hot.data.root = root;
+root.render(
   <ErrorBoundary>
     <App />
   </ErrorBoundary>,
