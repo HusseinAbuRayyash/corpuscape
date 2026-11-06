@@ -11,10 +11,9 @@ export function validateBackup(data: unknown): {
   if (
     !["corpuscape-v2", "corpuscape-v3"].includes(String(value.format)) ||
     !Array.isArray(value.documents) ||
-    !value.documents.length ||
-    value.documents.length > 100
+    !value.documents.length
   )
-    throw new Error("A Corpuscape backup must contain 1–100 documents.");
+    throw new Error("A Corpuscape backup must contain at least one document.");
   function locale(tag: unknown) {
     if (typeof tag !== "string") throw new Error("Invalid language in backup.");
     try {
@@ -39,8 +38,6 @@ export function validateBackup(data: unknown): {
       ...(doc.locale === undefined ? {} : { locale: locale(doc.locale) }),
     };
   });
-  if (documents.reduce((sum, doc) => sum + doc.text.length, 0) > 2_000_000)
-    throw new Error("Backup exceeds the 2 million character workspace limit.");
   const raw = value.options;
   let options: Options = {
     ...defaultOptions,
@@ -54,9 +51,8 @@ export function validateBackup(data: unknown): {
     if (
       typeof opts.caseSensitive !== "boolean" ||
       !Array.isArray(opts.stopWords) ||
-      opts.stopWords.length > 10000 ||
       !opts.stopWords.every(
-        (word) => typeof word === "string" && word.length <= 200,
+        (word) => typeof word === "string",
       )
     )
       throw new Error("Invalid case or stop-list settings in backup.");

@@ -22,6 +22,8 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Sparkles,
+  ScanText,
   Trash2,
   Upload,
   X,
@@ -39,10 +41,15 @@ import {
   type Options,
   type Hit,
 } from "./engine";
-import { importFile, ACCEPT, MAX_CHARACTERS, type Imported } from "./files";
+import { importFile, ACCEPT, RequiresOcr, type Imported } from "./files";
 import { selectTmxPairs, type TranslationMemory } from "./import-parsers";
 import { makeBackup, validateBackup } from "./backup";
-import { parseFigureData, pngFromSvg } from "./figures";
+import { FigureStudio } from "./figure-studio";
+import { ResearchReports } from "./research-reports";
+import { TextExtraction } from "./text-extraction";
+import { validateWorkspace, type WorkspaceSession } from "./workspace-session";
+import { validateStudioProject } from "./studio-model";
+import type { LanguageSuggestion } from "./language-detection";
 import { FrequencyChart } from "./figure-chart";
 import { DocumentManager } from "./document-manager";
 import { Modal } from "./modal";
@@ -52,6 +59,9 @@ import {
   listCorpora,
   saveCorpus,
   deleteCorpus,
+  loadSession,
+  saveSession,
+  saveSessions,
   type SavedCorpus,
 } from "./library";
 import { samples, locales } from "./samples";
@@ -59,9 +69,6 @@ import {
   ToolHeading,
   CorpusStart,
   LibraryStart,
-  FigureSource,
-  ChartStyles,
-  ColorPalette,
   Dashboard,
 } from "./product-components";
 import "@fontsource-variable/inter";
@@ -78,6 +85,8 @@ type View =
   | "bilingual"
   | "compare"
   | "figures"
+  | "reports"
+  | "ocr"
   | "library"
   | "methods";
 const navigation = [
@@ -87,6 +96,8 @@ const navigation = [
   ["bilingual", "Parallel workspace", Languages],
   ["compare", "Compare corpora", Columns2],
   ["figures", "Figure studio", BarChart3],
+  ["reports", "Research reports", Sparkles],
+  ["ocr", "Text extraction", ScanText],
   ["library", "Corpus library", Library],
   ["methods", "Methods & privacy", BookOpen],
 ] as const;
@@ -299,9 +310,11 @@ function App() {
   const [documents, setDocuments] = useState<CorpusDocument[]>([]),
     [name, setName] = useState("Untitled corpus");
   const activeId = useRef<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const corpusEpoch = useRef(0);
   function setActiveId(id: string | null) {
     activeId.current = id;
+    setSavedId(id);
     corpusEpoch.current++;
   }
   const saveOnce = useRef(exclusiveSave());
@@ -372,6 +385,9 @@ function App() {
       bPerMillion: number;
       logRatio: number;
       g2: number;
+      pValue: number;
+      qValue: number;
+      log10P: number;
     }[];
   } | null>(null);
   const [sourceText, setSourceText] = useState(""),
@@ -382,14 +398,124 @@ function App() {
       { source: string; target: string; note: string }[]
     >([]),
     [pairFilter, setPairFilter] = useState("");
-  const [figureTitle, setFigureTitle] = useState("Word frequency"),
-    [figureType, setFigureType] = useState("bar"),
-    [figureColor, setFigureColor] = useState("#4f46e5"),
-    [figureData, setFigureData] = useState(""),
-    [figureLimit, setFigureLimit] = useState(12),
-    [figureUnit, setFigureUnit] = useState("count"),
-    [figureSort, setFigureSort] = useState("source"),
-    [figureExportBusy, setFigureExportBusy] = useState(false);
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
+  const [sessionReady, setSessionReady] = useState(false),
+    [autoSave, setAutoSave] = useState(true),
+    [sessionStatus, setSessionStatus] = useState("Opening workspace…");
+  const [languageSuggestions, setLanguageSuggestions] = useState<
+      LanguageSuggestion[]
+    >([]),
+    [detecting, setDetecting] = useState(false);
+  function applyWorkspace(value: WorkspaceSession) {
+    setDocuments(value.documents);
+    setName(value.name);
+    setOptions(value.options);
+    setStopText(value.options.stopWords.join("\n"));
+    setReference(value.reference);
+    setSourceText(value.sourceText);
+    setTargetText(value.targetText);
+    setSourceLocale(value.sourceLocale);
+    setTargetLocale(value.targetLocale);
+    setPairs(value.pairs);
+    setActiveId(value.activeId);
+    setUndoDocuments(null);
+    setQueryDocument("all");
+  }
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      loadSession<WorkspaceSession>("workspace-v1"),
+      loadSession<{ autoSave: boolean }>("workspace-preferences-v1"),
+    ])
+      .then(([data, preferences]) => {
+        if (!active) return;
+        if (data) applyWorkspace(validateWorkspace(data));
+        if (typeof preferences?.autoSave === "boolean")
+          setAutoSave(preferences.autoSave);
+      })
+      .catch(() =>
+        setSessionStatus("Workspace recovery unavailable · use a backup"),
+      )
+      .finally(() => {
+        if (active) setSessionReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!sessionReady || !autoSave) return;
+    setSessionStatus("Saving workspace…");
+    const value: WorkspaceSession = {
+      name,
+      documents,
+      options,
+      reference,
+      sourceText,
+      targetText,
+      sourceLocale,
+      targetLocale,
+      pairs,
+      activeId: savedId,
+    };
+    const timer = setTimeout(() => {
+      saveSession("workspace-v1", value)
+        .then(() => setSessionStatus("Workspace saved on this device"))
+        .catch(() =>
+          setSessionStatus("Storage unavailable · download a workspace backup"),
+        );
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [
+    sessionReady,
+    autoSave,
+    name,
+    documents,
+    options,
+    reference,
+    sourceText,
+    targetText,
+    sourceLocale,
+    targetLocale,
+    pairs,
+    savedId,
+  ]);
+  async function exportWorkspace() {
+    try {
+      const [figure, reports] = await Promise.all([
+        loadSession("figure-studio-v2"),
+        loadSession("research-reports-v1"),
+      ]);
+      download(
+        "corpuscape-workspace.json",
+        JSON.stringify(
+          {
+            format: "corpuscape-workspace-v1",
+            workspace: {
+              name,
+              documents,
+              options,
+              reference,
+              sourceText,
+              targetText,
+              sourceLocale,
+              targetLocale,
+              pairs,
+              activeId: savedId,
+            },
+            figure,
+            reports,
+            exportedAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+        "application/json",
+      );
+    } catch (e) {
+      fail(e);
+    }
+  }
   const uploadRef = useRef<HTMLInputElement>(null),
     refUpload = useRef<HTMLInputElement>(null),
     pairUpload = useRef<HTMLInputElement>(null);
@@ -540,21 +666,14 @@ function App() {
     if (view === "library") refreshLibrary();
   }, [view]);
   function checkSize(docs: CorpusDocument[]) {
-    if (docs.reduce((sum, d) => sum + d.text.length, 0) > MAX_CHARACTERS)
-      throw new Error(
-        "Workspace limit: 2 million characters. Split large corpora into smaller projects.",
-      );
-    if (docs.length > 100) throw new Error("Workspace limit: 100 documents.");
+    if (docs.some((doc) => typeof doc.text !== "string"))
+      throw new Error("Every document needs text.");
   }
   async function filesSelected(
     files: FileList | File[],
     destination: "main" | "reference" | "pairs" = "main",
   ) {
     if (!files.length) return;
-    if (files.length > 100) {
-      fail(new Error("Import up to 100 files at a time."));
-      return;
-    }
     setImporting(true);
     setError("");
     try {
@@ -590,8 +709,6 @@ function App() {
           throw new Error(
             "Import a two-column CSV, TSV, XLSX or TMX file here. You can also paste source and target texts below.",
           );
-        if (results[0].pairs.length > 10000)
-          throw new Error("Import at most 10,000 translation pairs.");
         checkSize([
           {
             name: "",
@@ -626,7 +743,13 @@ function App() {
         );
       }
     } catch (e) {
-      fail(e);
+      if (e instanceof RequiresOcr) {
+        setOcrFile(e.file);
+        navigate("ocr");
+        notify(
+          "Choose OCR languages to extract this scanned document. The active corpus is preserved until you use the result.",
+        );
+      } else fail(e);
     } finally {
       setImporting(false);
       setAppendImport(false);
@@ -644,8 +767,6 @@ function App() {
       if (tableImport.destination === "pairs") {
         if (column === targetColumn)
           throw new Error("Choose different source and target columns.");
-        if (rows.length > 10000)
-          throw new Error("Import at most 10,000 translation pairs.");
         const importedPairs = rows
           .map((row) => ({
             source: row[column] ?? "",
@@ -766,20 +887,6 @@ function App() {
   const pairRows = pairs
     .map((p, i) => ({ ...p, index: i }))
     .filter((p) => pairMatches([p.source, p.target, p.note].join("\n")));
-  const parsedFigure = useMemo(() => parseFigureData(figureData), [figureData]);
-  const figureRows = useMemo(() => {
-    if (parsedFigure.errors.length) return [];
-    const rows = figureData.trim()
-      ? [...parsedFigure.rows]
-      : (analysis?.frequencies ?? []).map((r) => ({
-          label: r.term,
-          value: figureUnit === "count" ? r.count : r.perMillion,
-        }));
-    if (figureSort === "descending") rows.sort((a, b) => b.value - a.value);
-    if (figureSort === "label")
-      rows.sort((a, b) => a.label.localeCompare(b.label));
-    return rows.slice(0, figureLimit);
-  }, [figureData, parsedFigure, analysis, figureLimit, figureUnit, figureSort]);
   const kwicHits = useMemo(
     () => sortConcordance(hits.hits, kwicSort, options.locale),
     [hits, kwicSort, options.locale],
@@ -789,8 +896,7 @@ function App() {
     const escape = xmlEscape;
     download(
       "corpuscape-report.html",
-      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(options.stopWords.join(", ") || "none")}. Descriptive frequency analysis; no semantic or AI inference. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Top 100 frequencies</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
-        .slice(0, 100)
+      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(options.stopWords.join(", ") || "none")}. Deterministic descriptive frequency analysis. Optional local-model research drafts are available separately. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Full frequency table</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
         .map(
           (r) =>
             `<tr><td dir="auto">${escape(r.term)}</td><td>${r.count}</td><td>${fmt(r.perMillion, 2)}</td><td>${r.documents}</td></tr>`,
@@ -851,7 +957,7 @@ function App() {
           <small>
             TXT, DOCX, PDF, CSV, XLSX & more
             <br />
-            Up to 100 files · 25 MB each · 2M characters total
+            No fixed file or project quota · uses device memory
           </small>
         </button>
       ) : (
@@ -866,7 +972,6 @@ function App() {
             placeholder="Paste text in any language…"
             value={paste}
             onChange={(e) => setPaste(e.target.value)}
-            maxLength={MAX_CHARACTERS}
           />
           <button className="button primary full" onClick={usePaste}>
             Analyze text <ArrowRight size={16} />
@@ -1360,9 +1465,9 @@ function App() {
                                 onChange={setPage}
                               />
                               <p className="result-note">
-                                Up to 500 contiguous sequences per size;
-                                sentence and document boundaries are respected.
-                                Word segmentation is language-dependent.
+                                All contiguous sequences per size; sentence and
+                                document boundaries are respected. Word
+                                segmentation is language-dependent.
                               </p>
                             </>
                           )}
@@ -1400,18 +1505,15 @@ function App() {
                                   <>
                                     <label>
                                       Context
-                                      <select
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
                                         value={contextSize}
                                         onChange={(e) =>
                                           setContextSize(Number(e.target.value))
                                         }
-                                      >
-                                        {[20, 55, 100, 200, 500].map((n) => (
-                                          <option key={n} value={n}>
-                                            {n} graphemes
-                                          </option>
-                                        ))}
-                                      </select>
+                                      />
                                     </label>
                                     <label>
                                       Sort concordance
@@ -1442,31 +1544,27 @@ function App() {
                                   <>
                                     <label>
                                       Window{" "}
-                                      <select
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
                                         value={windowSize}
                                         onChange={(e) =>
                                           setWindowSize(Number(e.target.value))
                                         }
-                                      >
-                                        {[1, 2, 3, 5, 10].map((n) => (
-                                          <option key={n} value={n}>
-                                            ±{n} words
-                                          </option>
-                                        ))}
-                                      </select>
+                                      />
                                     </label>
                                     <label>
                                       Min. count{" "}
-                                      <select
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
                                         value={minimum}
                                         onChange={(e) =>
                                           setMinimum(Number(e.target.value))
                                         }
-                                      >
-                                        {[1, 2, 3, 5, 10].map((n) => (
-                                          <option key={n}>{n}</option>
-                                        ))}
-                                      </select>
+                                      />
                                     </label>
                                   </>
                                 )}
@@ -1532,7 +1630,8 @@ function App() {
                                 <>
                                   <p className="table-description">
                                     {fmt(hits.total)} matches · showing up to
-                                    the first 1,000 · whole segmented words
+                                    all matches across pages · whole segmented
+                                    words
                                   </p>
                                   <DataTable
                                     headers={[
@@ -1673,6 +1772,90 @@ function App() {
                                   fmt(d.hapax),
                                 ])}
                               />
+                              <div className="action-row">
+                                <button
+                                  className="button secondary small"
+                                  disabled={detecting}
+                                  onClick={async () => {
+                                    setDetecting(true);
+                                    try {
+                                      setLanguageSuggestions(
+                                        await run("detect", { documents }),
+                                      );
+                                    } catch (e) {
+                                      fail(e);
+                                    } finally {
+                                      setDetecting(false);
+                                    }
+                                  }}
+                                >
+                                  {detecting
+                                    ? "Detecting…"
+                                    : "Suggest document languages"}
+                                </button>
+                              </div>
+                              {languageSuggestions.length > 0 && (
+                                <div className="language-suggestions">
+                                  <h3>Review language suggestions</h3>
+                                  <p className="fine">
+                                    Local trigram detection gives candidates,
+                                    not certainty. Short or mixed-language texts
+                                    may need manual tags.
+                                  </p>
+                                  {languageSuggestions.map(
+                                    (suggestion, index) => (
+                                      <div
+                                        className="language-suggestion-row"
+                                        key={index}
+                                      >
+                                        <span>{documents[index]?.name}</span>
+                                        <div>
+                                          <strong>
+                                            {suggestion.name} · {suggestion.tag}
+                                          </strong>
+                                          <small>
+                                            {" "}
+                                            {suggestion.alternatives
+                                              .map((item) => item.name)
+                                              .join(" / ")}
+                                          </small>
+                                        </div>
+                                      </div>
+                                    ),
+                                  )}
+                                  <div>
+                                    <button
+                                      className="button secondary small"
+                                      onClick={() => setLanguageSuggestions([])}
+                                    >
+                                      Keep current tags
+                                    </button>
+                                    <button
+                                      className="button primary small"
+                                      onClick={() => {
+                                        setUndoDocuments(documents);
+                                        setDocuments(
+                                          documents.map((doc, index) =>
+                                            languageSuggestions[index]?.tag &&
+                                            languageSuggestions[index].tag !==
+                                              "und"
+                                              ? {
+                                                  ...doc,
+                                                  locale:
+                                                    languageSuggestions[index]
+                                                      .tag,
+                                                }
+                                              : doc,
+                                          ),
+                                        );
+                                        setLanguageSuggestions([]);
+                                      }}
+                                    >
+                                      Apply suggested tags
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                               <DocumentManager
                                 documents={documents}
                                 onChange={(next) => {
@@ -1693,8 +1876,9 @@ function App() {
                               <p className="result-note">
                                 {documents.length} documents ·{" "}
                                 {fmt(analysis.characters)} Unicode code points.
-                                Corpus text is held in memory until you
-                                explicitly save it.
+                                {autoSave
+                                  ? "Workspace recovery is saved on this device."
+                                  : "Autosave is off. Save or export to keep this corpus."}
                               </p>
                             </>
                           )}
@@ -1703,7 +1887,7 @@ function App() {
                           <BookOpen size={17} />
                           <span>
                             Transparent by design: Unicode segmentation ·
-                            language-aware counts · no AI inference
+                            language-aware counts · optional local AI reports
                           </span>
                           <button onClick={() => navigate("methods")}>
                             Read the methods <ArrowUpRight size={14} />
@@ -1750,7 +1934,6 @@ function App() {
                     value={sourceText}
                     onChange={(e) => setSourceText(e.target.value)}
                     placeholder="One source segment per line…"
-                    maxLength={MAX_CHARACTERS}
                   />
                 </section>
                 <section className="panel target-panel">
@@ -1773,7 +1956,6 @@ function App() {
                     value={targetText}
                     onChange={(e) => setTargetText(e.target.value)}
                     placeholder="One target segment per line…"
-                    maxLength={MAX_CHARACTERS}
                   />
                 </section>
               </div>
@@ -1788,8 +1970,6 @@ function App() {
                         );
                       checkSize([{ name: "", text: sourceText + targetText }]);
                       const p = alignByLine(sourceText, targetText);
-                      if (p.length > 10000)
-                        throw new Error("Pair up to 10,000 lines at a time.");
                       setPairs(p);
                       setPage(0);
                       notify(
@@ -2032,7 +2212,6 @@ function App() {
                     value={referencePaste}
                     onChange={(e) => setReferencePaste(e.target.value)}
                     placeholder="Paste reference text…"
-                    maxLength={MAX_CHARACTERS}
                   />
                   <div className="action-row">
                     <button
@@ -2117,6 +2296,9 @@ function App() {
                               "B per million",
                               "Log2 ratio",
                               "G2",
+                              "Approx p (chi-square df1)",
+                              "BH q-value",
+                              "Log10 p",
                             ],
                             ...comparison.rows.map((r) => [
                               r.term,
@@ -2126,6 +2308,9 @@ function App() {
                               r.bPerMillion,
                               r.logRatio,
                               r.g2,
+                              r.pValue,
+                              r.qValue,
+                              r.log10P,
                             ]),
                           ])
                         }
@@ -2143,6 +2328,8 @@ function App() {
                         "B / million",
                         "Log₂ ratio",
                         "G²",
+                        "Approx. p",
+                        "BH q",
                       ]}
                       rows={comparison.rows
                         .slice(page * 50, page * 50 + 50)
@@ -2158,6 +2345,12 @@ function App() {
                             {fmt(r.logRatio, 2)}
                           </span>,
                           fmt(r.g2, 2),
+                          r.pValue === 0
+                            ? "Underflow; see log10 p"
+                            : r.pValue.toPrecision(3),
+                          r.qValue === 0
+                            ? "Underflow"
+                            : r.qValue.toPrecision(3),
                         ])}
                     />
                     <Pagination
@@ -2168,10 +2361,14 @@ function App() {
                     <p className="result-note">
                       Ranked by two-corpus log-likelihood G², using word counts
                       and corpus totals. Log₂ ratio uses a 0.5 count/total
-                      correction; positive favours A. Up to 1,000 terms. These
-                      exploratory statistics are most useful for comparable
-                      corpora in the same language; no multiple-testing
-                      correction or semantic inference is applied.
+                      correction; positive favours A. All terms are available.
+                      Approximate p-values use chi-square df=1; BH q-values
+                      adjust across all tested terms. These exploratory
+                      statistics are most useful for comparable corpora in the
+                      same language. Chi-square approximations assume
+                      independent observations and adequate expected counts;
+                      sparse terms and repeated text can violate these
+                      assumptions. No semantic inference is applied.
                     </p>
                   </section>
                 </>
@@ -2180,227 +2377,39 @@ function App() {
           )}
 
           {view === "figures" && (
-            <>
-              <PageTitle
-                eyebrow="FIGURE STUDIO"
-                title="Figure studio"
-                description="Create publication-friendly figures from corpus frequencies or your own data."
-              />
-              <div className="figure-layout">
-                <section className="panel figure-settings">
-                  <h2>Figure settings</h2>
-                  <label>
-                    Figure title
-                    <input
-                      maxLength={200}
-                      value={figureTitle}
-                      onChange={(e) => setFigureTitle(e.target.value)}
-                    />
-                  </label>
-                  <ChartStyles value={figureType} onChange={setFigureType} />
-                  <label>
-                    Accent colour
-                    <input
-                      type="color"
-                      value={figureColor}
-                      onChange={(e) => setFigureColor(e.target.value)}
-                    />
-                  </label>
-                  <ColorPalette value={figureColor} onChange={setFigureColor} />
-                  <label>
-                    Corpus values
-                    <select
-                      value={figureUnit}
-                      onChange={(e) => setFigureUnit(e.target.value)}
-                      disabled={!!figureData.trim()}
-                    >
-                      <option value="count">Raw token counts</option>
-                      <option value="perMillion">
-                        Frequency per million tokens
-                      </option>
-                    </select>
-                  </label>
-                  <label>
-                    Order
-                    <select
-                      value={figureSort}
-                      onChange={(e) => setFigureSort(e.target.value)}
-                    >
-                      <option value="source">Source order</option>
-                      <option value="descending">Value, descending</option>
-                      <option value="label">Label, alphabetical</option>
-                    </select>
-                  </label>
-                  <label>
-                    Number of items
-                    <select
-                      value={figureLimit}
-                      onChange={(e) => setFigureLimit(Number(e.target.value))}
-                    >
-                      {[5, 10, 12, 20, 30].map((n) => (
-                        <option key={n}>{n}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Custom data · CSV or label [TAB] value
-                    <textarea
-                      dir="auto"
-                      value={figureData}
-                      onChange={(e) => setFigureData(e.target.value)}
-                      placeholder={
-                        "translation\t24\nlanguage\t18\nresearch\t12"
-                      }
-                    />
-                  </label>
-                  <p className="fine">
-                    Leave custom data empty to use the active corpus. Use one
-                    label and one non-negative number per line, separated by a
-                    tab or comma. An optional Label,Value header is accepted.
-                    Correct every invalid row before previewing or exporting.
-                  </p>
-                  {parsedFigure.errors.length > 0 && (
-                    <div className="notice error" role="alert">
-                      <div>
-                        {parsedFigure.errors.slice(0, 5).map((error) => (
-                          <p key={error}>{error}</p>
-                        ))}
-                        {parsedFigure.errors.length > 5 && (
-                          <p>{parsedFigure.errors.length - 5} more errors.</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    className="text-button"
-                    onClick={() =>
-                      setFigureData(
-                        "Translation\t24\nLanguage\t18\nResearch\t12\nContext\t9\nCulture\t7",
-                      )
-                    }
-                  >
-                    Use example data
-                  </button>
-                </section>
-                <section className="panel figure-canvas">
-                  <div className="panel-head">
-                    <span className="eyebrow">LIVE PREVIEW</span>
-                    <button
-                      className="button secondary small"
-                      disabled={!figureRows.length || figureExportBusy}
-                      onClick={async () => {
-                        setFigureExportBusy(true);
-                        try {
-                          const svg = document.querySelector<SVGSVGElement>(
-                            "#figure-preview svg",
-                          );
-                          if (!svg)
-                            throw new Error("Create a valid figure first.");
-                          download(
-                            "corpuscape-figure.png",
-                            await pngFromSvg(svg),
-                            "image/png",
-                          );
-                        } catch (e) {
-                          fail(e);
-                        } finally {
-                          setFigureExportBusy(false);
-                        }
-                      }}
-                    >
-                      <ArrowDownToLine size={15} />
-                      {figureExportBusy ? "Rendering…" : "Download PNG"}
-                    </button>
-                    <button
-                      className="button secondary small"
-                      disabled={!figureRows.length}
-                      onClick={() => {
-                        const svg = document.querySelector(
-                          "#figure-preview svg",
-                        );
-                        if (svg)
-                          download(
-                            "corpuscape-figure.svg",
-                            new XMLSerializer().serializeToString(svg),
-                            "image/svg+xml",
-                          );
-                      }}
-                    >
-                      <ArrowDownToLine size={15} />
-                      Download SVG
-                    </button>
-                  </div>
-                  <FigureSource
-                    name={name}
-                    count={figureRows.length}
-                    custom={figureRows.length > 0 && !!figureData.trim()}
-                  />
-                  <div id="figure-preview">
-                    <FrequencyChart
-                      rows={figureRows}
-                      title={figureTitle}
-                      color={figureColor}
-                      type={figureType}
-                      unit={
-                        figureData.trim()
-                          ? "Custom values"
-                          : figureUnit === "count"
-                            ? "Token count"
-                            : "Frequency per million tokens"
-                      }
-                    />
-                  </div>
-                  {!figureRows.length && (
-                    <div className="figure-demo-note">
-                      <span className="status-dot" />
-                      <span>
-                        {parsedFigure.errors.length
-                          ? "Correct the custom data errors to create a figure."
-                          : "Choose a corpus or explicitly load the example data to create a figure."}
-                      </span>
-                    </div>
-                  )}
-                  <p className="fine">
-                    SVG is a scalable, editable vector format. Download the
-                    underlying values as CSV for further work.
-                  </p>
-                  <button
-                    className="text-button"
-                    disabled={!figureRows.length}
-                    onClick={() =>
-                      exportCsv("figure-data", [
-                        ["Label", "Value"],
-                        ...figureRows.map((r) => [r.label, r.value]),
-                      ])
-                    }
-                  >
-                    Export figure data <ArrowDownToLine size={15} />
-                  </button>
-                  {figureRows.length > 0 && (
-                    <>
-                      <p className="fine">
-                        Showing {figureRows.length} of{" "}
-                        {figureData.trim()
-                          ? parsedFigure.rows.length
-                          : (analysis?.frequencies.length ?? 0)}{" "}
-                        rows. Columns with many items scroll horizontally. CSV
-                        contains full labels and unrounded values.
-                      </p>
-                      <details>
-                        <summary>View underlying figure values</summary>
-                        <DataTable
-                          headers={["Label", "Value"]}
-                          rows={figureRows.map((row) => [
-                            <span dir="auto">{row.label}</span>,
-                            String(row.value),
-                          ])}
-                        />
-                      </details>
-                    </>
-                  )}
-                </section>
-              </div>
-            </>
+            <FigureStudio
+              name={name}
+              analysis={analysis}
+              documents={documents}
+              comparison={comparison}
+              collocates={collocates}
+              pairs={pairs}
+              onReports={() => navigate("reports")}
+            />
+          )}
+          {view === "reports" && (
+            <ResearchReports
+              name={name}
+              analysis={analysis}
+              documents={documents}
+              options={options}
+              comparison={comparison}
+              pairs={pairs}
+            />
+          )}
+          {view === "ocr" && (
+            <TextExtraction
+              initialFile={ocrFile}
+              onUse={(docs) => {
+                setDocuments(docs);
+                setName(ocrFile?.name ?? "Extracted corpus");
+                setActiveId(null);
+                navigate("analysis");
+                notify(
+                  "Extracted text loaded. Review document language tags before analysis.",
+                );
+              }}
+            />
           )}
 
           {view === "library" && (
@@ -2416,6 +2425,30 @@ function App() {
                 corpora you want to keep.
               </div>
               <div className="action-row">
+                <button
+                  className="button secondary"
+                  onClick={() => void exportWorkspace()}
+                >
+                  Download whole workspace
+                </button>
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    checked={autoSave}
+                    onChange={(e) => {
+                      setAutoSave(e.target.checked);
+                      void saveSession("workspace-preferences-v1", {
+                        autoSave: e.target.checked,
+                      }).catch(() =>
+                        setSessionStatus("Could not save autosave preference."),
+                      );
+                    }}
+                  />
+                  Autosave workspace on this device
+                </label>
+                <span className="fine">
+                  {autoSave ? sessionStatus : "Workspace autosave paused"}
+                </span>
                 <button
                   className="button primary"
                   disabled={!documents.length}
@@ -2435,11 +2468,47 @@ function App() {
                       try {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        if (file.size > 25 * 1024 * 1024)
-                          throw new Error("Backup is too large.");
-                        const data = validateBackup(
-                          JSON.parse(await file.text()),
-                        );
+                        const raw = JSON.parse(await file.text());
+                        if (raw?.format === "corpuscape-workspace-v1") {
+                          const workspace = validateWorkspace(raw.workspace);
+                          const entries: Record<string, unknown> = {
+                            "workspace-v1": workspace,
+                          };
+                          if (raw.figure) {
+                            if (
+                              typeof raw.figure.source !== "string" ||
+                              typeof raw.figure.text !== "string"
+                            )
+                              throw new Error(
+                                "Invalid figure source in workspace backup.",
+                              );
+                            const checked = validateStudioProject({
+                              format: "corpuscape-figure-v1",
+                              config: raw.figure.config,
+                              rows: raw.figure.manual ?? [],
+                              name: "Restored figure",
+                            });
+                            entries["figure-studio-v2"] = {
+                              ...raw.figure,
+                              config: checked.config,
+                              manual: raw.figure.manual ? checked.rows : null,
+                            };
+                          }
+                          if (raw.reports) {
+                            const { validateReportSession } =
+                              await import("./report-model");
+                            entries["research-reports-v1"] =
+                              validateReportSession(raw.reports);
+                          }
+                          await saveSessions(entries);
+                          applyWorkspace(workspace);
+                          navigate("analysis");
+                          notify(
+                            "Whole workspace restored, including parallel notes, figure settings and report drafts.",
+                          );
+                          return;
+                        }
+                        const data = validateBackup(raw);
                         checkSize(data.documents);
                         setDocuments(data.documents);
                         setName(data.name);
@@ -2568,7 +2637,9 @@ function App() {
                     language for locale-specific segmentation, especially for
                     Chinese, Japanese, Thai and other languages without spaces
                     between words. Automatic mode uses your browser’s default
-                    locale; it does not detect each text’s language.
+                    locale. The Documents tab can suggest languages locally;
+                    review and apply those suggestions before language-specific
+                    analysis.
                   </p>
                   <p>
                     The language menu includes common languages, plus a custom
@@ -2602,9 +2673,8 @@ function App() {
                     sequences, with the selected case setting, and displays
                     original text around each hit. Context length counts
                     grapheme clusters. Sorting applies to retained hits.
-                    Punctuation is not part of matching. Up to 1,000 hits are
-                    retained for display and export; the total match count is
-                    reported separately.
+                    Punctuation is not part of matching. All matches are
+                    available across pages and in exports.
                   </p>
                   <p>
                     Collocations count directed neighbour pairs in a symmetric
@@ -2623,8 +2693,10 @@ function App() {
                     log₂(((A+0.5)/(total A+0.5)) ÷ ((B+0.5)/(total B+0.5))).
                     Both corpora use the active case setting and stop list.
                     Document language tags override the default segmentation
-                    language. Results are exploratory and are not corrected for
-                    multiple testing.
+                    language. Approximate p-values use a chi-square distribution
+                    with one degree of freedom. Benjamini–Hochberg q-values
+                    adjust across all tested terms; model assumptions and corpus
+                    design still matter.
                   </p>
                 </section>
                 <div>
@@ -2634,50 +2706,57 @@ function App() {
                     <p>
                       Text import, parsing, analysis, charts and exports happen
                       in your browser. There is no corpus upload endpoint,
-                      account system, analytics tracker, database server or LLM
-                      service in this edition.
+                      account system, analytics tracker or remote inference
+                      endpoint. Optional Qwen3 and SmolLM2 models run in a
+                      dedicated browser worker.
                     </p>
                     <p>
-                      Texts live in session memory. Only{" "}
-                      <strong>Save to library</strong> persists a copy in this
-                      browser’s IndexedDB. Library data is specific to this
-                      site’s address, browser profile and device. Export a JSON
-                      backup before moving devices or domains. Deleting a
-                      library record does not erase an already open workspace
-                      copy.
+                      The active workspace autosaves locally by default,
+                      including corpus settings, reference data and parallel
+                      notes. Figure projects and report drafts also save
+                      locally. You can pause workspace autosave in the library.
+                      Library data is specific to this site’s address, browser
+                      profile and device. Export a JSON backup before moving
+                      devices or domains. Deleting a library record does not
+                      erase an already open workspace copy.
                     </p>
                     <p>
                       The host still receives normal page and asset requests,
-                      including your IP address. No third-party fonts or scripts
-                      are loaded. PDF parsing code is bundled and loaded on
-                      demand from this site.
+                      including your IP address. Fonts and application code are
+                      bundled. Local AI downloads public model weights from
+                      Hugging Face; OCR downloads selected language data. These
+                      downloads do not send your corpus or prompts to an
+                      inference service.
                     </p>
                   </section>
                   <section className="panel prose">
-                    <h2>Clear limits, useful tools</h2>
+                    <h2>Capacity and optional capabilities</h2>
                     <p>
-                      Up to 100 documents, 25 MB per file, 2 million extracted
-                      characters per corpus and 10,000 parallel rows. Large
-                      analyses run in a worker to keep the interface responsive.
-                      Device memory and processing power still affect
-                      performance.
+                      There are no fixed document, file-size, character, pair or
+                      result-count quotas. Large analyses run in a worker;
+                      results remain paginated for a usable interface. Device
+                      memory and processing power still affect performance.
                     </p>
                     <p>
                       Selectable PDF text, DOCX, XLSX, CSV, TSV, plain text,
                       Markdown, saved HTML, subtitle text and two-variant TMX
-                      imports are supported. Scanned PDFs require separate OCR.
-                      XLSX reads the first worksheet. Tables let you choose
-                      columns and whether the first row is a header.
+                      imports are supported. Text extraction provides local OCR
+                      for scanned PDFs and images. XLSX lets you choose the
+                      worksheet. Tables let you choose columns and whether the
+                      first row is a header.
                     </p>
                     <p>
-                      Paid-model features from the earlier edition are retired:
-                      generated interpretations, corpus chat, machine
-                      translation, semantic alignment and cloud audio
-                      transcription. They are not silently replaced with
-                      simulated answers. Parallel text review works with your
-                      existing translations. Website collection works by
-                      importing saved HTML; there is no remote scraper or audio
-                      upload.
+                      Research Reports connects to real open language models
+                      without API keys. It can draft results, methods, figure
+                      captions, linguistic observations and translation-review
+                      suggestions from explicitly selected evidence. Model
+                      output is editable and needs human review; counts and
+                      statistics continue to come from the deterministic
+                      analysis engine. Browser memory, model context windows and
+                      the quality of the underlying text remain real
+                      constraints. Language identification and OCR provide
+                      suggestions and extracted text, not certified linguistic
+                      truth.
                     </p>
                   </section>
                   <section className="panel prose">
@@ -2952,8 +3031,6 @@ function App() {
               onClick={() => {
                 try {
                   const next = selectTmxPairs(tmxImport, tmxSource, tmxTarget);
-                  if (next.length > 10000)
-                    throw new Error("Import at most 10,000 pairs.");
                   checkSize([
                     {
                       name: "TMX pairs",
@@ -3160,8 +3237,9 @@ class ErrorBoundary extends React.Component<
     );
   }
 }
-const root = (import.meta.hot?.data.root as ReturnType<typeof createRoot> | undefined)
-  ?? createRoot(document.getElementById("root")!);
+const root =
+  (import.meta.hot?.data.root as ReturnType<typeof createRoot> | undefined) ??
+  createRoot(document.getElementById("root")!);
 if (import.meta.hot) import.meta.hot.data.root = root;
 root.render(
   <ErrorBoundary>

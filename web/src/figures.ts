@@ -57,7 +57,7 @@ export function wrapLabel(text: string, size: number) {
     lines.push(chars.slice(i, i + size).join(""));
   return lines.length ? lines : [""];
 }
-export async function pngFromSvg(svg: SVGSVGElement): Promise<Blob> {
+export async function pngFromSvg(svg: SVGSVGElement, scale = 2): Promise<Blob> {
   const url = URL.createObjectURL(
     new Blob([new XMLSerializer().serializeToString(svg)], {
       type: "image/svg+xml;charset=utf-8",
@@ -69,8 +69,8 @@ export async function pngFromSvg(svg: SVGSVGElement): Promise<Blob> {
     await image.decode();
     const canvas = document.createElement("canvas");
     const box = svg.viewBox.baseVal;
-    canvas.width = Math.ceil(box.width * 2);
-    canvas.height = Math.ceil(box.height * 2);
+    canvas.width = Math.ceil((box.width || Number(svg.getAttribute("width"))) * scale);
+    canvas.height = Math.ceil((box.height || Number(svg.getAttribute("height"))) * scale);
     const context = canvas.getContext("2d");
     if (!context)
       throw new Error(
