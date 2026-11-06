@@ -23,7 +23,7 @@ import {
   detectLanguage,
   draftLanguageNotice,
 } from "../web/src/language-detection";
-import { ocrDocuments } from "../web/src/ocr-engine";
+import { ocrDocuments, withOcrCancellation } from "../web/src/ocr-engine";
 globalThis.indexedDB = indexedDB;
 test("result families no longer stop at the old 500/1000 cutoffs", () => {
   const documents = [
@@ -244,4 +244,37 @@ test("research drafts flag unsupported significance and correlation language", (
     ]),
     "",
   );
+});
+test("OCR cancellation settles a terminated worker job that never resolves", async () => {
+  const controller = new AbortController();
+  const job = withOcrCancellation(
+    new Promise<never>(() => {}),
+    controller.signal,
+  );
+  controller.abort();
+  await assert.rejects(job, /cancelled/);
+  const already = new AbortController();
+  already.abort();
+  await assert.rejects(
+    withOcrCancellation(new Promise<never>(() => {}), already.signal),
+    /cancelled/,
+  );
+});
+test("OCR cancellation preserves normal results and underlying errors", async () => {
+  const controller = new AbortController();
+  assert.equal(
+    await withOcrCancellation(
+      Promise.resolve("recognized text"),
+      controller.signal,
+    ),
+    "recognized text",
+  );
+  await assert.rejects(
+    withOcrCancellation(
+      Promise.reject(new Error("bad scan")),
+      controller.signal,
+    ),
+    /bad scan/,
+  );
+  controller.abort();
 });
