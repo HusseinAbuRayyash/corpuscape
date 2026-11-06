@@ -1,4 +1,4 @@
-# Corpuscape 2.2 verification record
+# Corpuscape 2.2.1 verification record
 
 ## Implemented
 
@@ -24,7 +24,7 @@
 
 ## Evidence
 
-- 169 automated tests, including ten-language known-answer cases and real Vega grammar compilation/rendering for every chart type.
+- 170 automated tests, including ten-language known-answer cases and real Vega grammar compilation/rendering for every chart type.
 - Independent chi-square reference values at p=.05, .01 and .001 and a small BH reference family.
 - Full retention beyond the former 500/1,000 result limits; backups beyond 100 documents / 2M characters.
 - Browser-rendered ten-language, two-series figure; downloaded SVG, 2700×2175 PNG and a valid one-page PDF. SVG text includes Cyrillic, Arabic, Chinese, Japanese, French and the caption.
@@ -41,3 +41,5 @@
 - OCR depends on scan quality, layout and language data. Language suggestions are rankings, not calibrated confidence or certified linguistic annotations.
 - Universal POS tagging, lemmatization, semantic alignment, translation-quality scoring, remote website scraping and audio transcription are not presented as implemented. Model review suggestions do not establish their correctness. Saved HTML can be imported; arbitrary browser cross-origin restrictions are not bypassed.
 - Free public hosting and model-file distributors have their own availability and service policies. Domain registration still requires normal renewal fees. Corpus texts and prompts are not sent to hosted inference services.
+
+The 2.2.1 patch also flags unsupported statistical-significance, correlation and causal wording. The real Spanish draft’s unsupported significance claim is a regression test. These checks do not verify all statements or replace research review.
