@@ -1,0 +1,31 @@
+.draft-number-review {
+  padding: 12px 16px;
+  color: #334155;
+}
+
+.draft-number-review > .research-notice {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  color: #594014;
+  background: #fff7df;
+  border: 1px solid #e5cc89;
+}
+
+.draft-number-review summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.draft-number-preview {
+  margin-top: 8px;
+  max-height: 15rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+
+.draft-number-preview mark {
+  color: #3d2b05;
+  background: #ffdd73;
+}

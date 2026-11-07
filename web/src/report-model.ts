@@ -42,16 +42,6 @@ export const localModels = [
     gpuMB: 1430,
     license: "Apache 2.0",
   },
-  {
-    id: "smol",
-    name: "SmolLM2 · small English model",
-    repo: "HuggingFaceTB/SmolLM2-135M-Instruct",
-    revision: "12fd25f77366fa6b3b4b768ec3050bf629380bac",
-    detail: "135M parameters · English-focused, smallest download",
-    cpuMB: 137,
-    gpuMB: 137,
-    license: "Apache 2.0",
-  },
 ] as const;
 export type ModelId = (typeof localModels)[number]["id"];
 export interface Evidence {
@@ -234,55 +224,89 @@ export function unknownEvidenceReferences(text: string, evidence: Evidence[]) {
     ),
   ];
 }
-export function numericClaimNotice(text: string, evidence: Evidence[]): string {
-  const numbers: number[] = [];
+export interface UnmatchedNumber {
+  start: number;
+  end: number;
+  normalized: string;
+}
+
+export function collectDraftNumbers(records: unknown) {
+  const numbers = new Set<number>();
   function visit(value: unknown) {
     if (typeof value === "number" && Number.isFinite(value))
-      numbers.push(value);
+      numbers.add(value);
     else if (Array.isArray(value)) value.forEach(visit);
     else if (value && typeof value === "object")
       Object.values(value).forEach(visit);
   }
-  evidence.forEach((item) => visit(item.value));
-  if (!numbers.length) return "";
-  const suspicious: string[] = [];
-  const numericText = text
+  visit(records);
+  return numbers;
+}
+
+function normalizeNumericText(text: string) {
+  return text
     .normalize("NFKC")
     .replace(/[٠-٩۰-۹]/gu, (d) =>
       String(d.charCodeAt(0) - (d.charCodeAt(0) <= 0x669 ? 0x660 : 0x6f0)),
     )
     .replace(/٫/g, ".")
     .replace(/٬/g, ",")
-    .replace(/٪/g, "%");
-  for (const match of numericText
-    .replace(/\b[A-Z]\d+\b/g, "")
-    .matchAll(
-      /[+-]?\d+(?:(?:[.,]\s*\d+)|(?:[ \u00a0]\d{3}(?!\d)))*(?:\s*[%％])?/gu,
-    )) {
-    const raw = match[0],
-      percent = /[%％]/u.test(raw),
-      compact = raw.replace(/[\s%％]/gu, "");
-    const candidates = [
-      Number(compact.replace(/,/g, "")),
-      Number(compact.replace(/\./g, "").replace(",", ".")),
-      Number(compact.replace(/[.,]/g, "")),
-    ].filter(Number.isFinite);
-    const allowed = percent ? numbers.flatMap((n) => [n, n * 100]) : numbers;
-    if (
-      !candidates.some((candidate) =>
-        allowed.some(
-          (value) =>
-            value === candidate ||
-            Array.from({ length: 7 }, (_, digits) =>
-              Number(value.toFixed(digits)),
-            ).includes(candidate),
-        ),
-      )
-    )
-      suspicious.push(raw.trim());
+    .replace(/٪/g, "%")
+    .replace(/−/g, "-");
+}
+
+export function unmatchedDraftNumbers(text: string, numbers: ReadonlySet<number>): UnmatchedNumber[] {
+  const rounded = new Map<string, Set<number>>();
+  const matchesValue = (candidate: number, places: number, percent: boolean) => {
+    if (!Number.isFinite(candidate)) return false;
+    if (numbers.has(candidate)) return true;
+    if (percent && numbers.has(candidate / 100)) return true;
+    if (places < 0 || places > 12) return false;
+    const key = `${places}:${percent}`;
+    let values = rounded.get(key);
+    if (!values) {
+      values = new Set<number>();
+      for (const number of numbers) {
+        if (places || percent) values.add(Number(number.toFixed(places)));
+        if (percent) values.add(Number((number * 100).toFixed(places)));
+      }
+      rounded.set(key, values);
+    }
+    return values.has(candidate);
+  };
+  const suspicious: UnmatchedNumber[] = [];
+  // Keep offsets in the original text so each mark covers its full number.
+  const digit = "[0-9٠-٩۰-۹０-９]";
+  const group = String.raw`(?:[ \u00a0\u202f]|[,，][ \t]+)${digit}{3}(?!${digit})`;
+  const mantissa = String.raw`(?:${digit}+(?:[.,٫٬．，]${digit}+|${group})*|[.٫．]${digit}+)`;
+  const number = String.raw`[+\-−＋－]?${mantissa}(?:[eE][+\-−]?${digit}+)?(?:[ \t\u00a0\u202f]*[%٪％])?`;
+  const evidenceId = String.raw`\[[A-Z]+\d+(?:\s*[,;]\s*[A-Z]+\d+)*\]|\b(?:CO|[CDFMNRPTV])\d+\b`;
+  const pattern = new RegExp(`${evidenceId}|${number}`, "gu");
+  for (const match of text.matchAll(pattern)) {
+    if (/^[A-Z\[]/u.test(match[0])) continue;
+    const normalized = normalizeNumericText(match[0]);
+    const percent = normalized.endsWith("%");
+    const compact = normalized.replace(/[\s%]/gu, "");
+    const candidates = [compact];
+    if (compact.includes(",")) candidates.push(compact.replace(/\./g, "").replace(",", "."));
+    if (/^[+-]?[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(compact))
+      candidates.push(compact.replace(/,/g, ""));
+    if (!compact.includes(",") && /^[+-]?[1-9]\d{0,2}(?:\.\d{3})+$/u.test(compact))
+      candidates.push(compact.replace(/\./g, ""));
+    if (candidates.some((candidate) => {
+      const [mantissa, exponent = "0"] = candidate.toLowerCase().split("e");
+      const places = Math.max(0, (mantissa.split(".")[1]?.length ?? 0) - Number(exponent));
+      return matchesValue(Number(candidate), places, percent);
+    })) continue;
+    suspicious.push({ start: match.index, end: match.index + match[0].length, normalized });
   }
+  return suspicious;
+}
+
+export function numericClaimNotice(text: string, evidence: Evidence[]): string {
+  const suspicious = unmatchedDraftNumbers(text, collectDraftNumbers(evidence.map(({ value }) => value)));
   return suspicious.length
-    ? `Numbers not matched to the supplied numeric evidence: ${[...new Set(suspicious)].join(", ")}. Check decimal/grouping separators and compare every numerical claim with the computed results. This check does not validate the meaning of a matching number.`
+    ? `Numbers not matched to the supplied numeric evidence: ${[...new Set(suspicious.map(({ normalized }) => normalized))].join(", ")}. Compare each numerical claim with the computed results.`
     : "";
 }
 export function reportExport(

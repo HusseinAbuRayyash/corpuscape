@@ -17,7 +17,8 @@ import {
   reportMessages,
   unknownEvidenceReferences,
   unsupportedClaimNotice,
-  numericClaimNotice,
+  collectDraftNumbers,
+  unmatchedDraftNumbers,
   reportExport,
   validateReportSession,
   type Evidence,
@@ -29,6 +30,7 @@ import { xmlEscape } from "./engine";
 import { locales } from "./samples";
 import { ModelConnection, useLocalWriter } from "./local-writer";
 import "./research-tools.css";
+import { DraftNumberReview } from "./draft-number-review";
 type Draft = {
   id: string;
   title: string;
@@ -207,16 +209,21 @@ export function ResearchReports(input: ReportInput) {
     () => unknownEvidenceReferences(text, evidence),
     [text, evidence],
   );
+  const numbers = useMemo(
+    () => collectDraftNumbers(evidence.map(({ value }) => value)),
+    [evidence],
+  );
+  const numberFindings = useMemo(
+    () => current && !current.model.includes("Deterministic")
+      ? unmatchedDraftNumbers(text, numbers)
+      : [],
+    [text, numbers, current?.model],
+  );
   const claimNotice = useMemo(
     () =>
       current?.model.includes("Deterministic")
         ? ""
-        : [
-            unsupportedClaimNotice(text, evidence),
-            numericClaimNotice(text, evidence),
-          ]
-            .filter(Boolean)
-            .join(" "),
+        : unsupportedClaimNotice(text, evidence),
     [text, evidence, current?.model],
   );
   const factRecord = (current ? evidence : previewEvidence).find(
@@ -316,6 +323,7 @@ export function ResearchReports(input: ReportInput) {
   };
   const exportNotices = [
     claimNotice,
+    numberFindings.length ? "Check highlighted numbers against your results." : "",
     languageNotice,
     unknown.length ? `Unknown evidence references: ${unknown.join(", ")}` : "",
     current &&
@@ -700,6 +708,7 @@ export function ResearchReports(input: ReportInput) {
                 </button>
               </div>
             </div>
+            <DraftNumberReview text={text} findings={numberFindings} />
             <textarea
               aria-label="Editable research report"
               dir="auto"

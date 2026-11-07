@@ -136,7 +136,7 @@ async function load(
   const create = (onGpu: boolean) =>
     pipeline("text-generation", model.repo, {
       device: onGpu ? "webgpu" : "wasm",
-      dtype: model.id === "smol" ? "q8" : onGpu ? "q4f16" : "q8",
+      dtype: onGpu ? "q4f16" : "q8",
       progress_callback: progress,
       revision: model.revision,
     });

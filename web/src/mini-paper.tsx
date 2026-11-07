@@ -28,10 +28,11 @@ import {
   type PaperDraft,
 } from "./paper-model";
 import { loadSession, saveSessions, listSessions } from "./library";
-import type { ReportInput } from "./report-model";
+import { collectDraftNumbers, unmatchedDraftNumbers, type ReportInput } from "./report-model";
 import type { CorpusDocument } from "./engine";
 import { ModelConnection, useLocalWriter } from "./local-writer";
 import "./mini-paper.css";
+import { DraftNumberReview } from "./draft-number-review";
 import { APP_VERSION } from "./version";
 function download(
   name: string,
@@ -63,6 +64,14 @@ export function MiniPaper(
     [maxTokens, setMaxTokens] = useState(256);
   const [includeReference, setIncludeReference] = useState(false),
     [includePairs, setIncludePairs] = useState(false);
+  const numbers = useMemo(
+    () => collectDraftNumbers(snapshot && {
+      ...snapshot.analysis,
+      documents: snapshot.source.documents.length,
+      comparison: snapshot.comparison,
+    }),
+    [snapshot],
+  );
   const fileInput = useRef<HTMLInputElement>(null),
     projectRef = useRef(project),
     generationRef = useRef<PaperSection | null>(null),
@@ -653,6 +662,9 @@ export function MiniPaper(
                               Draft with AI
                             </button>
                           </div>
+                          {d.origin === "local-ai" && (
+                            <DraftNumberReview text={d.text} findings={unmatchedDraftNumbers(d.text, numbers)} />
+                          )}
                           <textarea
                             aria-label={`${paperSectionNames[key]} text`}
                             rows={key === "discussion" ? 10 : 7}

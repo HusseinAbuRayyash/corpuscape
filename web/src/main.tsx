@@ -3152,7 +3152,7 @@ function App() {
                       Text import, parsing, analysis, charts and exports happen
                       in your browser. There is no corpus upload endpoint,
                       account system, analytics tracker or remote inference
-                      endpoint. Optional Qwen3 and SmolLM2 models run in a
+                      endpoint. Optional Qwen models run in a
                       dedicated browser worker.
                     </p>
                     <p>
