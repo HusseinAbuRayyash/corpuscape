@@ -17,6 +17,8 @@ import {
   reportMessages,
   unknownEvidenceReferences,
   unsupportedClaimNotice,
+  numericClaimNotice,
+  reportExport,
   validateReportSession,
   type Evidence,
   type ModelId,
@@ -25,6 +27,7 @@ import {
 import { loadSession, saveSession } from "./library";
 import { xmlEscape } from "./engine";
 import { locales } from "./samples";
+import { ModelConnection, useLocalWriter } from "./local-writer";
 import "./research-tools.css";
 type Draft = {
   id: string;
@@ -48,12 +51,9 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 export function ResearchReports(input: ReportInput) {
-  const [model, setModel] = useState<ModelId>("qwen-small"),
-    [device, setDevice] = useState("auto"),
-    [status, setStatus] = useState("not-loaded"),
-    [runtime, setRuntime] = useState(""),
-    [progress, setProgress] = useState({ loaded: 0, total: 0, file: "" }),
-    [notice, setNotice] = useState(""),
+  const { client, state: writer } = useLocalWriter();
+  const status = writer.phase;
+  const [notice, setNotice] = useState(""),
     [error, setError] = useState("");
   const [task, setTask] = useState("Results and interpretation"),
     [language, setLanguage] = useState("en"),
@@ -72,12 +72,12 @@ export function ResearchReports(input: ReportInput) {
     [figure, setFigure] = useState<unknown>(null),
     [saved, setSaved] = useState(false),
     [storageReady, setStorageReady] = useState(false);
-  const loaded = useRef(false);
   const restoreInput = useRef<HTMLInputElement>(null);
-  const worker = useRef<Worker | null>(null),
-    textRef = useRef(""),
+  const textRef = useRef(""),
     evidenceRef = useRef<Evidence[]>([]),
     metadata = useRef({ model: "", language: "en", task: "", inputTokens: 0 });
+  const latestSession = useRef({ drafts, text, current, evidence });
+  latestSession.current = { drafts, text, current, evidence };
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -121,7 +121,11 @@ export function ResearchReports(input: ReportInput) {
       });
     return () => {
       active = false;
-      worker.current?.terminate();
+      if (client.state.phase === "generating") client.cancel();
+      if (latestSession.current.current || latestSession.current.drafts.length)
+        void saveSession("research-reports-v1", latestSession.current).catch(
+          () => {},
+        );
     };
   }, []);
   useEffect(() => {
@@ -136,7 +140,6 @@ export function ResearchReports(input: ReportInput) {
     }, 700);
     return () => clearTimeout(timer);
   }, [drafts, text, current, evidence, storageReady]);
-  const modelInfo = localModels.find((m) => m.id === model)!;
   const previewEvidence = useMemo(() => {
     try {
       const records = buildEvidence(
@@ -148,6 +151,11 @@ export function ResearchReports(input: ReportInput) {
       );
       if (task === "Figure caption")
         return records.filter((item) => item.id === "V1");
+      if (task === "Translation review suggestions")
+        return records.filter(
+          (item) =>
+            item.id === "M1" || item.id === "C1" || /^[PT]\d+$/.test(item.id),
+        );
       return evidenceScope === "overview"
         ? records.filter(
             (item) =>
@@ -200,109 +208,37 @@ export function ResearchReports(input: ReportInput) {
     [text, evidence],
   );
   const claimNotice = useMemo(
-    () => unsupportedClaimNotice(text, evidence),
-    [text, evidence],
+    () =>
+      current?.model.includes("Deterministic")
+        ? ""
+        : [
+            unsupportedClaimNotice(text, evidence),
+            numericClaimNotice(text, evidence),
+          ]
+            .filter(Boolean)
+            .join(" "),
+    [text, evidence, current?.model],
   );
-  function runtimeWorker() {
-    if (worker.current) return worker.current;
-    const w = new Worker(new URL("./local-ai.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    worker.current = w;
-    w.onmessage = ({ data }) => {
-      if (worker.current !== w) return;
-      if (data.type === "progress") {
-        setProgress({
-          loaded: data.loaded ?? 0,
-          total: data.total ?? 0,
-          file: data.file ?? "",
-        });
-      } else if (data.type === "notice") setNotice(data.message);
-      else if (data.type === "fallback") {
-        w.terminate();
-        worker.current = null;
-        loaded.current = false;
-        setProgress({ loaded: 0, total: 0, file: "" });
-        setNotice(data.message);
-        runtimeWorker().postMessage({
-          type: "load",
-          model: data.model,
-          device: "cpu",
-        });
-      } else if (data.type === "ready") {
-        loaded.current = true;
-        setStatus("ready");
-        setRuntime(`${data.model} · ${data.device}`);
-      } else if (data.type === "generating") {
-        metadata.current.inputTokens = data.inputTokens;
-        setStatus("generating");
-      } else if (data.type === "delta") {
-        textRef.current += data.text;
-        setText(textRef.current);
-      } else if (data.type === "done") {
-        const draft: Draft = {
-          id: crypto.randomUUID(),
-          title: input.name,
-          text: data.text,
-          evidence: evidenceRef.current,
-          model: metadata.current.model,
-          generatedAt: new Date().toISOString(),
-          language: metadata.current.language,
-          task: metadata.current.task,
-          inputTokens: data.inputTokens,
-          outputTokens: data.outputTokens,
-          incomplete: !!data.budgetReached,
-        };
-        setText(data.text);
-        textRef.current = data.text;
-        setCurrent(draft);
-        setDrafts((old) => [draft, ...old]);
-        setStatus("ready");
-      } else if (data.type === "unloaded") {
-        setStatus("not-loaded");
-        setRuntime("");
-      } else if (data.type === "error") {
-        setError(data.message);
-        if (data.fatal) {
-          w.terminate();
-          worker.current = null;
-          loaded.current = false;
-          setRuntime("");
+  const factRecord = (current ? evidence : previewEvidence).find(
+    (item) => item.id === "C1",
+  );
+  const factValue = factRecord?.value as Record<string, unknown> | undefined;
+  const facts =
+    factValue &&
+    ["documents", "tokens", "types"].every(
+      (key) =>
+        typeof factValue[key] === "number" && Number.isFinite(factValue[key]),
+    )
+      ? {
+          documents: Number(factValue.documents),
+          tokens: Number(factValue.tokens),
+          types: Number(factValue.types),
         }
-        setStatus(loaded.current ? "ready" : "not-loaded");
-      }
-    };
-    w.onerror = (event) => {
-      if (worker.current !== w) return;
-      setError(
-        `Local model worker stopped: ${event.message || "browser memory or runtime error"}. Try the small model or CPU mode.`,
-      );
-      setStatus("not-loaded");
-      loaded.current = false;
-      w.terminate();
-      worker.current = null;
-    };
-    return w;
-  }
+      : null;
   function stop() {
-    worker.current?.terminate();
-    worker.current = null;
-    loaded.current = false;
-    setStatus("not-loaded");
-    setRuntime("");
-    setNotice(
-      "Stopped. Any partial draft remains editable. Cached model files can be reused.",
-    );
+    client.cancel();
   }
-  function load() {
-    setError("");
-    setNotice("");
-    setStatus("loading");
-    setProgress({ loaded: 0, total: 0, file: "" });
-    const w = runtimeWorker();
-    w.postMessage({ type: "load", model, device });
-  }
-  function generate() {
+  async function generate() {
     if (!input.analysis && task !== "Figure caption") {
       setError(
         "Load a corpus first, or choose a figure caption with figure evidence.",
@@ -320,7 +256,9 @@ export function ResearchReports(input: ReportInput) {
     evidenceRef.current = previewEvidence;
     setEvidence(previewEvidence);
     metadata.current = {
-      model: localModels.find((m) => m.id === model)!.repo,
+      model: writer.connection
+        ? `${writer.connection.repo}@${writer.connection.revision} · ${writer.connection.runtime}`
+        : "",
       language,
       task,
       inputTokens: 0,
@@ -339,13 +277,53 @@ export function ResearchReports(input: ReportInput) {
       task,
       incomplete: true,
     });
-    setStatus("generating");
-    runtimeWorker().postMessage({
-      type: "generate",
-      messages: reportMessages(previewEvidence, task, language, instructions),
-      maxTokens,
-    });
+    try {
+      const result = await client.generate(
+        reportMessages(previewEvidence, task, language, instructions),
+        maxTokens,
+        (delta) => {
+          textRef.current += delta;
+          setText(textRef.current);
+        },
+      );
+      const draft: Draft = {
+        id: crypto.randomUUID(),
+        title: input.name,
+        text: result.text,
+        evidence: evidenceRef.current,
+        model: metadata.current.model,
+        generatedAt: new Date().toISOString(),
+        language: metadata.current.language,
+        task: metadata.current.task,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        incomplete: result.incomplete,
+      };
+      setText(result.text);
+      textRef.current = result.text;
+      setCurrent(draft);
+      setDrafts((old) => [draft, ...old]);
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") setError((e as Error).message);
+    }
   }
+
+  const exportMetadata = current ?? {
+    title: input.name,
+    model: "Manual draft",
+    generatedAt: new Date().toISOString(),
+    language,
+  };
+  const exportNotices = [
+    claimNotice,
+    languageNotice,
+    unknown.length ? `Unknown evidence references: ${unknown.join(", ")}` : "",
+    current &&
+    !current.model.includes("Deterministic") &&
+    !/\[[A-Z]\d+\]/.test(text)
+      ? "No bracketed evidence citations were found."
+      : "",
+  ].filter(Boolean);
   function computed() {
     const all = buildEvidence(input, Math.max(1, input.documents.length));
     const draft: Draft = {
@@ -385,133 +363,12 @@ export function ResearchReports(input: ReportInput) {
       </header>
       <div className="research-report-layout">
         <aside className="research-card report-settings">
-          <div className="research-card-heading">
-            <Cpu size={17} />
-            <h2>Model connection</h2>
-          </div>
-          <p className="research-muted">
-            Real open-model inference on this device. Loading downloads model
-            weights; your corpus and prompts stay in this browser.
-          </p>
-          <label>
-            Open model
-            <select
-              disabled={
-                status === "loading" ||
-                status === "generating" ||
-                status === "ready"
-              }
-              value={model}
-              onChange={(e) => setModel(e.target.value as ModelId)}
-            >
-              {localModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="model-spec">
-            <strong>{modelInfo.detail}</strong>
-            <span>
-              First download: about{" "}
-              {device === "gpu" ? modelInfo.gpuMB : modelInfo.cpuMB} MB plus
-              runtime files · {modelInfo.license}
-            </span>
-            <a
-              href={`https://huggingface.co/${modelInfo.repo}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Read model card ↗
-            </a>
-          </div>
-          <label>
-            Compute mode
-            <select
-              disabled={
-                status === "loading" ||
-                status === "generating" ||
-                status === "ready"
-              }
-              value={device}
-              onChange={(e) => setDevice(e.target.value)}
-            >
-              <option value="auto">Automatic · GPU with CPU fallback</option>
-              <option value="cpu">CPU / WASM · compatibility</option>
-              <option value="gpu">WebGPU · compatible GPU required</option>
-            </select>
-          </label>
-          {status === "not-loaded" ? (
-            <button className="research-button primary full" onClick={load}>
-              <Download size={15} />
-              Download & connect model
-            </button>
-          ) : status === "loading" ? (
-            <div className="model-progress">
-              <div>
-                <Loader2 size={15} className="spin" />
-                <span>Connecting model…</span>
-              </div>
-              {progress.total > 0 && (
-                <>
-                  <progress value={progress.loaded} max={progress.total} />
-                  <small>
-                    {(progress.loaded / 1e6).toFixed(1)} /{" "}
-                    {(progress.total / 1e6).toFixed(1)} MB downloaded
-                  </small>
-                </>
-              )}
-              <small>{progress.file}</small>
-              <button className="research-button full" onClick={stop}>
-                <Square size={13} />
-                Cancel download
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="model-connected">
-                <Check size={15} />
-                <div>
-                  <strong>Model connected</strong>
-                  <small>{runtime}</small>
-                </div>
-              </div>
-              <button className="research-text-button" onClick={stop}>
-                Disconnect & release memory
-              </button>
-            </>
-          )}
-          <hr />
-          <p className="research-muted">
-            Compact models can produce weak prose or incorrect claims. The
-            larger Qwen option may improve writing. Verify every draft against
-            the computed facts and evidence.
-          </p>
-          {status === "not-loaded" && (
-            <button
-              className="research-text-button"
-              onClick={async () => {
-                try {
-                  if (!("caches" in window))
-                    throw new Error(
-                      "Cache management is unavailable in this browser.",
-                    );
-                  await caches.delete("transformers-cache");
-                  setNotice(
-                    "Downloaded model cache cleared. Connecting again will download the weights.",
-                  );
-                } catch (error) {
-                  setError(
-                    error instanceof Error ? error.message : String(error),
-                  );
-                }
-              }}
-            >
-              Clear downloaded model cache
-            </button>
-          )}
+          <ModelConnection />
           <h2>Draft settings</h2>
+          <p className="research-muted">
+            New reports use the current corpus: <strong>{input.name}</strong>.
+            Saved drafts keep their own evidence.
+          </p>
           <label>
             Research task
             <select
@@ -692,20 +549,25 @@ export function ResearchReports(input: ReportInput) {
               Restore report backup
             </button>
           </div>
-          {input.analysis && (
-            <div className="report-facts" aria-label="Computed corpus facts">
+          {facts && (
+            <div
+              className="report-facts"
+              aria-label="Corpus facts in selected evidence"
+            >
               <span>
-                <strong>{input.documents.length.toLocaleString()}</strong>{" "}
-                documents
+                <strong>{facts.documents.toLocaleString()}</strong> {facts.documents===1?'document':'documents'}
               </span>
               <span>
-                <strong>{input.analysis.words.toLocaleString()}</strong> word
-                tokens
+                <strong>{facts.tokens.toLocaleString()}</strong> word tokens
               </span>
               <span>
-                <strong>{input.analysis.types.toLocaleString()}</strong> types
+                <strong>{facts.types.toLocaleString()}</strong> types
               </span>
-              <small>Computed counts · independent of AI text</small>
+              <small>
+                {factRecord?.label} ·{" "}
+                {current ? "frozen draft evidence" : "current analysis"} ·
+                independent of AI text
+              </small>
             </div>
           )}
           {notice && <div className="research-notice">{notice}</div>}
@@ -757,7 +619,7 @@ export function ResearchReports(input: ReportInput) {
                   <small>
                     {current.model.includes("Deterministic")
                       ? "Computed report"
-                      : current.model.split("/").at(-1)}
+                      : current.model.split("@")[0].split("/").at(-1)}
                   </small>
                 )}
               </div>
@@ -774,7 +636,13 @@ export function ResearchReports(input: ReportInput) {
                   onClick={() =>
                     download(
                       "corpuscape-research-report.md",
-                      text,
+                      reportExport(
+                        text,
+                        evidence,
+                        exportMetadata,
+                        exportNotices,
+                        "md",
+                      ),
                       "text/markdown;charset=utf-8",
                     )
                   }
@@ -788,7 +656,13 @@ export function ResearchReports(input: ReportInput) {
                   onClick={() =>
                     download(
                       "corpuscape-research-report.html",
-                      `<!doctype html><html lang="${xmlEscape(language)}"><meta charset="utf-8"><title>${xmlEscape(input.name)}</title><style>body{max-width:850px;margin:40px auto;padding:25px;font:16px/1.8 system-ui}pre{white-space:pre-wrap;font:inherit}small{color:#64748b}@media print{body{margin:0}}</style><h1>${xmlEscape(input.name)}</h1><small>${xmlEscape(current?.model ?? "Research draft")} · ${xmlEscape(current?.generatedAt ?? new Date().toISOString())}</small><pre dir="auto">${xmlEscape(text)}</pre><h2>Evidence</h2><pre>${xmlEscape(JSON.stringify(evidence, null, 2))}</pre></html>`,
+                      reportExport(
+                        text,
+                        evidence,
+                        exportMetadata,
+                        exportNotices,
+                        "html",
+                      ),
                       "text/html;charset=utf-8",
                     )
                   }

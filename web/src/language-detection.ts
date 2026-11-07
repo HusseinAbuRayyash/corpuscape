@@ -44,6 +44,18 @@ export function draftLanguageNotice(text: string, requested: string): string {
   } catch {
     return "";
   }
+  const kana = (text.match(/[\p{Script=Hiragana}\p{Script=Katakana}]/gu) ?? [])
+    .length;
+  const han = (text.match(/\p{Script=Han}/gu) ?? []).length;
+  const latin = (text.match(/\p{Script=Latin}/gu) ?? []).length;
+  if (
+    ((expected === "ja" && kana > 0) ||
+      (expected === "zh" && han > 0 && kana === 0)) &&
+    latin > han + kana
+  )
+    return `The draft mixes ${expected === "ja" ? "Japanese" : "Chinese"} script with substantial Latin-script text. Review whether the requested language is used throughout; short numeric lists do not support a reliable whole-draft language label.`;
+  // Labels and numerical lists can be long in characters yet too short for trigram inference.
+  if ((text.match(/\p{Letter}/gu) ?? []).length < 120) return "";
   const detected = detectLanguage(text);
   if (detected.tag === "und" || detected.tag.split("-")[0] === expected)
     return "";

@@ -1,6 +1,6 @@
 {
   "name": "corpuscape",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -15,6 +15,9 @@
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@huggingface/transformers": "3.8.1",
+    "@mlc-ai/web-llm": "0.2.87",
+    "docx": "9.15.2",
+    "fflate": "0.8.3",
     "franc-all": "^7.2.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.453.0",

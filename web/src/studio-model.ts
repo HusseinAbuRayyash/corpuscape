@@ -76,7 +76,18 @@ export const defaultStudio: StudioConfig = {
   decimals: 2,
 };
 export const palettes: Record<string, string[]> = {
-  cobalt: ["#245bff", "#5fc3e4", "#a7b9fb", "#152853", "#efb04d", "#d97ea7"],
+  cobalt: [
+    "#245bff",
+    "#5fc3e4",
+    "#a7b9fb",
+    "#152853",
+    "#efb04d",
+    "#d97ea7",
+    "#16756b",
+    "#8b583c",
+    "#815ad1",
+    "#c94e5a",
+  ],
   accessible: [
     "#0072B2",
     "#E69F00",
@@ -169,7 +180,21 @@ export interface StudioInputs {
     }[];
   } | null;
   collocates?: { term: string; count: number; pmi: number; dice: number }[];
+  collocationContext?: string;
   pairs?: { source: string; target: string; note: string }[];
+}
+/** Query results are transient in the workspace. Recover their figure as editable frozen data. */
+export function saveableStudioSnapshot<
+  T extends { source: string; manual: DataRow[] | null; text: string },
+>(snapshot: T, rows: DataRow[]): T {
+  return snapshot.source === "collocations"
+    ? {
+        ...snapshot,
+        source: "custom",
+        manual: structuredClone(rows),
+        text: Papa.unparse(rows),
+      }
+    : snapshot;
 }
 export function studioDatasets(input: StudioInputs): Dataset[] {
   const a = input.analysis;
@@ -248,7 +273,7 @@ export function studioDatasets(input: StudioInputs): Dataset[] {
     {
       id: "collocations",
       name: "Collocations",
-      detail: "Count, PMI and Dice",
+      detail: input.collocationContext ?? "Count, PMI and Dice",
       rows:
         input.collocates?.map((r, i) => ({
           label: r.term,
@@ -432,6 +457,18 @@ export function buildStudioSpec(
   c: StudioConfig,
 ): TopLevelSpec {
   const numeric = numericFields(rows);
+  const categorySeries = new Map<string, Set<string>>();
+  if (c.series)
+    for (const row of rows) {
+      const category = String(row[c.category] ?? "");
+      const series = categorySeries.get(category) ?? new Set<string>();
+      series.add(String(row[c.series] ?? ""));
+      categorySeries.set(category, series);
+    }
+  // A single observation per category should occupy the full band, even when colored by language.
+  const offsetSeries =
+    !!c.series &&
+    [...categorySeries.values()].some((series) => series.size > 1);
   const dark = c.theme === "dark",
     foreground = dark ? "#e5eaf3" : "#273342",
     muted = dark ? "#9daec6" : "#687587";
@@ -522,7 +559,7 @@ export function buildStudioSpec(
         axis: { labelLimit: 0, labelOverlap: true },
       },
       x: { ...value, stack: null, title: c.xTitle || c.value },
-      ...(c.series ? { yOffset: { field: c.series } } : {}),
+      ...(offsetSeries ? { yOffset: { field: c.series } } : {}),
     };
     spec.layer =
       c.kind === "lollipop"
@@ -552,7 +589,7 @@ export function buildStudioSpec(
       x: label,
       y: { ...value, stack: c.kind === "stacked" ? "zero" : null },
     };
-    if (c.kind === "grouped" && c.series) enc.xOffset = { field: c.series };
+    if (c.kind === "grouped" && offsetSeries) enc.xOffset = { field: c.series };
     spec.layer = [
       {
         mark: { type: "bar", cornerRadiusTopLeft: 3, cornerRadiusTopRight: 3 },
@@ -566,7 +603,7 @@ export function buildStudioSpec(
           x: label,
           y: { field: c.lower, type: "quantitative" },
           y2: { field: c.upper },
-          ...(c.kind === "grouped" && c.series
+          ...(c.kind === "grouped" && offsetSeries
             ? { xOffset: { field: c.series } }
             : {}),
         },

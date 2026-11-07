@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { CorpusDocument } from "./engine";
 import { locales } from "./samples";
+import { joinCjkLineWraps } from "./text-cleanup";
 
 export function DocumentManager({
   documents,
@@ -12,10 +13,12 @@ export function DocumentManager({
   const [index, setIndex] = useState(-1);
   const [draft, setDraft] = useState<CorpusDocument>({ name: "", text: "" });
   const [error, setError] = useState("");
+  const [cleanupUndo, setCleanupUndo] = useState<string | null>(null);
   const edit = (i: number) => {
     setIndex(i);
     setDraft(i < 0 ? { name: "", text: "" } : { ...documents[i] });
     setError("");
+    setCleanupUndo(null);
   };
   return (
     <div className="document-manager">
@@ -85,9 +88,39 @@ export function DocumentManager({
           dir="auto"
           aria-label="Document text"
           value={draft.text}
-          onChange={(e) => setDraft({ ...draft, text: e.target.value })}
+          onChange={(e) => {
+            setCleanupUndo(null);
+            setDraft({ ...draft, text: e.target.value });
+          }}
         />
       </label>
+      <div className="action-row">
+        <button
+          className="button secondary small"
+          disabled={joinCjkLineWraps(draft.text) === draft.text}
+          onClick={() => {
+            setCleanupUndo(draft.text);
+            setDraft({ ...draft, text: joinCjkLineWraps(draft.text) });
+          }}
+        >
+          Join CJK line wraps
+        </button>
+        {cleanupUndo !== null && (
+          <button
+            className="button secondary small"
+            onClick={() => {
+              setDraft({ ...draft, text: cleanupUndo });
+              setCleanupUndo(null);
+            }}
+          >
+            Undo line-wrap cleanup
+          </button>
+        )}
+        <small>
+          For wrapped Chinese / Japanese extraction. Review the edit before
+          applying; blank paragraph lines are preserved.
+        </small>
+      </div>
       {error && <p role="alert">{error}</p>}
       <div className="action-row">
         <button
@@ -107,6 +140,7 @@ export function DocumentManager({
             if (index < 0) next.push(draft);
             else next[index] = draft;
             onChange(next);
+            if (index < 0) setIndex(next.length - 1);
           }}
         >
           {" "}
@@ -115,7 +149,10 @@ export function DocumentManager({
         {index >= 0 && (
           <button
             className="button secondary small"
-            onClick={() => onChange(documents.filter((_, i) => i !== index))}
+            onClick={() => {
+              onChange(documents.filter((_, i) => i !== index));
+              edit(-1);
+            }}
           >
             Remove document
           </button>

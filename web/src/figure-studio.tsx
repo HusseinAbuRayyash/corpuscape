@@ -32,6 +32,7 @@ import {
   studioDatasets,
   studioErrors,
   validateStudioProject,
+  saveableStudioSnapshot,
   type ChartKind,
   type DataRow,
   type StudioConfig,
@@ -301,6 +302,7 @@ export function FigureStudio({
       input.name,
       input.comparison,
       input.collocates,
+      input.collocationContext,
       input.pairs,
     ],
   );
@@ -312,6 +314,9 @@ export function FigureStudio({
       : (datasets.find((data) => data.id === source)?.rows ?? []));
   const fields = Object.keys(rawRows[0] ?? {}),
     numeric = useMemo(() => numericFields(rawRows), [rawRows]);
+  const latestRecovery = useRef<Snapshot | null>(null);
+  if (ready)
+    latestRecovery.current = saveableStudioSnapshot(history.present, rawRows);
   const rows = useMemo(
     () => prepareStudioRows(rawRows, config),
     [rawRows, config],
@@ -357,7 +362,9 @@ export function FigureStudio({
         sourceNote:
           id === "example"
             ? "Original teaching data · not research results"
-            : `${input.name} · Corpuscape`,
+            : id === "collocations"
+              ? `${input.name} · ${selected?.detail}`
+              : `${input.name} · Corpuscape`,
       },
     });
     setDataPage(0);
@@ -387,18 +394,25 @@ export function FigureStudio({
       });
     return () => {
       active = false;
+      if (latestRecovery.current)
+        void saveSession("figure-studio-v2", latestRecovery.current).catch(
+          () => {},
+        );
     };
   }, []);
   useEffect(() => {
     if (!ready) return;
     setSaveState("Saving…");
     const timer = setTimeout(() => {
-      saveSession("figure-studio-v2", history.present)
+      saveSession(
+        "figure-studio-v2",
+        saveableStudioSnapshot(history.present, rawRows),
+      )
         .then(() => setSaveState("Saved on this device"))
         .catch(() => setSaveState("Storage unavailable · export project"));
     }, 700);
     return () => clearTimeout(timer);
-  }, [history.present, ready]);
+  }, [history.present, ready, rawRows]);
   useEffect(() => {
     if (!viewport.current) return;
     const observer = new ResizeObserver(([entry]) =>
@@ -1416,6 +1430,9 @@ export function FigureStudio({
                       kind: config.kind,
                       rows,
                       source: sourceName,
+                      sourceDetail:
+                        datasets.find((data) => data.id === source)?.detail ??
+                        "",
                       mapping: {
                         category: config.category,
                         value: config.value,

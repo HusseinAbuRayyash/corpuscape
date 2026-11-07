@@ -29,10 +29,20 @@ const destinations: { id: Page; title: string; detail: string }[] = [
     detail: "Charts, SVG exports and custom data",
   },
   {
-    id: "reports", title: "Research reports", detail: "Local Qwen AI writing, evidence and statistical reports",
+    id: "reports",
+    title: "Research reports",
+    detail: "Local Qwen AI writing, evidence and statistical reports",
   },
   {
-    id: "ocr", title: "Text extraction", detail: "Scanned PDF and image OCR in multiple languages",
+    id: "papers",
+    title: "Mini paper",
+    detail:
+      "Frozen analysis, research manuscript, tables, figures and Word exports",
+  },
+  {
+    id: "ocr",
+    title: "Text extraction",
+    detail: "Scanned PDF and image OCR in multiple languages",
   },
   {
     id: "library",
