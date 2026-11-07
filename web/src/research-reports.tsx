@@ -223,13 +223,8 @@ export function ResearchReports(input: ReportInput) {
     () =>
       current?.model.includes("Deterministic")
         ? ""
-        : [
-            unsupportedClaimNotice(text, evidence),
-            numberFindings.length ? "Check highlighted numbers against your results." : "",
-          ]
-            .filter(Boolean)
-            .join(" "),
-    [text, evidence, current?.model, numberFindings.length],
+        : unsupportedClaimNotice(text, evidence),
+    [text, evidence, current?.model],
   );
   const factRecord = (current ? evidence : previewEvidence).find(
     (item) => item.id === "C1",
@@ -328,6 +323,7 @@ export function ResearchReports(input: ReportInput) {
   };
   const exportNotices = [
     claimNotice,
+    numberFindings.length ? "Check highlighted numbers against your results." : "",
     languageNotice,
     unknown.length ? `Unknown evidence references: ${unknown.join(", ")}` : "",
     current &&

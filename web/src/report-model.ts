@@ -275,10 +275,15 @@ export function unmatchedDraftNumbers(text: string, numbers: ReadonlySet<number>
     return values.has(candidate);
   };
   const suspicious: UnmatchedNumber[] = [];
-  // Skip bracketed evidence IDs and preserve offsets in the unmodified text.
-  const pattern = /\[[A-Z]+\d+(?:\s*[,;]\s*[A-Z]+\d+)*\]|[+\-−＋－]?(?:[0-9٠-٩۰-۹０-９]+(?:(?:[.,٫٬．，][ \t]*[0-9٠-٩۰-۹０-９]+)|(?:[ \u00a0\u202f][0-9٠-٩۰-۹０-９]{3}(?![0-9٠-٩۰-۹０-９])))*|[.٫．][0-9٠-٩۰-۹０-９]+)(?:[eE][+\-−]?[0-9٠-٩۰-۹０-９]+)?(?:[ \t\u00a0\u202f]*[%٪％])?/gu;
+  // Keep offsets in the original text so each mark covers its full number.
+  const digit = "[0-9٠-٩۰-۹０-９]";
+  const group = String.raw`(?:[ \u00a0\u202f]|[,，][ \t]+)${digit}{3}(?!${digit})`;
+  const mantissa = String.raw`(?:${digit}+(?:[.,٫٬．，]${digit}+|${group})*|[.٫．]${digit}+)`;
+  const number = String.raw`[+\-−＋－]?${mantissa}(?:[eE][+\-−]?${digit}+)?(?:[ \t\u00a0\u202f]*[%٪％])?`;
+  const evidenceId = String.raw`\[[A-Z]+\d+(?:\s*[,;]\s*[A-Z]+\d+)*\]|\b(?:CO|[CDFMNRPTV])\d+\b`;
+  const pattern = new RegExp(`${evidenceId}|${number}`, "gu");
   for (const match of text.matchAll(pattern)) {
-    if (match[0].startsWith("[")) continue;
+    if (/^[A-Z\[]/u.test(match[0])) continue;
     const normalized = normalizeNumericText(match[0]);
     const percent = normalized.endsWith("%");
     const compact = normalized.replace(/[\s%]/gu, "");

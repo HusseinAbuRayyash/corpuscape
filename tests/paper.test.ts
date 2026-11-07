@@ -139,7 +139,7 @@ test("Arabic, Persian and fullwidth AI numerals use the same evidence mismatch c
   assert.match(numericClaimNotice("١٥٦٠", e), /1560/);
 });
 test("draft highlights preserve original text offsets and distinguish decimals from counts", () => {
-  const text = "📄 [CO1] ۱۵۶ ؛ 91٪; １２．５; ۹۹۹; 1.25e-3.";
+  const text = "📄 [CO1] C1 ۱۵۶ ؛ 91٪; １２．５; ۹۹۹; 1.25e-3.";
   const findings = unmatchedDraftNumbers(text, new Set([156, 0.91, 125, 0.00125]));
   assert.deepEqual(findings.map(({ start, end }) => text.slice(start, end)), [
     "１２．５",
