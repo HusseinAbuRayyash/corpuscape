@@ -265,9 +265,6 @@ export function Landing({
           </a>
           <button
             className="lp-motion-header"
-            aria-label={
-              effectivePaused ? "Enable animations" : "Pause animations"
-            }
             title={effectivePaused ? "Enable motion" : "Pause motion"}
             onClick={toggleMotion}
             aria-pressed={!effectivePaused}

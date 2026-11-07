@@ -1,4 +1,5 @@
 import { chiSquareOne, benjaminiHochberg } from "./statistics";
+import { subtitleTimestamp, type ParallelPair } from "./parallel-align";
 export const normalisationBases = [1000, 10000, 1000000] as const;
 export type NormalisationBase = (typeof normalisationBases)[number];
 export interface CorpusDocument {
@@ -591,7 +592,7 @@ export function xmlEscape(value: string) {
   );
 }
 export function tmx(
-  pairs: { source: string; target: string; note?: string }[],
+  pairs: (Omit<ParallelPair, "note"> & { note?: string })[],
   sourceLocale: string,
   targetLocale: string,
 ) {
@@ -625,7 +626,7 @@ export function tmx(
     pairs
       .map(
         (p) =>
-          `<tu>${p.note ? `<prop type="x-corpuscape-note">${xmlEscape(p.note)}</prop>` : ""}<tuv xml:lang="${xmlEscape(sourceLocale)}"><seg>${xmlEscape(p.source)}</seg></tuv><tuv xml:lang="${xmlEscape(targetLocale)}"><seg>${xmlEscape(p.target)}</seg></tuv></tu>`,
+          `<tu>${p.note ? `<prop type="x-corpuscape-note">${xmlEscape(p.note)}</prop>` : ""}${p.sourceTime ? `<prop type="x-corpuscape-source-time">${subtitleTimestamp(p.sourceTime.start)} --&gt; ${subtitleTimestamp(p.sourceTime.end)}</prop>` : ""}${p.targetTime ? `<prop type="x-corpuscape-target-time">${subtitleTimestamp(p.targetTime.start)} --&gt; ${subtitleTimestamp(p.targetTime.end)}</prop>` : ""}<tuv xml:lang="${xmlEscape(sourceLocale)}"><seg>${xmlEscape(p.source)}</seg></tuv><tuv xml:lang="${xmlEscape(targetLocale)}"><seg>${xmlEscape(p.target)}</seg></tuv></tu>`,
       )
       .join("") +
     "</body></tmx>"

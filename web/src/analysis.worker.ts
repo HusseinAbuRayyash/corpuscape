@@ -1,4 +1,5 @@
 import { analyze, concordance, collocations, compare } from "./engine";
+import { alignSentences } from "./parallel-align";
 self.onmessage = async ({ data }) => {
   try {
     const {
@@ -20,6 +21,8 @@ self.onmessage = async ({ data }) => {
       result = documents.map((doc: { text: string }) =>
         detectLanguage(doc.text),
       );
+    } else if (action === "align") {
+      result = alignSentences(data.source, data.target, data.sourceLocale, data.targetLocale);
     } else if (action === "analyze") result = analyze(documents, options);
     else if (action === "concordance")
       result = concordance(documents, options, query, context, undefined, mode);
