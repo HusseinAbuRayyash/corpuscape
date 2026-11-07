@@ -10,8 +10,43 @@ import {
   csv,
   tmx,
   defaultOptions,
+  createTextFilter,
 } from "../web/src/engine";
 const docs = (text: string) => [{ name: "test.txt", text }];
+test("Arabic folding affects matching terms, queries, filters and stop words without altering source", () => {
+  const corpus = docs("أحمد وكتاب. احمد وكتاب. إحمد وكتاب. كَتَبَ");
+  assert.equal(analyze(corpus).frequencies.filter((row) => /حمد$/u.test(row.term)).length, 3);
+  const options = { ...defaultOptions, locale: "ar", arabic: { alef: true, diacritics: true } };
+  assert.equal(analyze(corpus, options).frequencies.find((row) => row.term === "احمد")?.count, 3);
+  assert.equal(tokenize(corpus, options).at(-1)?.term, "كتب");
+  assert.deepEqual(concordance(corpus, options, "إحمد").hits.map(({ match }) => match), ["أحمد", "احمد", "إحمد"]);
+  assert.equal(collocations(corpus, options, "أحمد")[0].count, 3);
+  assert.ok(createTextFilter("إحمد", ["ar"], options)("احمد"));
+  assert.ok(!analyze(corpus, { ...options, stopWords: ["أحمد"] }).frequencies.some(({ term }) => term === "احمد"));
+});
+
+test("extracted Arabic presentation forms expand automatically and can be preserved", () => {
+  const text = "ﻛﺘﺐ";
+  const extracted = [{ name: "page.pdf", text, source: "pdf" as const }];
+  assert.equal(tokenize(docs(text), defaultOptions)[0].term, text);
+  assert.equal(tokenize(extracted, defaultOptions)[0].term, "كتب");
+  assert.equal(concordance(extracted, defaultOptions, "كتب").hits[0].match, text);
+  assert.equal(tokenize(extracted, { ...defaultOptions, arabic: { presentationForms: false } })[0].term, text);
+});
+
+test("invisible bidi and joiner controls do not affect matching or surface offsets", () => {
+  const word = "la\u200dngu\u2066a\u202ege";
+  const corpus = docs(`A ${word} example.`);
+  assert.equal(tokenize(corpus, defaultOptions)[1].term, "language");
+  assert.equal(concordance(corpus, defaultOptions, "language").hits[0].match, word);
+  assert.equal(concordance(corpus, defaultOptions, word).hits[0].position, 2);
+});
+
+test("experimental Arabic splitting preserves short stems and treats والكتاب like كتاب", () => {
+  const corpus = docs("والكتاب كتاب بالكتاب واليد");
+  const terms = tokenize(corpus, { ...defaultOptions, splitArabicClitics: true }).map(({ term }) => term);
+  assert.deepEqual(terms, ["كتاب", "كتاب", "كتاب", "واليد"]);
+});
 test("empty corpus has zero statistics", () => {
   const a = analyze(docs(" \n!? "));
   assert.equal(a.words, 0);

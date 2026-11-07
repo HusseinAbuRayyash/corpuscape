@@ -2268,6 +2268,14 @@ label,
 .frequency-bar {
   background: #edf2fc;
 }
+.analysis-option-group {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid #d9e2ef;
+  border-radius: 8px;
+  padding: 12px;
+}
 .sidebar-privacy strong {
   color: #667085;
 }

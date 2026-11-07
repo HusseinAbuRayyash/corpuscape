@@ -10,6 +10,8 @@
 - Document the repository history cleanup procedure.
 - Add an English–Arabic teaching sample, labelled research previews, live
   workspace screenshots, and author and citation details to the landing page.
+- Add optional Arabic term normalisation and experimental prefix splitting,
+  with eleven editable Stopwords ISO lists.
 
 ### Fixed
 
@@ -22,6 +24,8 @@
   context alignment.
 - Group workspace tools by research task, improve bidirectional results and
   chart labels, and load specialist tools on demand.
+- Ignore invisible direction and joiner controls in matching terms while
+  retaining original source text.
 
 ### Removed
 

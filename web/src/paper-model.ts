@@ -1,5 +1,6 @@
 import {
   analyze,
+  analysisOptionNotes,
   compare,
   concordance,
   collocations,
@@ -215,7 +216,7 @@ export function paperTables(s: PaperSnapshot, top: number): PaperTable[] {
   return tables;
 }
 export function paperMethods(s: PaperSnapshot) {
-  return `The corpus comprised ${s.source.documents.length} document${s.source.documents.length === 1 ? "" : "s"} (${s.analysis.words} word tokens). Corpuscape ${s.version} normalized token forms to Unicode NFC and used Intl.Segmenter word and sentence boundaries. Word-like segments, including numbers, were counted. Document language tags took precedence over the workspace language (${s.source.options.locale}). Case-sensitive counting was ${s.source.options.caseSensitive ? "enabled" : "disabled"}. ${s.source.options.stopWords.length ? `The frequency stop list was ${JSON.stringify(s.source.options.stopWords)}; it filtered frequencies and excluded n-grams containing a listed stop word, without changing corpus totals.` : "No frequency stop list was applied."} N-grams did not cross sentence or document boundaries. ${s.source.reference.length ? "A separately frozen reference corpus was compared using G², smoothed log ratios, approximate chi-square df=1 p-values, and Benjamini–Hochberg adjustment over all tested terms." : "The analysis was descriptive; no inferential test was applied."} ${s.source.pairs.length ? "Parallel units were preserved as supplied; alignment flags were reviewed as screening indicators." : ""} Source fingerprint (SHA-256): ${s.fingerprint}.`;
+  return `The corpus comprised ${s.source.documents.length} document${s.source.documents.length === 1 ? "" : "s"} (${s.analysis.words} word tokens). Corpuscape ${s.version} normalized token forms to Unicode NFC and used Intl.Segmenter word and sentence boundaries. Word-like segments, including numbers, were counted. Document language tags took precedence over the workspace language (${s.source.options.locale}). Case-sensitive counting was ${s.source.options.caseSensitive ? "enabled" : "disabled"}. ${s.source.options.stopWords.length ? `The frequency stop list was ${JSON.stringify(s.source.options.stopWords)}; it filtered frequencies and excluded n-grams containing a listed stop word, without changing corpus totals.` : "No frequency stop list was applied."} ${analysisOptionNotes(s.source.options, s.source.documents).arabic} Stop list source: ${analysisOptionNotes(s.source.options, s.source.documents).stopList}. Invisible bidi and joiner controls are omitted from terms. N-grams did not cross sentence or document boundaries. ${s.source.reference.length ? "A separately frozen reference corpus was compared using G², smoothed log ratios, approximate chi-square df=1 p-values, and Benjamini–Hochberg adjustment over all tested terms." : "The analysis was descriptive; no inferential test was applied."} ${s.source.pairs.length ? "Parallel units were preserved as supplied; alignment flags were reviewed as screening indicators." : ""} Source fingerprint (SHA-256): ${s.fingerprint}.`;
 }
 export function paperResults(s: PaperSnapshot) {
   const a = s.analysis;
