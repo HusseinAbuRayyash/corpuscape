@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use Corpuscape in your research, please cite it as below."
+title: "Corpuscape: a browser-based multilingual corpus analysis workspace"
+type: software
+authors:
+  - family-names: "Abu-Rayyash"
+    given-names: "Hussein"
+    affiliation: "Kent State University"
+    orcid: "https://orcid.org/0000-0002-9695-4030"
+version: "2.3.0"
+license: MIT
+repository-code: "https://github.com/HusseinAbuRayyash/corpuscape"
+url: "https://www.corpuscape.com"
+keywords:
+  - corpus linguistics
+  - translation studies
+  - parallel corpora
+  - Arabic
+  - concordance
