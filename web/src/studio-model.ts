@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import { chartTheme } from "./chart-theme";
 import type { TopLevelSpec } from "vega-lite";
-import type { Analysis, CorpusDocument } from "./engine";
+import type { Analysis, Collocation, CorpusDocument } from "./engine";
 export type DataRow = Record<string, string | number | null>;
 export type ChartKind =
   | "bar"
@@ -180,7 +180,7 @@ export interface StudioInputs {
       g2: number;
     }[];
   } | null;
-  collocates?: { term: string; count: number; pmi: number; dice: number }[];
+  collocates?: (Pick<Collocation, "term" | "count" | "pmi" | "dice"> & Partial<Collocation>)[];
   collocationContext?: string;
   pairs?: { source: string; target: string; note: string }[];
 }
@@ -281,6 +281,10 @@ export function studioDatasets(input: StudioInputs): Dataset[] {
           count: r.count,
           pmi: r.pmi,
           dice: r.dice,
+          expected: r.expected ?? null,
+          tScore: r.tScore ?? null,
+          logDice: r.logDice ?? null,
+          g2: r.g2 ?? null,
           rank: i + 1,
         })) ?? [],
       value: "count",

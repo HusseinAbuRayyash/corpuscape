@@ -31,6 +31,7 @@ import {
 import {
   alignByLine,
   analysisOptionNotes,
+  collocationColumns,
   arabicSettings,
   csv,
   defaultOptions,
@@ -42,6 +43,8 @@ import {
   type CorpusDocument,
   type Options,
   type Hit,
+  type Collocation,
+  type CollocationSide,
 } from "./engine";
 import { tableDocuments } from "./table-documents";
 import { importFile, ACCEPT, RequiresOcr, type Imported } from "./files";
@@ -199,6 +202,25 @@ function useEngine() {
       }
       worker.current.postMessage({ id: requestId, action, ...data });
     });
+}
+
+function runConcordanceRegex(data: Record<string, unknown>, signal: AbortSignal) {
+  return new Promise<{ hits: Hit[]; total: number }>((resolve, reject) => {
+    const worker = new Worker(new URL("./analysis.worker.ts", import.meta.url), { type: "module" });
+    const finish = (error?: string, result?: { hits: Hit[]; total: number }) => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      worker.terminate();
+      if (result) resolve(result);
+      else reject(new Error(error ?? "Regular expression search failed."));
+    };
+    const abort = () => finish("Search cancelled.");
+    const timer = setTimeout(() => finish("Regular expression search took too long. Try a simpler pattern."), 5000);
+    signal.addEventListener("abort", abort, { once: true });
+    worker.onmessage = ({ data }) => finish(data.error, data.result);
+    worker.onerror = () => finish();
+    worker.postMessage({ id: 1, action: "concordance", ...data });
+  });
 }
 function LocaleSelect({
   value,
@@ -382,14 +404,15 @@ function App() {
     [queryDocument, setQueryDocument] = useState("all");
   const [ngram, setNgram] = useState(2),
     [windowSize, setWindowSize] = useState(5),
-    [minimum, setMinimum] = useState(2);
+    [minimum, setMinimum] = useState(3);
+  const [queryMode, setQueryMode] = useState<"exact" | "pattern" | "regex">("exact");
+  const [windowSide, setWindowSide] = useState<CollocationSide>("both");
+  const [collocationSort, setCollocationSort] = useState<{ key: keyof Collocation; ascending: boolean }>({ key: "logDice", ascending: false });
   const [hits, setHits] = useState<{ hits: Hit[]; total: number }>({
     hits: [],
     total: 0,
   });
-  const [collocates, setCollocates] = useState<
-    { term: string; count: number; pmi: number; dice: number }[]
-  >([]);
+  const [collocates, setCollocates] = useState<Collocation[]>([]);
   const [queryError, setQueryError] = useState("");
   const collocationInputs = useRef<{
     documents: CorpusDocument[];
@@ -398,6 +421,7 @@ function App() {
     document: string;
     window: number;
     minimum: number;
+    side: CollocationSide;
   } | null>(null);
   const [queryBusy, setQueryBusy] = useState(false),
     [page, setPage] = useState(0);
@@ -635,7 +659,8 @@ function App() {
       previous.query !== query ||
       previous.document !== queryDocument ||
       previous.window !== windowSize ||
-      previous.minimum !== minimum
+      previous.minimum !== minimum ||
+      previous.side !== windowSide
     ) {
       setCollocates([]);
       collocationInputs.current = null;
@@ -651,9 +676,9 @@ function App() {
     }
     setQueryBusy(true);
     if (tab === "collocations") setCollocates([]);
-    const timer = setTimeout(
-      () =>
-        run(tab, {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+        const inputs = {
           documents:
             queryDocument === "all"
               ? documents
@@ -663,7 +688,12 @@ function App() {
           window: windowSize,
           minimum,
           context: contextSize,
-        })
+          mode: queryMode,
+          side: windowSide,
+        };
+        return (tab === "concordance" && queryMode === "regex"
+          ? runConcordanceRegex(inputs, controller.signal)
+          : run(tab, inputs))
           .then((result) => {
             if (version !== queryVersion.current) return;
             if (tab === "concordance") setHits(result);
@@ -676,6 +706,7 @@ function App() {
                 document: queryDocument,
                 window: windowSize,
                 minimum,
+                side: windowSide,
               };
             }
             setQueryBusy(false);
@@ -685,10 +716,14 @@ function App() {
               setQueryError(e instanceof Error ? e.message : String(e));
               setQueryBusy(false);
             }
-          }),
+          });
+      },
       300,
     );
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [
     documents,
     options,
@@ -698,6 +733,8 @@ function App() {
     minimum,
     contextSize,
     queryDocument,
+    queryMode,
+    windowSide,
   ]);
   useEffect(() => {
     setPage(0);
@@ -966,6 +1003,14 @@ function App() {
     () => sortConcordance(hits.hits, kwicSort, options.locale),
     [hits, kwicSort, options.locale],
   );
+  const sortedCollocates = useMemo(() => {
+    const { key, ascending } = collocationSort;
+    return [...collocates].sort((a, b) =>
+      (ascending ? 1 : -1) * (key === "term" ? a.term.localeCompare(b.term) : a[key] - b[key]),
+    );
+  }, [collocates, collocationSort]);
+  const collocationMeasure = collocationColumns.find(([key]) => key === collocationSort.key)![1];
+  const collocationWindow = `${windowSide} · ${windowSize} tokens · minimum ${minimum}`;
   function exportReport() {
     if (!analysis) return;
     const escape = xmlEscape;
@@ -1629,6 +1674,14 @@ function App() {
                                 {tab === "concordance" && (
                                   <>
                                     <label>
+                                      Match
+                                      <select value={queryMode} onChange={(e) => setQueryMode(e.target.value as typeof queryMode)}>
+                                        <option value="exact">Exact words</option>
+                                        <option value="pattern">Wildcard pattern</option>
+                                        <option value="regex">Regular expression</option>
+                                      </select>
+                                    </label>
+                                    <label>
                                       Context
                                       <input
                                         type="number"
@@ -1658,6 +1711,9 @@ function App() {
                                         <option value="right">
                                           Right context
                                         </option>
+                                        {["L3", "L2", "L1", "R1", "R2", "R3"].map((position) => (
+                                          <option key={position}>{position}</option>
+                                        ))}
                                         <option value="document">
                                           Document
                                         </option>
@@ -1667,6 +1723,14 @@ function App() {
                                 )}
                                 {tab === "collocations" && (
                                   <>
+                                    <label>
+                                      Window side
+                                      <select value={windowSide} onChange={(e) => setWindowSide(e.target.value as CollocationSide)}>
+                                        <option value="both">Both sides</option>
+                                        <option value="left">Left only</option>
+                                        <option value="right">Right only</option>
+                                      </select>
+                                    </label>
                                     <label>
                                       Window{" "}
                                       <input
@@ -1717,17 +1781,10 @@ function App() {
                                           ]),
                                         ])
                                       : exportAnalysisCsv("collocations", [
-                                          [
-                                            "Collocate",
-                                            "Window count",
-                                            "PMI",
-                                            "Dice",
-                                          ],
-                                          ...collocates.map((r) => [
-                                            r.term,
-                                            r.count,
-                                            r.pmi,
-                                            r.dice,
+                                          [...collocationColumns.map(([, label]) => label), "Sort measure", "Token window"],
+                                          ...sortedCollocates.map((r) => [
+                                            ...collocationColumns.map(([key]) => r[key]),
+                                            collocationMeasure, collocationWindow,
                                           ]),
                                         ])
                                   }
@@ -1736,6 +1793,13 @@ function App() {
                                   Export CSV
                                 </button>
                               </div>
+                              {tab === "concordance" && queryMode !== "exact" && (
+                                <p className="fine">
+                                  {queryMode === "pattern"
+                                    ? "Use * for any characters, ? for one character, and | for alternatives within one word."
+                                    : "Each space-separated expression must match a whole term. Maximum 200 characters."}
+                                </p>
+                              )}
                               {queryError && (
                                 <p className="notice error" role="alert">
                                   {queryError}
@@ -1757,9 +1821,7 @@ function App() {
                               ) : tab === "concordance" ? (
                                 <>
                                   <p className="table-description">
-                                    {fmt(hits.total)} matches · showing up to
-                                    all matches across pages · whole segmented
-                                    words
+                                    {fmt(hits.total)} matches · whole segmented words
                                   </p>
                                   <DataTable
                                     textColumns={[0, 1, 2, 3]}
@@ -1790,19 +1852,25 @@ function App() {
                                 <>
                                   <DataTable
                                     textColumns={[0]}
-                                    headers={[
-                                      "Collocate",
-                                      "Window count",
-                                      "PMI",
-                                      "Dice",
-                                    ]}
-                                    rows={collocates
+                                    headers={collocationColumns.map(([, label]) => label)}
+                                    sortedColumn={collocationColumns.findIndex(([key]) => key === collocationSort.key)}
+                                    ascending={collocationSort.ascending}
+                                    onSort={(index) => {
+                                      const [key] = collocationColumns[index];
+                                      setCollocationSort(({ key: current, ascending }) => ({ key, ascending: key === current ? !ascending : key === "term" }));
+                                      setPage(0);
+                                    }}
+                                    rows={sortedCollocates
                                       .slice(page * 50, page * 50 + 50)
                                       .map((r) => [
                                         <span dir="auto">{r.term}</span>,
                                         r.count,
+                                        fmt(r.expected, 3),
                                         fmt(r.pmi, 3),
                                         fmt(r.dice, 4),
+                                        fmt(r.tScore, 3),
+                                        fmt(r.logDice, 3),
+                                        fmt(r.g2, 3),
                                       ])}
                                   />
                                   <Pagination
@@ -1811,11 +1879,8 @@ function App() {
                                     onChange={setPage}
                                   />
                                   <p className="result-note">
-                                    Symmetric token windows within sentences.
-                                    Counts are directed co-occurrence events.
-                                    PMI and Dice use window-slot marginals. Rare
-                                    pairs can have high PMI; inspect frequencies
-                                    and context.
+                                    Window: {collocationWindow}. Sorted by {collocationMeasure}.
+                                    Counts are directed co-occurrences within sentences.
                                   </p>
                                 </>
                               )}
@@ -2524,14 +2589,17 @@ function App() {
                 analysis={analysis}
                 documents={documents}
                 comparison={comparison}
-                collocates={collocates}
-                collocationContext={`Node ${JSON.stringify(query)} · symmetric window ±${windowSize} · minimum ${minimum} · ${queryDocument === "all" ? "all documents" : (documents[Number(queryDocument)]?.name ?? "selected document")} · workspace language ${options.locale}, document overrides apply`}
+                collocates={sortedCollocates}
+                collocationContext={`Node ${JSON.stringify(query)} · ${collocationWindow} · sorted by ${collocationMeasure} · ${queryDocument === "all" ? "all documents" : (documents[Number(queryDocument)]?.name ?? "selected document")}`}
                 pairs={pairs}
                 onReports={() => navigate("reports")}
               />
             )}
             {view === "reports" && (
               <ResearchReports
+                collocation={collocationInputs.current ? {
+                  node: query, window: collocationWindow, measure: collocationMeasure, rows: sortedCollocates,
+                } : undefined}
                 name={name}
                 analysis={analysis}
                 documents={documents}
@@ -3445,10 +3513,16 @@ function DataTable({
   headers,
   rows,
   textColumns = [],
+  sortedColumn,
+  ascending,
+  onSort,
 }: {
   headers: string[];
   rows: React.ReactNode[][];
   textColumns?: number[];
+  sortedColumn?: number;
+  ascending?: boolean;
+  onSort?: (index: number) => void;
 }) {
   return (
     <div className="table-scroll">
@@ -3456,7 +3530,11 @@ function DataTable({
         <thead>
           <tr>
             {headers.map((h, i) => (
-              <th key={i}>{h}</th>
+              <th key={i} aria-sort={sortedColumn === i ? (ascending ? "ascending" : "descending") : undefined}>
+                {onSort ? <button type="button" onClick={() => onSort(i)}>
+                  {h} <span aria-hidden="true">{sortedColumn === i ? (ascending ? "↑" : "↓") : "↕"}</span>
+                </button> : h}
+              </th>
             ))}
           </tr>
         </thead>

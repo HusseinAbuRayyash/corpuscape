@@ -11,8 +11,50 @@ import {
   tmx,
   defaultOptions,
   createTextFilter,
+  sortConcordance,
 } from "../web/src/engine";
 const docs = (text: string) => [{ name: "test.txt", text }];
+test("right-context sort compares the first word, ignoring punctuation, spacing and capitalisation", () => {
+  const hits = ["! zebra", "   Banana", ", apple", "  'CHERRY'"].map((right, position) => ({
+    left: "", match: "node", right, position, document: "example",
+  }));
+  assert.deepEqual(sortConcordance(hits, "right", "en").map(({ position }) => position), [2, 1, 3, 0]);
+});
+
+test("position sorting starts at the selected context word and breaks ties outward", () => {
+  const hits = ["outer beta near", "far beta near", "away alpha near"].map((left, position) => ({
+    left, match: "node", right: left.split(" ").reverse().join(" "), position, document: "example",
+  }));
+  for (const order of ["L2", "R2"]) {
+    assert.deepEqual(sortConcordance(hits, order, "en").map(({ position }) => position), [2, 1, 0]);
+  }
+});
+
+test("concordance patterns match whole tokens and regex reports invalid or long input", () => {
+  const corpus = docs("Translation connects colour. Translating connects color. Recolor remains. ترجم ترجمة.");
+  const search = (query: string, mode: "pattern" | "regex") =>
+    concordance(corpus, defaultOptions, query, 0, Infinity, mode);
+  assert.equal(search("translat* connects colour|color", "pattern").total, 2);
+  assert.equal(search("col?r", "pattern").total, 1);
+  assert.equal(search("ترجم*", "pattern").total, 2);
+  assert.equal(search("colou?r", "regex").total, 2);
+  assert.throws(() => search("[", "regex"), /Invalid regular expression/);
+  assert.throws(() => search("a".repeat(201), "regex"), /at most 200/);
+});
+
+test("directional collocation measures use only the eligible window slots", () => {
+  const corpus = docs("Left node right. Left node right. Other node right.");
+  const [row] = collocations(corpus, defaultOptions, "node", 1, 3, "right");
+  assert.equal(row.term, "right");
+  assert.equal(row.count, 3);
+  assert.equal(row.expected, 1.5);
+  assert.equal(row.dice, 1);
+  assert.equal(row.pmi, 1);
+  assert.equal(row.logDice, 14);
+  assert.equal(row.tScore, 1.5 / Math.sqrt(3));
+  assert.equal(row.g2, 12 * Math.log(2));
+  assert.equal(collocations(corpus, defaultOptions, "node", 1, 3, "left").length, 0);
+});
 test("Arabic folding affects matching terms, queries, filters and stop words without altering source", () => {
   const corpus = docs("أحمد وكتاب. احمد وكتاب. إحمد وكتاب. كَتَبَ");
   assert.equal(analyze(corpus).frequencies.filter((row) => /حمد$/u.test(row.term)).length, 3);
@@ -171,7 +213,9 @@ test("phrase matching stays inside documents and returns all matches beyond the 
 test("collocation event marginals have correct PMI and Dice", () => {
   // a -> b, b -> a, b -> a, a -> b: 4 slots. 2 start at a, 2 end at b.
   const r = collocations(docs("a b a"), defaultOptions, "a", 1, 1);
-  assert.deepEqual(r, [{ term: "b", count: 2, pmi: 1, dice: 1 }]);
+  assert.deepEqual(r.map(({ term, count, pmi, dice }) => ({ term, count, pmi, dice })), [
+    { term: "b", count: 2, pmi: 1, dice: 1 },
+  ]);
   assert.deepEqual(
     collocations(docs("Cat! Dog!"), defaultOptions, "cat", 5, 1),
     [],

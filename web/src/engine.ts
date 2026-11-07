@@ -255,13 +255,25 @@ export function concordance(
   query: string,
   context = 55,
   maxHits = Number.POSITIVE_INFINITY,
+  mode: "exact" | "pattern" | "regex" = "exact",
 ): { hits: Hit[]; total: number } {
   if (!Number.isSafeInteger(context) || context < 0)
     throw new Error("Context must be a non-negative integer.");
+  const regex = mode === "regex" ? compileConcordanceRegex(query) : null;
+  const needles = documents.map((doc) => {
+    if (regex) return regex;
+    if (mode === "pattern")
+      return query.trim().split(/\s+/u).map((part) => {
+        const alternatives = part.split("|").map((pattern) =>
+          normalizeTerm(pattern, options, effectiveLocale(doc, options), presentationForms(doc, options)),
+        );
+        return (term: string) => alternatives.some((pattern) => globMatch(pattern, term));
+      });
+    return tokenize([{ ...doc, text: query }], options).map(({ term }) =>
+      (candidate: string) => candidate === term,
+    );
+  });
   const tokens = tokenize(documents, options);
-  const needles = documents.map((doc) =>
-    tokenize([{ ...doc, text: query }], options).map((t) => t.term),
-  );
   const boundaries = new Map<number, number[]>();
   const hits: Hit[] = [];
   let total = 0;
@@ -273,7 +285,7 @@ export function concordance(
     if (
       first.document !== last.document ||
       first.sentence !== last.sentence ||
-      !needle.every((term, j) => tokens[i + j].term === term)
+      !needle.every((matches, j) => matches(tokens[i + j].term))
     )
       continue;
     total++;
@@ -304,6 +316,30 @@ export function concordance(
   }
   return { hits, total };
 }
+function compileConcordanceRegex(query: string) {
+  if ([...query].length > 200) throw new Error("Regular expressions can contain at most 200 characters.");
+  return query.trim().split(/\s+/u).filter(Boolean).map((part) => {
+    try {
+      const regex = new RegExp(`^(?:${part})$`, "u");
+      return (term: string) => regex.test(term);
+    } catch {
+      throw new Error(`Invalid regular expression: ${part}`);
+    }
+  });
+}
+
+function globMatch(pattern: string, term: string) {
+  const glob = [...pattern], word = [...term];
+  let p = 0, w = 0, star = -1, consumed = 0;
+  while (w < word.length) {
+    if (glob[p] === "*") { star = p++; consumed = w; }
+    else if (glob[p] === "?" || glob[p] === word[w]) { p++; w++; }
+    else if (star >= 0) { p = star + 1; w = ++consumed; }
+    else return false;
+  }
+  while (glob[p] === "*") p++;
+  return p === glob.length;
+}
 function lowerBound(values: number[], value: number) {
   let lo = 0,
     hi = values.length;
@@ -316,31 +352,38 @@ function lowerBound(values: number[], value: number) {
 }
 export function sortConcordance(hits: Hit[], order: string, locale = "und") {
   const tag = locale === "und" ? undefined : locale;
+  if (order === "document") return [...hits].sort((a, b) =>
+    a.document.localeCompare(b.document, tag) || a.position - b.position,
+  );
+  const position = /^[LR][1-3]$/.test(order) ? Number(order[1]) - 1 : 0;
+  const left = order === "left" || order.startsWith("L");
+  if (!left && order !== "right" && !order.startsWith("R")) return [...hits];
   const segmenter = new Intl.Segmenter(tag, { granularity: "word" });
-  const leftKey = (text: string) =>
-    [...segmenter.segment(text)]
+  const key = (text: string) => {
+    const words = [...segmenter.segment(text)]
       .filter((part) => part.isWordLike)
-      .map((part) => part.segment.normalize("NFC").toLocaleLowerCase(tag))
-      .reverse()
-      .join("\u0000");
-  const keys = new Map(
-    hits.map((hit) => [hit, order === "left" ? leftKey(hit.left) : hit.right]),
-  );
-  return [...hits].sort((a, b) =>
-    order === "document"
-      ? a.document.localeCompare(b.document, tag) || a.position - b.position
-      : order === "left" || order === "right"
-        ? keys.get(a)!.localeCompare(keys.get(b)!, tag)
-        : 0,
-  );
+      .map((part) => part.segment.normalize("NFC").toLocaleLowerCase(tag));
+    if (left) words.reverse();
+    return words.slice(position).join("\u0000");
+  };
+  return hits.map((hit) => ({ hit, key: key(left ? hit.left : hit.right) }))
+    .sort((a, b) => a.key.localeCompare(b.key, tag)).map(({ hit }) => hit);
 }
+export type CollocationSide = "both" | "left" | "right";
+export const collocationColumns = [
+  ["term", "Collocate"], ["count", "Window count"], ["expected", "Expected"],
+  ["pmi", "PMI"], ["dice", "Dice"], ["tScore", "t-score"],
+  ["logDice", "logDice"], ["g2", "G²"],
+] as const;
+export type Collocation = Record<Exclude<(typeof collocationColumns)[number][0], "term">, number> & { term: string };
 export function collocations(
   documents: CorpusDocument[],
   options: Options,
   query: string,
   window = 5,
   minimum = 2,
-) {
+  side: CollocationSide = "both",
+): Collocation[] {
   if (
     !Number.isSafeInteger(window) ||
     window < 1 ||
@@ -365,8 +408,8 @@ export function collocations(
     nodeSlots = 0;
   for (let i = 0; i < tokens.length; i++) {
     for (
-      let j = Math.max(0, i - window);
-      j <= Math.min(tokens.length - 1, i + window);
+      let j = Math.max(0, i - (side === "right" ? 0 : window));
+      j <= Math.min(tokens.length - 1, i + (side === "left" ? 0 : window));
       j++
     ) {
       if (
@@ -389,12 +432,22 @@ export function collocations(
   }
   return [...pairs]
     .filter(([, count]) => count >= minimum)
-    .map(([term, count]) => ({
-      term,
-      count,
-      pmi: Math.log2((count * slots) / (nodeSlots * rightMarginal.get(term)!)),
-      dice: (2 * count) / (nodeSlots + rightMarginal.get(term)!),
-    }))
+    .map(([term, count]) => {
+      const marginal = rightMarginal.get(term)!;
+      const expected = (nodeSlots * marginal) / slots;
+      const dice = (2 * count) / (nodeSlots + marginal);
+      const observed = [count, nodeSlots - count, marginal - count, slots - nodeSlots - marginal + count];
+      const expectedCells = [expected, nodeSlots - expected, marginal - expected, (slots - nodeSlots) * (slots - marginal) / slots];
+      const g2 = Math.max(0, 2 * observed.reduce((sum, cell, i) =>
+        cell ? sum + cell * Math.log(cell / expectedCells[i]) : sum, 0,
+      ));
+      return {
+        term, count, expected, dice, g2,
+        pmi: Math.log2((count * slots) / (nodeSlots * marginal)),
+        tScore: (count - expected) / Math.sqrt(count),
+        logDice: 14 + Math.log2(dice),
+      };
+    })
     .sort((a, b) => b.count - a.count || b.pmi - a.pmi);
 }
 export function compare(a: Analysis, b: Analysis) {

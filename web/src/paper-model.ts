@@ -4,6 +4,7 @@ import {
   compare,
   concordance,
   collocations,
+  collocationColumns,
   csv,
   xmlEscape,
   type Analysis,
@@ -413,14 +414,14 @@ export function paperCsvFiles(s: PaperSnapshot, p: PaperProject) {
       80,
     );
     files["focus-collocations.csv"] = csv([
-      ["Collocate", "Window count", "PMI", "Dice"],
+      [...collocationColumns.map(([, label]) => label), "Sort measure", "Token window"],
       ...collocations(
         s.source.documents,
         s.source.options,
         p.focusTerm,
         5,
         1,
-      ).map((r) => [r.term, r.count, r.pmi, r.dice]),
+      ).map((r) => [...collocationColumns.map(([key]) => r[key]), "Window count", "both · 5 tokens · minimum 1"]),
     ]);
     files["focus-concordance.csv"] = csv([
       ["Left", "Match", "Right", "Document", "Character position"],
