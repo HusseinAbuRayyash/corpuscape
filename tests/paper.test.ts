@@ -146,6 +146,7 @@ test("draft highlights preserve original text offsets and distinguish decimals f
     "۹۹۹",
   ]);
   assert.deepEqual(unmatchedDraftNumbers("No evidence for 42.", new Set()).map(({ normalized }) => normalized), ["42"]);
+  assert.deepEqual(unmatchedDraftNumbers("p = 0.001.", new Set([1])).map(({ normalized }) => normalized), ["0.001"]);
 });
 test("report exports retain frozen title, requested language, incomplete status, checks and evidence", () => {
   const metadata = {

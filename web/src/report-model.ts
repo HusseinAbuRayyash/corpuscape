@@ -289,9 +289,9 @@ export function unmatchedDraftNumbers(text: string, numbers: ReadonlySet<number>
     const compact = normalized.replace(/[\s%]/gu, "");
     const candidates = [compact];
     if (compact.includes(",")) candidates.push(compact.replace(/\./g, "").replace(",", "."));
-    if (/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(compact))
+    if (/^[+-]?[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(compact))
       candidates.push(compact.replace(/,/g, ""));
-    if (!compact.includes(",") && /^[+-]?\d{1,3}(?:\.\d{3})+$/u.test(compact))
+    if (!compact.includes(",") && /^[+-]?[1-9]\d{0,2}(?:\.\d{3})+$/u.test(compact))
       candidates.push(compact.replace(/\./g, ""));
     if (candidates.some((candidate) => {
       const [mantissa, exponent = "0"] = candidate.toLowerCase().split("e");
