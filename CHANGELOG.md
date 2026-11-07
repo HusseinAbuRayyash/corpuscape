@@ -4,7 +4,7 @@
 
 ### Added
 
-- Add the MIT license and citation metadata for the planned 2.4.0 release.
+- Add the MIT license and citation metadata.
 - Use the package version as the source for the app's `APP_VERSION` constant.
 - Document the repository history cleanup procedure.
 
