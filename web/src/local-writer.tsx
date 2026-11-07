@@ -11,6 +11,9 @@ import {
   type WriterState,
 } from "./writer-client";
 import { localModels, type ModelId } from "./report-model";
+import { supportsWriterWebGpu } from "./writer-webgpu";
+
+const selectableModels = localModels.filter(({ id }) => id !== "qwen-large");
 const Context = createContext<{
   client: LocalWriterClient;
   state: WriterState;
@@ -35,6 +38,7 @@ export function useLocalWriter() {
 export function ModelConnection() {
   const { client, state } = useLocalWriter();
   const [model, setModel] = useState<ModelId>("mlc-qwen"),
+    [webGpu, setWebGpu] = useState<boolean | null>(null),
     [device, setDevice] = useState<"auto" | "cpu" | "gpu">("auto"),
     [context, setContext] = useState(4096),
     [error, setError] = useState(""),
@@ -48,7 +52,7 @@ export function ModelConnection() {
       const settings = JSON.parse(
         localStorage.getItem("writer-settings-v1") ?? "null",
       );
-      if (settings && localModels.some((m) => m.id === settings.model)) {
+      if (settings && selectableModels.some((m) => m.id === settings.model)) {
         setModel(settings.model);
         setDevice(
           ["auto", "cpu", "gpu"].includes(settings.device)
@@ -66,8 +70,19 @@ export function ModelConnection() {
     } catch {
       /* Defaults work without storage. */
     }
+    let active = true;
+    void supportsWriterWebGpu().then((available) => {
+      if (!active) return;
+      setWebGpu(available);
+      if (!available) {
+        setModel("qwen-small");
+        setDevice("cpu");
+      }
+    });
+    return () => { active = false; };
   }, []);
   async function connect() {
+    if (webGpu === null || (!webGpu && (model === "mlc-qwen" || device === "gpu"))) return;
     setError("");
     setMessage("");
     try {
@@ -106,21 +121,27 @@ export function ModelConnection() {
           <label>
             Open model
             <select
-              disabled={busy}
+              disabled={busy || webGpu === null}
               value={model}
+              aria-describedby={webGpu === false ? "writer-webgpu-reason" : undefined}
               onChange={(e) => {
                 setModel(e.target.value as ModelId);
                 if (e.target.value === "mlc-qwen" && device === "cpu")
                   setDevice("auto");
               }}
             >
-              {localModels.map((m) => (
-                <option key={m.id} value={m.id}>
+              {selectableModels.map((m) => (
+                <option key={m.id} value={m.id} disabled={m.id === "mlc-qwen" && webGpu !== true}>
                   {m.name}
                 </option>
               ))}
             </select>
           </label>
+          {webGpu === false && (
+            <p className="research-muted" id="writer-webgpu-reason">
+              Qwen2.5 1.5B requires WebGPU with float16 support. Your browser or device does not provide it.
+            </p>
+          )}
           <div className="model-spec">
             <strong>{info.detail}</strong>
             <span>
@@ -139,7 +160,7 @@ export function ModelConnection() {
           <label>
             Compute mode
             <select
-              disabled={busy}
+              disabled={busy || webGpu === null}
               value={device}
               onChange={(e) => setDevice(e.target.value as typeof device)}
             >
@@ -149,7 +170,7 @@ export function ModelConnection() {
                   ? " · GPU with compact CPU fallback"
                   : " · GPU with CPU fallback"}
               </option>
-              <option value="gpu">WebGPU</option>
+              <option disabled={webGpu !== true} value="gpu">WebGPU</option>
               <option disabled={model === "mlc-qwen"} value="cpu">
                 CPU / WASM
               </option>
@@ -175,7 +196,7 @@ export function ModelConnection() {
         </>
       )}
       {state.phase === "not-loaded" ? (
-        <button className="research-button primary full" onClick={connect}>
+        <button className="research-button primary full" disabled={webGpu === null} onClick={connect}>
           Download & connect model
         </button>
       ) : (

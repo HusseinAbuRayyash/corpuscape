@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   extractWithOcr,
+  needsRtlOcrReview,
   ocrDocuments,
   ocrLanguages,
   type OcrPage,
@@ -31,6 +32,7 @@ export function TextExtraction({
     [custom, setCustom] = useState(""),
     [mode, setMode] = useState<"auto" | "ocr">("auto"),
     [pages, setPages] = useState<OcrPage[]>([]),
+    [resultLanguages, setResultLanguages] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [progress, setProgress] = useState<OcrProgress>({
@@ -54,6 +56,7 @@ export function TextExtraction({
     setBusy(true);
     setError("");
     setPages([]);
+    setResultLanguages(selected);
     setCleanupUndo({});
     const controller = new AbortController();
     abort.current = controller;
@@ -302,7 +305,7 @@ export function TextExtraction({
                 <button
                   className="research-button primary"
                   disabled={busy}
-                  onClick={() => onUse(ocrDocuments(pages, selected))}
+                  onClick={() => onUse(ocrDocuments(pages, resultLanguages))}
                 >
                   Use as corpus
                   <ArrowRight size={15} />
@@ -312,12 +315,13 @@ export function TextExtraction({
                 <section key={index} className="research-card ocr-page">
                   <div>
                     <h2>{page.name}</h2>
-                    <span>
-                      {page.source === "text"
-                        ? "Selectable text"
-                        : `OCR · engine confidence ${page.confidence?.toFixed(1)}%`}
-                    </span>
+                    <span>{page.source === "text" ? "Selectable text" : "OCR"}</span>
                   </div>
+                  {needsRtlOcrReview(page, resultLanguages) && (
+                    <p className="research-notice">
+                      OCR accuracy for this script is limited. Check the extracted text before analysis.
+                    </p>
+                  )}
                   <div className="action-row">
                     <button
                       className="research-text-button"
@@ -386,7 +390,6 @@ export function TextExtraction({
                 </section>
               ))}
               <p className="research-muted">
-                Engine confidence is a model signal, not verified accuracy.
                 Edits are applied when you use or download the extracted corpus.
               </p>
             </>

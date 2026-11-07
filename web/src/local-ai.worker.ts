@@ -6,6 +6,7 @@ import {
   type TextGenerationPipeline,
 } from "@huggingface/transformers";
 import { localModels, type ModelId } from "./report-model";
+import { supportsWriterWebGpu } from "./writer-webgpu";
 import type { MLCEngine, ChatCompletionMessageParam } from "@mlc-ai/web-llm";
 env.allowLocalModels = false;
 env.useBrowserCache = true;
@@ -36,16 +37,7 @@ async function load(
   mlcGenerator = null;
   generator = null;
   progressFiles.clear();
-  const gpuNavigator = navigator as Navigator & {
-    gpu?: {
-      requestAdapter: () => Promise<{
-        features: { has: (name: string) => boolean };
-      } | null>;
-    };
-  };
-  const adapter =
-    device !== "cpu" ? await gpuNavigator.gpu?.requestAdapter() : undefined;
-  let gpu = !!adapter?.features.has("shader-f16");
+  const gpu = device !== "cpu" && await supportsWriterWebGpu();
   if (id === "mlc-qwen") {
     if (!Number.isSafeInteger(context) || context < 1 || context > 32768)
       throw new Error(
