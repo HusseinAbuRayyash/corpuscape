@@ -78,6 +78,8 @@ export function validateBackup(data: unknown): {
     if (typeof opts.splitArabicClitics === "boolean") options.splitArabicClitics = opts.splitArabicClitics;
     if (typeof opts.stopListLanguage === "string" && /^[a-z]{2}$/.test(opts.stopListLanguage))
       options.stopListLanguage = opts.stopListLanguage;
+    const base = opts.normalisationBase;
+    if (base === 1000 || base === 10000 || base === 1000000) options.normalisationBase = base;
   }
   return {
     name: typeof value.name === "string" ? value.name : "Restored corpus",

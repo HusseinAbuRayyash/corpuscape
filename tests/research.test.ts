@@ -51,7 +51,7 @@ for (const [locale, word, other] of matrix) {
     assert.equal(result.ttr, 0.5);
     assert.deepEqual(
       result.frequencies.find((r) => r.term === word),
-      { term: word, count: 2, perMillion: 500000, documents: 1 },
+      { term: word, count: 2, perMillion: 500000, documents: 1, dp: null, dpNorm: null, juillandD: null },
     );
     assert.equal(
       result.ngrams[2].find((r) => r.term === `${word} ${other}`)?.count,
