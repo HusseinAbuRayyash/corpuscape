@@ -1,4 +1,6 @@
 import { chiSquareOne, benjaminiHochberg } from "./statistics";
+export const normalisationBases = [1000, 10000, 1000000] as const;
+export type NormalisationBase = (typeof normalisationBases)[number];
 export interface CorpusDocument {
   name: string;
   text: string;
@@ -22,6 +24,7 @@ export interface Options {
   arabic?: ArabicOptions;
   splitArabicClitics?: boolean;
   stopListLanguage?: string;
+  normalisationBase?: NormalisationBase;
 }
 export interface Token {
   term: string;
@@ -36,6 +39,9 @@ export interface Frequency {
   count: number;
   perMillion: number;
   documents: number;
+  dp: number | null;
+  dpNorm: number | null;
+  juillandD: number | null;
 }
 export interface Hit {
   left: string;
@@ -178,7 +184,8 @@ export function analyze(
       stopSet(options, doc),
     );
   const perDocument = documents.map(() => new Map<string, number>());
-  const counts = new Map<string, { count: number; documents: Set<number> }>();
+  const documentSizes = documents.map(() => 0);
+  const counts = new Map<string, { count: number; documents: Map<number, number> }>();
   const unique = new Set<string>(),
     sentences = new Set<string>();
   for (const token of tokens) {
@@ -186,21 +193,25 @@ export function analyze(
     sentences.add(`${token.document}:${token.sentence}`);
     const docCounts = perDocument[token.document];
     docCounts.set(token.term, (docCounts.get(token.term) ?? 0) + 1);
+    documentSizes[token.document]++;
     if (stops[token.document].has(token.term)) continue;
     const entry = counts.get(token.term) ?? {
       count: 0,
-      documents: new Set<number>(),
+      documents: new Map<number, number>(),
     };
     entry.count++;
-    entry.documents.add(token.document);
+    entry.documents.set(token.document, (entry.documents.get(token.document) ?? 0) + 1);
     counts.set(token.term, entry);
   }
+  const nonempty = documentSizes.filter(Boolean);
+  const minShare = nonempty.reduce((min, size) => Math.min(min, size / tokens.length), 1);
   const frequencies = [...counts]
     .map(([term, entry]) => ({
       term,
       count: entry.count,
       perMillion: (entry.count / tokens.length) * 1e6,
       documents: entry.documents.size,
+      ...dispersion(entry.count, entry.documents, documentSizes, tokens.length, nonempty.length, minShare),
     }))
     .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
   const ngrams: Analysis["ngrams"] = {};
@@ -228,7 +239,7 @@ export function analyze(
     const counts = perDocument[i];
     return {
       name: doc.name,
-      words: [...counts.values()].reduce((a, b) => a + b, 0),
+      words: documentSizes[i],
       types: counts.size,
       hapax: [...counts.values()].filter((count) => count === 1).length,
       locale: doc.locale ?? options.locale,
@@ -247,6 +258,30 @@ export function analyze(
     frequencies,
     ngrams,
     documentStats,
+  };
+}
+
+function dispersion(
+  count: number, termByDoc: Map<number, number>, sizes: number[],
+  total: number, n: number, minShare: number,
+) {
+  if (n < 2) return { dp: null, dpNorm: null, juillandD: null };
+  let deviation = 1, sum = 0, squares = 0;
+  for (const [index, occurrences] of termByDoc) {
+    const share = sizes[index] / total;
+    // Documents with zero occurrences contribute their full corpus share.
+    deviation += Math.abs(occurrences / count - share) - share;
+    const rate = occurrences / sizes[index];
+    sum += rate;
+    squares += rate * rate;
+  }
+  const mean = sum / n;
+  const cv = Math.sqrt(Math.max(0, squares / n - mean * mean)) / mean;
+  const dp = Math.max(0, deviation / 2);
+  return {
+    dp,
+    dpNorm: Math.min(1, dp / (1 - minShare)),
+    juillandD: Math.max(0, 1 - cv / Math.sqrt(n - 1)),
   };
 }
 export function concordance(

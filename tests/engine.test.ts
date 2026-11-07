@@ -179,12 +179,30 @@ test("document dispersion is per document rather than token count", () => {
     { name: "a", text: "red red" },
     { name: "b", text: "red" },
   ]);
-  assert.deepEqual(a.frequencies[0], {
+  const { dp, dpNorm, juillandD, ...frequency } = a.frequencies[0];
+  assert.deepEqual(frequency, {
     term: "red",
     count: 3,
     perMillion: 1e6,
     documents: 2,
   });
+  assert.ok(dp! < 1e-12 && dpNorm! < 1e-12);
+  assert.equal(juillandD, 1);
+});
+
+test("DP, DPnorm and Juilland's D match an unequal three-document example", () => {
+  const corpus = [
+    { name: "a", text: "x y" },
+    { name: "b", text: "x x y y" },
+    { name: "c", text: "y y y y" },
+  ];
+  // Shares (.2, .4, .4), term shares (1/3, 2/3, 0), rates (.5, .5, 0).
+  const row = analyze(corpus).frequencies.find(({ term }) => term === "x")!;
+  assert.ok(Math.abs(row.dp! - 0.4) < 1e-12);
+  assert.ok(Math.abs(row.dpNorm! - 0.5) < 1e-12);
+  assert.ok(Math.abs(row.juillandD! - 0.5) < 1e-12);
+  const single = analyze(corpus.slice(0, 1)).frequencies[0];
+  assert.deepEqual([single.dp, single.dpNorm, single.juillandD], [null, null, null]);
 });
 test("concordance uses whole words, returns original offsets and does not match inside a word", () => {
   const text = "A Cat, a caterpillar and cat.";

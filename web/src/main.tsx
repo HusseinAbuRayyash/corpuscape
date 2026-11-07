@@ -32,6 +32,7 @@ import {
   alignByLine,
   analysisOptionNotes,
   collocationColumns,
+  normalisationBases,
   arabicSettings,
   csv,
   defaultOptions,
@@ -45,6 +46,7 @@ import {
   type Hit,
   type Collocation,
   type CollocationSide,
+  type NormalisationBase,
 } from "./engine";
 import { tableDocuments } from "./table-documents";
 import { importFile, ACCEPT, RequiresOcr, type Imported } from "./files";
@@ -430,6 +432,9 @@ function App() {
   const [reference, setReference] = useState<CorpusDocument[]>([]),
     [referencePaste, setReferencePaste] = useState("");
   const [compareError, setCompareError] = useState("");
+  const [keynessMinimum, setKeynessMinimum] = useState(5);
+  const [keynessEffect, setKeynessEffect] = useState(0);
+  const [keynessSignificant, setKeynessSignificant] = useState(false);
   const [comparison, setComparison] = useState<{
     a: Analysis;
     b: Analysis;
@@ -738,7 +743,7 @@ function App() {
   ]);
   useEffect(() => {
     setPage(0);
-  }, [filter, ngram, tab, pairFilter, pairs.length]);
+  }, [filter, ngram, tab, pairFilter, pairs.length, keynessMinimum, keynessEffect, keynessSignificant]);
   useEffect(() => {
     const version = ++compareVersion.current;
     setComparison(null);
@@ -978,6 +983,18 @@ function App() {
     () => (analysis?.frequencies ?? []).filter((row) => termFilter(row.term)),
     [analysis, termFilter],
   );
+  const keynessRows = useMemo(
+    () => (comparison?.rows ?? []).filter((row) =>
+      row.a + row.b >= keynessMinimum &&
+      Math.abs(row.logRatio) >= keynessEffect &&
+      (!keynessSignificant || row.qValue < 0.05),
+    ),
+    [comparison, keynessMinimum, keynessEffect, keynessSignificant],
+  );
+  const frequencyBase = options.normalisationBase ?? 1000000;
+  const frequencyUnit = frequencyBase === 1000000 ? "Per million" : `Per ${fmt(frequencyBase)}`;
+  const rate = (perMillion: number) => perMillion / (1000000 / frequencyBase);
+  const dispersionText = (value: number | null) => value == null ? "—" : fmt(value, 3);
   const gramRows = (analysis?.ngrams[ngram] ?? []).filter((row) =>
     termFilter(row.term),
   );
@@ -1016,10 +1033,10 @@ function App() {
     const escape = xmlEscape;
     download(
       "corpuscape-report.html",
-      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(methodNotes.stopList)}. ${escape(methodNotes.arabic)} Bidi and joiner controls are stripped from terms. Deterministic descriptive frequency analysis. Optional local-model research drafts are available separately. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Full frequency table</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
+      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(methodNotes.stopList)}. ${escape(methodNotes.arabic)} Bidi and joiner controls are stripped from terms. Deterministic descriptive frequency analysis. Optional local-model research drafts are available separately. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Full frequency table</h2><table><tr><th>Term</th><th>Count</th><th>${frequencyUnit}</th><th>Documents</th><th>DP</th><th>DPnorm</th><th>Juilland D</th></tr>${analysis.frequencies
         .map(
           (r) =>
-            `<tr><td dir="auto">${escape(r.term)}</td><td>${r.count}</td><td>${fmt(r.perMillion, 2)}</td><td>${r.documents}</td></tr>`,
+            `<tr><td dir="auto">${escape(r.term)}</td><td>${r.count}</td><td>${fmt(rate(r.perMillion), 2)}</td><td>${r.documents}</td><td>${dispersionText(r.dp)}</td><td>${dispersionText(r.dpNorm)}</td><td>${dispersionText(r.juillandD)}</td></tr>`,
         )
         .join(
           "",
@@ -1371,6 +1388,16 @@ function App() {
                         />
                         Case-sensitive counts
                       </label>
+                      <label>
+                        Normalised frequency base
+                        <select value={frequencyBase} onChange={(event) =>
+                          setOptions({ ...options, normalisationBase: Number(event.target.value) as NormalisationBase })
+                        }>
+                          {normalisationBases.map((base) => (
+                            <option key={base} value={base}>{base === 1000000 ? "Per million" : `Per ${fmt(base)}`}</option>
+                          ))}
+                        </select>
+                      </label>
                       <fieldset className="analysis-option-group">
                         <legend>Arabic normalisation</legend>
                         {arabicSettings.filter(([key]) => key !== "presentationForms").map(([key, label]) => (
@@ -1506,14 +1533,16 @@ function App() {
                                       [
                                         "Term",
                                         "Frequency",
-                                        "Per million",
+                                        frequencyUnit,
                                         "Documents",
+                                        "DP", "DPnorm", "Juilland's D",
                                       ],
                                       ...frequencies.map((r) => [
                                         r.term,
                                         r.count,
-                                        r.perMillion,
+                                        rate(r.perMillion),
                                         r.documents,
+                                        r.dp ?? "", r.dpNorm ?? "", r.juillandD ?? "",
                                       ]),
                                     ])
                                   }
@@ -1522,6 +1551,9 @@ function App() {
                                   Export CSV
                                 </button>
                               </div>
+                              {analysis.words < 10000 && frequencyBase !== 1000 && (
+                                <p className="fine">For a small corpus, try per 1,000 in Settings.</p>
+                              )}
                               <div className="analysis-grid">
                                 <div>
                                   <DataTable
@@ -1529,8 +1561,9 @@ function App() {
                                     headers={[
                                       "Term",
                                       "Frequency",
-                                      "Per million",
+                                      frequencyUnit,
                                       "Docs",
+                                      "DP", "DPnorm", "Juilland’s D",
                                     ]}
                                     rows={frequencies
                                       .slice(page * 50, page * 50 + 50)
@@ -1546,8 +1579,9 @@ function App() {
                                           {r.term}
                                         </button>,
                                         fmt(r.count),
-                                        fmt(r.perMillion, 1),
+                                        fmt(rate(r.perMillion), 1),
                                         r.documents,
+                                        dispersionText(r.dp), dispersionText(r.dpNorm), dispersionText(r.juillandD),
                                       ])}
                                   />
                                   <Pagination
@@ -2490,6 +2524,19 @@ function App() {
                   <section className="panel results-panel">
                     <div className="results-toolbar">
                       <strong>Distinctive distributions</strong>
+                      <label>Minimum combined count
+                        <input type="number" min="0" step="1" value={keynessMinimum}
+                          onChange={(event) => setKeynessMinimum(Math.max(0, Math.floor(Number(event.target.value))))} />
+                      </label>
+                      <label>Minimum absolute log₂ ratio
+                        <input type="number" min="0" step="0.1" value={keynessEffect}
+                          onChange={(event) => setKeynessEffect(Math.max(0, Number(event.target.value)))} />
+                      </label>
+                      <label className="check-label">
+                        <input type="checkbox" checked={keynessSignificant}
+                          onChange={(event) => setKeynessSignificant(event.target.checked)} />
+                        Significant only (q &lt; 0.05)
+                      </label>
                       <button
                         className="button secondary small"
                         onClick={() =>
@@ -2498,20 +2545,20 @@ function App() {
                               "Term",
                               "A count",
                               "B count",
-                              "A per million",
-                              "B per million",
+                              `A ${frequencyUnit.toLowerCase()}`,
+                              `B ${frequencyUnit.toLowerCase()}`,
                               "Log2 ratio",
                               "G2",
                               "Approx p (chi-square df1)",
                               "BH q-value",
                               "Log10 p",
                             ],
-                            ...comparison.rows.map((r) => [
+                            ...keynessRows.map((r) => [
                               r.term,
                               r.a,
                               r.b,
-                              r.aPerMillion,
-                              r.bPerMillion,
+                              rate(r.aPerMillion),
+                              rate(r.bPerMillion),
                               r.logRatio,
                               r.g2,
                               r.pValue,
@@ -2525,27 +2572,28 @@ function App() {
                         Export CSV
                       </button>
                     </div>
+                    <p className="fine">{fmt(keynessRows.length)} of {fmt(comparison.rows.length)} terms</p>
                     <DataTable
                       textColumns={[0]}
                       headers={[
                         "Term",
                         "A count",
                         "B count",
-                        "A / million",
-                        "B / million",
+                        `A ${frequencyUnit.toLowerCase()}`,
+                        `B ${frequencyUnit.toLowerCase()}`,
                         "Log₂ ratio",
                         "G²",
                         "Approx. p",
                         "BH q",
                       ]}
-                      rows={comparison.rows
+                      rows={keynessRows
                         .slice(page * 50, page * 50 + 50)
                         .map((r) => [
                           <span dir="auto">{r.term}</span>,
                           r.a,
                           r.b,
-                          fmt(r.aPerMillion, 1),
-                          fmt(r.bPerMillion, 1),
+                          fmt(rate(r.aPerMillion), 1),
+                          fmt(rate(r.bPerMillion), 1),
                           <span
                             className={r.logRatio > 0 ? "positive" : "negative"}
                           >
@@ -2562,13 +2610,14 @@ function App() {
                     />
                     <Pagination
                       page={page}
-                      count={comparison.rows.length}
+                      count={keynessRows.length}
                       onChange={setPage}
                     />
                     <p className="result-note">
                       Ranked by two-corpus log-likelihood G², using word counts
                       and corpus totals. Log₂ ratio uses a 0.5 count/total
-                      correction; positive favours A. All terms are available.
+                      correction; positive favours A. Filters affect the table
+                      and its CSV export.
                       Approximate p-values use chi-square df=1; BH q-values
                       adjust across all tested terms. These exploratory
                       statistics are most useful for comparable corpora in the
@@ -2954,8 +3003,12 @@ function App() {
                     of writing quality.
                   </p>
                   <p>
-                    Frequencies show raw counts, counts per million tokens, and
-                    document dispersion. Stop lists filter result tables; total
+                    Frequencies show raw counts, a selectable normalisation base
+                    (per million by default), and document dispersion. DP and
+                    DPnorm are lower for more evenly distributed terms. Higher
+                    Juilland’s D indicates more even distribution. These measures
+                    use non-empty documents and require at least two.
+                    Stop lists filter result tables; total
                     corpus sizes remain unchanged. N-grams are contiguous 2-, 3-
                     or 4-token sequences contained within a sentence and
                     document. They never jump across a removed stop word.
