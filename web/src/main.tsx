@@ -1692,8 +1692,8 @@ function App() {
                                     rows={kwicHits
                                       .slice(page * 50, page * 50 + 50)
                                       .map((h) => [
-                                        <span dir="auto" className="kwic-left">
-                                          {h.left}
+                                        <span className="kwic-left">
+                                          <bdi>{h.left}</bdi>
                                         </span>,
                                         <mark dir="auto">{h.match}</mark>,
                                         <span dir="auto">{h.right}</span>,

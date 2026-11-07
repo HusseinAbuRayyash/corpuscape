@@ -1,4 +1,5 @@
 import type { CorpusDocument } from "./engine";
+import { translationPreview } from "./landing-sample";
 export const samples: {
   name: string;
   locale: string;
@@ -80,6 +81,12 @@ export const samples: {
         text: "번역은 사람들을 연결합니다. 언어는 문맥에 따라 달라집니다. 우리는 단어와 의미를 연구합니다. 번역에는 언어와 문화에 대한 이해가 필요합니다.",
       },
     ],
+  },
+  {
+    name: "Translation in context",
+    locale: "und",
+    description: "English and Arabic · original parallel teaching texts",
+    documents: translationPreview,
   },
 ];
 export const multilingualSampleDocuments = samples[1].documents.filter(
