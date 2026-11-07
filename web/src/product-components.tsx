@@ -49,14 +49,9 @@ export function ToolHeading({
   return (
     <div className="page-heading">
       <div className="page-heading-main">
-        <div className="section-kicker">{page?.section ?? eyebrow}</div>
         <h1>{page?.title ?? title}</h1>
         <p>{description}</p>
       </div>
-      <span className="page-context">
-        <span className="status-dot" />
-        Local workspace
-      </span>
     </div>
   );
 }
@@ -234,18 +229,8 @@ export function Dashboard({
     <>
       <div className="dashboard-heading">
         <div>
-          <span className="section-kicker">CORPUSCAPE / WORKSPACE</span>
           <h1>Your corpus workspace</h1>
           <p>Import texts, run analyses, and manage your corpora.</p>
-        </div>
-        <div className="workspace-stamp">
-          <span className="stamp-icon">
-            <Globe2 size={20} />
-          </span>
-          <div>
-            <strong>Multilingual analysis</strong>
-            <small>Local processing · No account required</small>
-          </div>
         </div>
       </div>
       <div className="dashboard-grid">
@@ -253,7 +238,6 @@ export function Dashboard({
         <section className="quick-tools">
           <div className="section-label">
             <h2>Research tools</h2>
-            <span>{tools.length} workspaces</span>
           </div>
           <div className="tool-grid">
             {tools.map((tool) => (
@@ -262,17 +246,14 @@ export function Dashboard({
                 key={tool.id}
                 onClick={() => onNavigate(tool.id)}
               >
-                <span className="tool-card-top">
-                  <span className="tool-card-icon">
-                    <tool.icon size={20} />
-                  </span>
-                  <span className="tool-code">{tool.code}</span>
+                <span className="tool-card-icon">
+                  <tool.icon size={18} />
                 </span>
-                <strong>{tool.name}</strong>
-                <p>{tool.detail}</p>
-                <span className="tool-card-bottom">
-                  Open workspace <ArrowRight size={15} />
+                <span className="tool-card-text">
+                  <strong>{tool.name}</strong>
+                  <span>{tool.detail}</span>
                 </span>
+                <ArrowRight size={16} className="tool-card-arrow" />
               </button>
             ))}
           </div>
@@ -287,7 +268,7 @@ export function Dashboard({
             <FolderOpen size={21} />
           </span>
           <span>
-            <small>ACTIVE CORPUS</small>
+            <small>Active corpus</small>
             <strong>{activeName}</strong>
           </span>
           <span className="active-dataset-count">
@@ -303,20 +284,9 @@ export function Dashboard({
             <h2>Sample datasets</h2>
             <p>Original teaching texts for exploring the workspace.</p>
           </div>
-          <span className="tag">INCLUDED</span>
         </div>
         <SampleList onSample={onSample} />
       </section>
-      <div className="workspace-principles">
-        <span>
-          <span className="status-dot" />
-          Processed on your device
-        </span>
-        <span>Unicode text support</span>
-        <button onClick={() => onNavigate("methods")}>
-          Methods & privacy <ArrowUpRight size={13} />
-        </button>
-      </div>
     </>
   );
 }
@@ -333,7 +303,7 @@ export function FigureSource({
     <div className="figure-source">
       <FileText size={16} />
       <span>
-        <small>DATA SOURCE</small>
+        <small>Data source</small>
         <strong>{custom ? "Custom data" : name}</strong>
       </span>
       <b>{count} items</b>

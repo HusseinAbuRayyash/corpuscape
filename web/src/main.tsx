@@ -89,6 +89,7 @@ import { Landing } from "./landing";
 import { WorkspaceSearch } from "./workspace-search";
 import "./workspace-theme.css";
 import "./landing.css";
+import "./workspace-refresh.css";
 
 const FigureStudio = lazy(() => import("./figure-studio").then(({ FigureStudio }) => ({ default: FigureStudio })));
 const ResearchReports = lazy(() => import("./research-reports").then(({ ResearchReports }) => ({ default: ResearchReports })));
@@ -1080,10 +1081,8 @@ function App() {
     <section className="panel import-panel">
       <div className="panel-head">
         <div>
-          <span className="eyebrow">IMPORT DATA</span>
           <h2>Add your texts</h2>
         </div>
-        <span className="tag">LOCAL</span>
       </div>
       <div className="segmented">
         <button
@@ -1218,7 +1217,6 @@ function App() {
           <BrandMark className="brand-mark" />
           <span className="brand-name">
             corpuscape<span className="brand-dot">.</span>
-            <small>CORPUS RESEARCH WORKSPACE</small>
           </span>
         </a>
         <button
@@ -1296,10 +1294,7 @@ function App() {
             <WorkspaceSearch onNavigate={navigate} />
             <div className="header-status">
               <span className="status-dot" />
-              All analysis runs locally
-              <span className="header-divider" />
-              <Globe2 size={15} />
-              <span>Multilingual</span>
+              Runs on this device
             </div>
           </div>
         </header>
@@ -1584,7 +1579,7 @@ function App() {
                                 </button>
                               </div>
                               {analysis.words < 10000 && frequencyBase !== 1000 && (
-                                <p className="fine">For a small corpus, try per 1,000 in Settings.</p>
+                                <p className="fine result-note">For a small corpus, try per 1,000 in Settings.</p>
                               )}
                               <div className="analysis-grid">
                                 <div>
@@ -1624,7 +1619,7 @@ function App() {
                                 </div>
                                 <div className="chart-aside">
                                   <span className="eyebrow">
-                                    MOST FREQUENT WORDS
+                                    Most frequent words
                                   </span>
                                   <CompactFrequencyChart
                                     rows={frequencies.slice(0, 12).map((r) => ({
@@ -2178,7 +2173,6 @@ function App() {
                   <div className="editor-heading">
                     <span className="editor-number">A</span>
                     <div>
-                      <span className="eyebrow">SOURCE</span>
                       <h2>Source text</h2>
                     </div>
                     <FileText size={20} />
@@ -2205,7 +2199,6 @@ function App() {
                   <div className="editor-heading">
                     <span className="editor-number">B</span>
                     <div>
-                      <span className="eyebrow">TARGET</span>
                       <h2>Target text</h2>
                     </div>
                     <Languages size={20} />
@@ -2509,7 +2502,7 @@ function App() {
               )}
               <div className="comparison-inputs">
                 <section className="panel comparison-a">
-                  <span className="eyebrow">CORPUS A · ACTIVE CORPUS</span>
+                  <span className="panel-label">Corpus A, active</span>
                   <h2>
                     {documents.length ? name : "Choose your first corpus"}
                   </h2>
@@ -2528,7 +2521,7 @@ function App() {
                   </button>
                 </section>
                 <section className="panel comparison-b">
-                  <span className="eyebrow">CORPUS B · REFERENCE</span>
+                  <span className="panel-label">Corpus B, reference</span>
                   <h2>
                     {reference.length
                       ? reference.map((d) => d.name).join(", ")
@@ -3706,13 +3699,19 @@ function DataTable({
   ascending?: boolean;
   onSort?: (index: number) => void;
 }) {
+  const isNumber = (cell: React.ReactNode) =>
+    typeof cell === "number" ||
+    (typeof cell === "string" && /^[−\-+]?[\d.,\s]+%?$/.test(cell.trim()));
+  const numeric = headers.map(
+    (_, j) => rows.length > 0 && rows.every((row) => isNumber(row[j])),
+  );
   return (
     <div className="table-scroll">
-      <table>
+      <table className="data-table">
         <thead>
           <tr>
             {headers.map((h, i) => (
-              <th key={i} aria-sort={sortedColumn === i ? (ascending ? "ascending" : "descending") : undefined}>
+              <th key={i} className={numeric[i] ? "num" : undefined} aria-sort={sortedColumn === i ? (ascending ? "ascending" : "descending") : undefined}>
                 {onSort ? <button type="button" onClick={() => onSort(i)}>
                   {h} <span aria-hidden="true">{sortedColumn === i ? (ascending ? "↑" : "↓") : "↕"}</span>
                 </button> : h}
@@ -3725,7 +3724,13 @@ function DataTable({
             rows.map((row, i) => (
               <tr key={i}>
                 {row.map((cell, j) => (
-                  <td key={j} dir={textColumns.includes(j) ? "auto" : undefined}>{cell}</td>
+                  <td
+                    key={j}
+                    className={numeric[j] ? "num" : undefined}
+                    dir={textColumns.includes(j) ? "auto" : undefined}
+                  >
+                    {cell}
+                  </td>
                 ))}
               </tr>
             ))

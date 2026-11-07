@@ -778,11 +778,10 @@ export function FigureStudio({
       />
       <header className="studio-header">
         <div>
-          <span className="studio-kicker">CORPUSCAPE / VISUAL RESEARCH</span>
           <h1>
-            Figure Studio<span className="studio-version">2</span>
+            Figure studio
           </h1>
-          <p>Build a figure worth publishing.</p>
+          <p>Build a chart from your results and export it for publication.</p>
         </div>
         <div className="studio-header-actions">
           <span className="studio-save">
