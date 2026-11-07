@@ -135,7 +135,7 @@ export async function importFile(
   }
   if (!text.trim()) throw new Error(`${file.name} contains no readable text.`);
   return {
-    documents: [{ name: file.name, text }],
+    documents: [{ name: file.name, text, ...(ext === "pdf" ? { source: "pdf" } as const : {}) }],
     ...(ext === "pdf" && joinCjkLineWraps(text) !== text
       ? {
           warnings: [

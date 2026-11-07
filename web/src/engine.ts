@@ -4,11 +4,24 @@ export interface CorpusDocument {
   text: string;
   /** Overrides the workspace language for this document. und uses browser ICU defaults. */
   locale?: string;
+  source?: "pdf" | "ocr";
 }
+export const arabicSettings = [
+  ["alef", "Unify alef forms"],
+  ["yaa", "Unify alef maqsura and yaa"],
+  ["taMarbuta", "Unify ta marbuta and heh"],
+  ["diacritics", "Remove Arabic diacritics"],
+  ["tatweel", "Remove tatweel"],
+  ["presentationForms", "Expand Arabic presentation forms"],
+] as const;
+export type ArabicOptions = Partial<Record<(typeof arabicSettings)[number][0], boolean>>;
 export interface Options {
   locale: string;
   caseSensitive: boolean;
   stopWords: string[];
+  arabic?: ArabicOptions;
+  splitArabicClitics?: boolean;
+  stopListLanguage?: string;
 }
 export interface Token {
   term: string;
@@ -53,11 +66,23 @@ export const defaultOptions: Options = {
   caseSensitive: false,
   stopWords: [],
 };
-export function createTextFilter(query: string, locales: string[]) {
+export function createTextFilter(
+  query: string,
+  locales: string[],
+  options?: Options,
+  documents: CorpusDocument[] = [],
+) {
   if (!query) return (_text: string) => true;
-  const variants = [...new Set(locales)].map((locale) => {
+  const variants = [...new Set(locales)].flatMap((locale) => {
     const tag = locale === "und" ? undefined : locale;
-    return { tag, query: query.normalize("NFC").toLocaleLowerCase(tag) };
+    const insensitive = { ...defaultOptions, ...options, caseSensitive: false };
+    const forms = new Set([options?.arabic?.presentationForms ?? false]);
+    if (options?.arabic?.presentationForms === undefined && documents.some((doc) => doc.source))
+      forms.add(true);
+    return [...forms].map((forms) => ({
+      tag,
+      query: query.split(/(\s+)/u).map((word) => normalizeTerm(word, insensitive, tag, forms)).join(""),
+    }));
   });
   return (text: string) =>
     variants.some(({ tag, query }) =>
@@ -65,8 +90,42 @@ export function createTextFilter(query: string, locales: string[]) {
     );
 }
 
-// Use the browser's ICU word boundaries: this includes dictionary segmentation for CJK.
-// NFC preserves meaningful letters and diacritics; no Latin-only or Arabic-only normalization.
+function normalizeTerm(surface: string, options: Options, locale?: string, forms = false) {
+  const arabic = options.arabic;
+  let term = surface.replace(/[\u200c-\u200f\u202a-\u202e\u2066-\u2069]/gu, "");
+  if (forms) term = term.replace(/[\ufb50-\ufdff\ufe70-\ufeff]/gu, (glyph) => glyph.normalize("NFKC"));
+  term = term.normalize("NFC");
+  if (arabic?.alef) term = term.replace(/[أإآٱ]/gu, "ا");
+  if (arabic?.yaa) term = term.replace(/ى/gu, "ي");
+  if (arabic?.taMarbuta) term = term.replace(/ة/gu, "ه");
+  if (arabic?.diacritics) term = term.replace(/[\u064b-\u065f\u0670\u06d6-\u06ed]/gu, "");
+  if (arabic?.tatweel) term = term.replace(/\u0640/gu, "");
+  if (options.splitArabicClitics) {
+    // Requiring the article before dropping a preposition keeps كتاب intact.
+    const stem = term.replace(/^[وف]?(?:[بكل]?ال|لل)|^[وف]/u, "");
+    if (stem !== term && (stem.match(/\p{Script=Arabic}/gu)?.length ?? 0) >= 3)
+      term = stem;
+  }
+  return options.caseSensitive ? term : term.toLocaleLowerCase(locale);
+}
+
+function presentationForms(doc: CorpusDocument, options: Options) {
+  return options.arabic?.presentationForms ?? Boolean(doc.source);
+}
+
+export function analysisOptionNotes(options: Options, documents: CorpusDocument[]) {
+  const active = arabicSettings.filter(([key]) => key !== "presentationForms" && options.arabic?.[key]).map(([, label]) => label);
+  const forms = documents.filter((doc) => presentationForms(doc, options)).length;
+  const stopList = options.stopWords.length
+    ? options.stopListLanguage ? `Stopwords ISO (${options.stopListLanguage}, editable)` : "Custom list"
+    : "None";
+  return {
+    arabic: `${active.join(", ") || "No letter or diacritic folding"}. Presentation forms: ${forms}/${documents.length} documents. Experimental clitic splitting: ${options.splitArabicClitics ? "on" : "off"}.`,
+    stopList,
+  };
+}
+
+// Keep surface text and offsets for concordance. Only the matching term changes.
 export function tokenize(
   documents: CorpusDocument[],
   options: Options,
@@ -83,11 +142,10 @@ export function tokenize(
       for (const word of wordSegmenter.segment(part.segment)) {
         if (!word.isWordLike) continue;
         const surface = word.segment;
-        const normalized = surface.normalize("NFC");
+        const term = normalizeTerm(surface, options, locale, presentationForms(doc, options));
+        if (!term) continue;
         result.push({
-          term: options.caseSensitive
-            ? normalized
-            : normalized.toLocaleLowerCase(locale),
+          term,
           surface,
           start: part.index + word.index,
           end: part.index + word.index + surface.length,
@@ -104,12 +162,10 @@ function effectiveLocale(doc: CorpusDocument, options: Options) {
   const locale = doc.locale ?? options.locale;
   return locale === "und" ? undefined : locale;
 }
-function stopSet(options: Options, locale: string | undefined) {
+function stopSet(options: Options, doc: CorpusDocument) {
   return new Set(
     options.stopWords.map((w) =>
-      options.caseSensitive
-        ? w.normalize("NFC")
-        : w.normalize("NFC").toLocaleLowerCase(locale),
+      normalizeTerm(w, options, effectiveLocale(doc, options), presentationForms(doc, options)),
     ),
   );
 }
@@ -119,7 +175,7 @@ export function analyze(
 ): Analysis {
   const tokens = tokenize(documents, options),
     stops = documents.map((doc) =>
-      stopSet(options, effectiveLocale(doc, options)),
+      stopSet(options, doc),
     );
   const perDocument = documents.map(() => new Map<string, number>());
   const counts = new Map<string, { count: number; documents: Set<number> }>();
@@ -301,7 +357,7 @@ export function collocations(
       "Collocations require one segmented node word. Use Concordance for phrases.",
     );
   const stops = documents.map((doc) =>
-    stopSet(options, effectiveLocale(doc, options)),
+    stopSet(options, doc),
   );
   const pairs = new Map<string, number>(),
     rightMarginal = new Map<string, number>();

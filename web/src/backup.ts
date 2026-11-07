@@ -1,4 +1,4 @@
-import { defaultOptions, type CorpusDocument, type Options } from "./engine";
+import { arabicSettings, defaultOptions, type CorpusDocument, type Options } from "./engine";
 
 export function validateBackup(data: unknown): {
   name: string;
@@ -22,7 +22,7 @@ export function validateBackup(data: unknown): {
       throw new Error(`Invalid language tag in backup: ${tag}.`);
     }
   }
-  const documents = value.documents.map((item: unknown) => {
+  const documents = value.documents.map((item: unknown): CorpusDocument => {
     if (!item || typeof item !== "object")
       throw new Error("Invalid document in backup.");
     const doc = item as Record<string, unknown>;
@@ -36,6 +36,7 @@ export function validateBackup(data: unknown): {
       name: doc.name,
       text: doc.text,
       ...(doc.locale === undefined ? {} : { locale: locale(doc.locale) }),
+      ...(doc.source === "pdf" || doc.source === "ocr" ? { source: doc.source } : {}),
     };
   });
   const raw = value.options;
@@ -61,6 +62,22 @@ export function validateBackup(data: unknown): {
       caseSensitive: opts.caseSensitive,
       stopWords: [...opts.stopWords] as string[],
     };
+    if (opts.arabic !== undefined) {
+      if (!opts.arabic || typeof opts.arabic !== "object")
+        throw new Error("Invalid Arabic normalisation settings.");
+      const source = opts.arabic as Record<string, unknown>;
+      const arabic: NonNullable<Options["arabic"]> = {};
+      for (const [key] of arabicSettings) {
+        const value = source[key];
+        if (value === undefined) continue;
+        if (typeof value !== "boolean") throw new Error("Invalid Arabic normalisation setting.");
+        arabic[key] = value;
+      }
+      options.arabic = arabic;
+    }
+    if (typeof opts.splitArabicClitics === "boolean") options.splitArabicClitics = opts.splitArabicClitics;
+    if (typeof opts.stopListLanguage === "string" && /^[a-z]{2}$/.test(opts.stopListLanguage))
+      options.stopListLanguage = opts.stopListLanguage;
   }
   return {
     name: typeof value.name === "string" ? value.name : "Restored corpus",

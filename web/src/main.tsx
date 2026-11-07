@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import {
   alignByLine,
+  analysisOptionNotes,
+  arabicSettings,
   csv,
   defaultOptions,
   sortConcordance,
@@ -932,8 +934,8 @@ function App() {
       createTextFilter(filter, [
         options.locale,
         ...documents.map((doc) => doc.locale ?? options.locale),
-      ]),
-    [filter, options.locale, documents],
+      ], options, documents),
+    [filter, options, documents],
   );
   const frequencies = useMemo(
     () => (analysis?.frequencies ?? []).filter((row) => termFilter(row.term)),
@@ -949,6 +951,17 @@ function App() {
   const pairRows = pairs
     .map((p, i) => ({ ...p, index: i }))
     .filter((p) => pairMatches([p.source, p.target, p.note].join("\n")));
+  const methodNotes = analysisOptionNotes(options, documents);
+  const exportAnalysisCsv = (filename: string, [header, ...rows]: unknown[][], includeReference = false) => {
+    const referenceNotes = includeReference ? analysisOptionNotes(options, reference).arabic : undefined;
+    exportCsv(filename, [
+      [...header, "Arabic settings", "Stop list", ...(includeReference ? ["Corpus B Arabic settings"] : [])],
+      ...rows.map((row) => [
+        ...row, methodNotes.arabic, methodNotes.stopList,
+        ...(referenceNotes ? [referenceNotes] : []),
+      ]),
+    ]);
+  };
   const kwicHits = useMemo(
     () => sortConcordance(hits.hits, kwicSort, options.locale),
     [hits, kwicSort, options.locale],
@@ -958,7 +971,7 @@ function App() {
     const escape = xmlEscape;
     download(
       "corpuscape-report.html",
-      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(options.stopWords.join(", ") || "none")}. Deterministic descriptive frequency analysis. Optional local-model research drafts are available separately. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Full frequency table</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
+      `<!doctype html><html><meta charset="UTF-8"><title>${escape(name)} — Corpuscape</title><style>body{font:16px system-ui;max-width:900px;margin:50px auto;padding:20px;color:#173f35}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ccc;text-align:start}@media print{body{margin:0}}</style><h1>${escape(name)}</h1><p>Corpuscape · ${escape(new Date().toISOString())}</p><p>${fmt(analysis.words)} word tokens · ${fmt(analysis.types)} types · ${fmt(analysis.sentences)} sentences · TTR ${formatPercentage(analysis.ttr)}</p><h2>Method</h2><p>Unicode NFC, Intl.Segmenter (${escape(options.locale)}), case ${options.caseSensitive ? "preserved" : "folded"}. Stop list: ${escape(methodNotes.stopList)}. ${escape(methodNotes.arabic)} Bidi and joiner controls are stripped from terms. Deterministic descriptive frequency analysis. Optional local-model research drafts are available separately. Counts include numbers. TTR is sensitive to corpus size. Boundaries depend on browser ICU data; document language overrides apply. Export the complete JSON backup to preserve the source texts and settings.</p><h2>Documents</h2><ul>${analysis.documentStats.map((d) => `<li>${escape(d.name)} [${escape(d.locale)}; resolved ${escape(new Intl.Segmenter(d.locale === "und" ? undefined : d.locale).resolvedOptions().locale)}]: ${d.words} tokens, ${d.types} types, ${d.hapax} hapax</li>`).join("")}</ul><h2>Full frequency table</h2><table><tr><th>Term</th><th>Count</th><th>Per million</th><th>Documents</th></tr>${analysis.frequencies
         .map(
           (r) =>
             `<tr><td dir="auto">${escape(r.term)}</td><td>${r.count}</td><td>${fmt(r.perMillion, 2)}</td><td>${r.documents}</td></tr>`,
@@ -1313,6 +1326,60 @@ function App() {
                         />
                         Case-sensitive counts
                       </label>
+                      <fieldset className="analysis-option-group">
+                        <legend>Arabic normalisation</legend>
+                        {arabicSettings.filter(([key]) => key !== "presentationForms").map(([key, label]) => (
+                          <label key={key} className="check-label">
+                            <input type="checkbox" checked={!!options.arabic?.[key]} onChange={(event) =>
+                              setOptions({ ...options, arabic: { ...options.arabic, [key]: event.target.checked } })
+                            } />
+                            {label}
+                          </label>
+                        ))}
+                        <label>
+                          Arabic presentation forms
+                          <select value={String(options.arabic?.presentationForms ?? "auto")} onChange={(event) => {
+                            const arabic = { ...options.arabic };
+                            if (event.target.value === "auto") delete arabic.presentationForms;
+                            else arabic.presentationForms = event.target.value === "true";
+                            setOptions({ ...options, arabic });
+                          }}>
+                            <option value="auto">Expand for PDF and OCR only</option>
+                            <option value="true">Expand in all documents</option>
+                            <option value="false">Preserve in all documents</option>
+                          </select>
+                        </label>
+                        <label className="check-label">
+                          <input type="checkbox" checked={!!options.splitArabicClitics} onChange={(event) =>
+                            setOptions({ ...options, splitArabicClitics: event.target.checked })
+                          } />
+                          Experimental: split common prefixes
+                        </label>
+                      </fieldset>
+                      <label>
+                        Load a built-in stop list
+                        <select value={options.stopListLanguage ?? ""} onChange={async (event) => {
+                          const language = event.target.value;
+                          if (!language) {
+                            setStopText("");
+                            setOptions((current) => ({ ...current, stopListLanguage: undefined, stopWords: [] }));
+                            return;
+                          }
+                          try {
+                            const { default: lists } = await import("./stop-lists.json");
+                            const words = lists[language as keyof typeof lists];
+                            setStopText(words.join("\n"));
+                            setOptions((current) => ({ ...current, stopListLanguage: language, stopWords: words }));
+                          } catch (error) {
+                            fail(error);
+                          }
+                        }}>
+                          <option value="">Custom or no list</option>
+                          {locales.filter(([code]) => ["ar", "en", "fr", "es", "de", "pt", "ru", "zh", "ja", "ko", "hi"].includes(code)).map(([code, label]) => (
+                            <option key={code} value={code}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
                       <label>
                         Stop list · one word per line
                         <textarea
@@ -1326,7 +1393,8 @@ function App() {
                         onClick={() =>
                           setOptions({
                             ...options,
-                            stopWords: stopText.split(/\s+/).filter(Boolean),
+                            stopWords: (options.stopListLanguage ? stopText.split(/\r?\n/u) : stopText.split(/\s+/u))
+                              .map((line) => line.trim()).filter(Boolean),
                           })
                         }
                       >
@@ -1389,7 +1457,7 @@ function App() {
                                 <button
                                   className="button secondary small"
                                   onClick={() =>
-                                    exportCsv("word-frequencies", [
+                                    exportAnalysisCsv("word-frequencies", [
                                       [
                                         "Term",
                                         "Frequency",
@@ -1496,7 +1564,7 @@ function App() {
                                 <button
                                   className="button secondary small"
                                   onClick={() =>
-                                    exportCsv("ngrams", [
+                                    exportAnalysisCsv("ngrams", [
                                       ["Sequence", "Frequency"],
                                       ...gramRows.map((r) => [r.term, r.count]),
                                     ])
@@ -1632,7 +1700,7 @@ function App() {
                                   }
                                   onClick={() =>
                                     tab === "concordance"
-                                      ? exportCsv("concordance", [
+                                      ? exportAnalysisCsv("concordance", [
                                           [
                                             "Left",
                                             "Match",
@@ -1648,7 +1716,7 @@ function App() {
                                             h.position,
                                           ]),
                                         ])
-                                      : exportCsv("collocations", [
+                                      : exportAnalysisCsv("collocations", [
                                           [
                                             "Collocate",
                                             "Window count",
@@ -1775,7 +1843,7 @@ function App() {
                                 <button
                                   className="button secondary small"
                                   onClick={() =>
-                                    exportCsv("document-statistics", [
+                                    exportAnalysisCsv("document-statistics", [
                                       [
                                         "Document",
                                         "Language",
@@ -2360,7 +2428,7 @@ function App() {
                       <button
                         className="button secondary small"
                         onClick={() =>
-                          exportCsv("corpus-comparison", [
+                          exportAnalysisCsv("corpus-comparison", [
                             [
                               "Term",
                               "A count",
@@ -2385,7 +2453,7 @@ function App() {
                               r.qValue,
                               r.log10P,
                             ]),
-                          ])
+                          ], true)
                         }
                       >
                         <ArrowDownToLine size={15} />
@@ -2794,8 +2862,18 @@ function App() {
                     on the browser’s ICU data. Mixed-language corpora are
                     supported, but separate language-specific runs are
                     preferable when comparing word counts. Scripts, accents and
-                    diacritics are preserved with Unicode NFC normalization.
-                    Case folding follows the selected locale.
+                    diacritics are preserved by default with Unicode NFC.
+                    Invisible bidi and joiner controls are omitted from matching
+                    terms, and case folding follows the selected locale.
+                    Settings can fold specific Arabic letter forms and remove
+                    Arabic marks. PDF and OCR imports expand Arabic presentation
+                    forms by default. Concordance always shows the original text.
+                  </p>
+                  <p>
+                    Experimental Arabic prefix splitting removes common conjunctions
+                    and definite articles, including attached prepositions before an
+                    article. It can mistakenly remove letters that belong to a word’s
+                    root. It is off by default and does not strip suffixes.
                   </p>
                   <h2>What is counted</h2>
                   <p>

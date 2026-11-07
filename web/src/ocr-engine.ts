@@ -223,6 +223,7 @@ export function ocrDocuments(
     .map((page) => ({
       name: page.name,
       text: page.text,
+      source: "ocr",
       ...(tag ? { locale: tag } : {}),
     }));
 }
