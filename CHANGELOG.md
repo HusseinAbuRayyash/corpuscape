@@ -20,8 +20,12 @@
 - Use the same ten teaching languages for the preview count, strip, and tabs.
 - Improve mobile landing navigation, tap targets, contrast, and concordance
   context alignment.
+- Group workspace tools by research task, improve bidirectional results and
+  chart labels, and load specialist tools on demand.
 
 ### Removed
+
+- Remove the unused legacy workspace styles and illustration component.
 
 - Remove `attached_assets/` from the source tree and ignore future uploads to
   that folder.

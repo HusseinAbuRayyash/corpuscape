@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { chartTheme } from "./chart-theme";
 import type { TopLevelSpec } from "vega-lite";
 import type { Analysis, CorpusDocument } from "./engine";
 export type DataRow = Record<string, string | number | null>;
@@ -77,7 +78,7 @@ export const defaultStudio: StudioConfig = {
 };
 export const palettes: Record<string, string[]> = {
   cobalt: [
-    "#245bff",
+    chartTheme.brandBlue,
     "#5fc3e4",
     "#a7b9fb",
     "#152853",
@@ -533,14 +534,14 @@ export function buildStudioSpec(
         ticks: false,
         labelColor: muted,
         titleColor: foreground,
-        labelFontSize: c.fontSize,
-        titleFontSize: c.fontSize,
+        labelFontSize: Math.max(chartTheme.labelSize, c.fontSize),
+        titleFontSize: Math.max(chartTheme.titleSize, c.fontSize),
         labelPadding: 10,
         titlePadding: 16,
       },
       legend: {
         labelColor: muted,
-        labelFontSize: c.fontSize,
+        labelFontSize: Math.max(chartTheme.labelSize, c.fontSize),
         symbolType: "circle",
         padding: 12,
       },

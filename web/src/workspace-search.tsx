@@ -5,7 +5,7 @@ import type { Page } from "./landing";
 const destinations: { id: Page; title: string; detail: string }[] = [
   {
     id: "workspace",
-    title: "Workspace",
+    title: "Import texts",
     detail: "Import documents or paste a text",
   },
   {
@@ -102,7 +102,7 @@ export function WorkspaceSearch({
       >
         <Search size={15} />
         <span>Search tools…</span>
-        <kbd>Ctrl K</kbd>
+        <kbd>{navigator.platform.startsWith("Mac") ? "⌘ K" : "Ctrl K"}</kbd>
       </button>
       <dialog
         ref={dialog}

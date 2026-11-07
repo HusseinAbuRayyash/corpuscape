@@ -1,4 +1,5 @@
 import React from "react";
+import { chartTheme } from "./chart-theme";
 import { wrapLabel, type FigureRow } from "./figures";
 
 export function FrequencyChart({
@@ -188,5 +189,26 @@ export function FrequencyChart({
         </text>
       </g>
     </svg>
+  );
+}
+
+export function CompactFrequencyChart({ rows, title }: { rows: FigureRow[]; title: string }) {
+  if (!rows.length) return null;
+  const max = Math.max(1, ...rows.map(({ value }) => value));
+  return (
+    <figure className="frequency-chart" style={{ fontSize: chartTheme.labelSize }}>
+      <figcaption style={{ fontSize: chartTheme.titleSize }}>{title} · token count</figcaption>
+      <ul>
+        {rows.map(({ label, value }) => (
+          <li key={label}>
+            <bdi>{label}</bdi>
+            <span className="frequency-bar" aria-hidden="true">
+              <span style={{ width: `${(100 * value) / max}%`, background: chartTheme.brandBlue }} />
+            </span>
+            <span>{value.toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+    </figure>
   );
 }
