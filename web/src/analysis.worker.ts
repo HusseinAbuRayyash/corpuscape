@@ -11,6 +11,8 @@ self.onmessage = async ({ data }) => {
       minimum,
       reference,
       context,
+      mode,
+      side,
     } = data;
     let result;
     if (action === "detect") {
@@ -20,9 +22,9 @@ self.onmessage = async ({ data }) => {
       );
     } else if (action === "analyze") result = analyze(documents, options);
     else if (action === "concordance")
-      result = concordance(documents, options, query, context);
+      result = concordance(documents, options, query, context, undefined, mode);
     else if (action === "collocations")
-      result = collocations(documents, options, query, window, minimum);
+      result = collocations(documents, options, query, window, minimum, side);
     else if (action === "compare") {
       const a = analyze(documents, options),
         b = analyze(reference, options);

@@ -73,7 +73,8 @@ for (const [locale, word, other] of matrix) {
     assert.equal(concordance(documents, options, "nonexistentxyz").total, 0);
   });
   test(`${locale}: independent collocation event counts, PMI and Dice`, () => {
-    assert.deepEqual(collocations(documents, options, word, 1, 1), [
+    const rows = collocations(documents, options, word, 1, 1);
+    assert.deepEqual(rows.map(({ term, count, pmi, dice }) => ({ term, count, pmi, dice })), [
       { term: other, count: 3, pmi: 1, dice: 1 },
     ]);
     assert.deepEqual(collocations(documents, options, word, 1, 4), []);

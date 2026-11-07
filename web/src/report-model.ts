@@ -3,6 +3,7 @@ import {
   analysisOptionNotes,
   xmlEscape,
   type Analysis,
+  type Collocation,
   type CorpusDocument,
   type Options,
 } from "./engine";
@@ -65,6 +66,7 @@ export interface ReportInput {
   options: Options;
   comparison?: { rows: unknown[] } | null;
   pairs?: { source: string; target: string; note: string }[];
+  collocation?: { node: string; window: string; measure: string; rows: Collocation[] };
 }
 export function buildEvidence(
   input: ReportInput,
@@ -99,6 +101,12 @@ export function buildEvidence(
       },
     },
   ];
+  if (input.collocation) {
+    result.push({
+      id: "CO1", label: "Collocations",
+      value: { ...input.collocation, rows: input.collocation.rows.slice(0, count) },
+    });
+  }
   if (a) {
     result.push({
       id: "C1",
@@ -342,6 +350,8 @@ export function unsupportedClaimNotice(
 }
 export function exactReport(input: ReportInput) {
   const settings = analysisOptionNotes(input.options, input.documents);
+  const collocation = input.collocation;
+  const collocationMethod = collocation ? `\n\n## Collocations\nNode ${JSON.stringify(collocation.node)}; window ${collocation.window}; sorted by ${collocation.measure}. [CO1]` : "";
   const a = input.analysis;
   if (!a) return "Load a corpus to build a statistical report.";
   return `# ${input.name}\n\n## Corpus\n${input.documents.length} document${input.documents.length === 1 ? "" : "s"}; ${a.words} word tokens; ${a.types} types; ${a.sentences} sentences; ${a.characters} Unicode code points. Type–token ratio: ${formatPercentage(a.ttr)}. Mean sentence length: ${a.averageSentence.toFixed(2)} tokens. [C1]\n\n## Method\nUnicode NFC; Intl.Segmenter word-like tokens, including numbers; ${input.options.caseSensitive ? "case preserved" : "locale-aware lowercasing"}; workspace language ${input.options.locale}, with document overrides. Stop words filter result tables without changing corpus totals. Stop list: ${settings.stopList}. ${settings.arabic} Invisible bidi and joiner controls are omitted from terms. [M1]\n\n## Document statistics\n${a.documentStats.map((d, i) => `${d.name} (${d.locale}): ${d.words} tokens, ${d.types} types, ${d.hapax} hapax. [D${i + 1}]`).join("\n")}\n\n## Interpretation\nThis report describes corpus counts. Review corpus design, source text and language-specific segmentation before drawing substantive conclusions. Comparison statistics, when requested, are in Compare corpora. Automatic translation quality is not measured.\n`;
