@@ -50,7 +50,8 @@ import {
 } from "./engine";
 import { tableDocuments } from "./table-documents";
 import { importFile, ACCEPT, RequiresOcr, type Imported } from "./files";
-import { selectTmxPairs, type TranslationMemory } from "./import-parsers";
+import { decodeText, selectTmxPairs, subtitleCues, type TranslationMemory } from "./import-parsers";
+import { pairSubtitles, subtitleTimestamp, type ParallelPair, type TimeRange } from "./parallel-align";
 import { makeBackup, validateBackup } from "./backup";
 import { LocalWriterProvider } from "./local-writer";
 import { validateWorkspace, type WorkspaceSession } from "./workspace-session";
@@ -455,10 +456,11 @@ function App() {
     [targetText, setTargetText] = useState("");
   const [sourceLocale, setSourceLocale] = useState("en"),
     [targetLocale, setTargetLocale] = useState("es");
-  const [pairs, setPairs] = useState<
-      { source: string; target: string; note: string }[]
-    >([]),
+  const [pairs, setPairs] = useState<ParallelPair[]>([]),
     [pairFilter, setPairFilter] = useState("");
+  const [alignmentBusy, setAlignmentBusy] = useState(false);
+  const [alignmentUndo, setAlignmentUndo] = useState<{ before: ParallelPair[]; after: ParallelPair[] }>();
+  const [splitPair, setSplitPair] = useState<{ index: number; rows: [ParallelPair, ParallelPair] }>();
   const [ocrFile, setOcrFile] = useState<File | null>(null);
   const [sessionReady, setSessionReady] = useState(false),
     [autoSave, setAutoSave] = useState(true),
@@ -1005,6 +1007,36 @@ function App() {
   const pairRows = pairs
     .map((p, i) => ({ ...p, index: i }))
     .filter((p) => pairMatches([p.source, p.target, p.note].join("\n")));
+  const hasTimes = pairs.some((pair) => pair.sourceTime || pair.targetTime);
+  const applyPairEdit = (next: ParallelPair[]) => {
+    setAlignmentUndo({ before: pairs, after: next });
+    setPairs(next);
+    setPage(0);
+  };
+  const mergeNextPair = (index: number) => {
+    const a = pairs[index], b = pairs[index + 1];
+    const join = (first: string, second: string) => [first, second].filter(Boolean).join("\n");
+    const range = (first?: TimeRange, second?: TimeRange) =>
+      first && second ? { start: Math.min(first.start, second.start), end: Math.max(first.end, second.end) } : first ?? second;
+    applyPairEdit([...pairs.slice(0, index), {
+      source: join(a.source, b.source),
+      target: join(a.target, b.target),
+      note: join(a.note, b.note),
+      sourceTime: range(a.sourceTime, b.sourceTime),
+      targetTime: range(a.targetTime, b.targetTime),
+    }, ...pairs.slice(index + 2)]);
+  };
+  const loadSubtitles = async (file: File | undefined, setText: (text: string) => void) => {
+    if (!file) return;
+    try {
+      const text = decodeText(await file.arrayBuffer());
+      if (!subtitleCues(text).length) throw new Error("This track has no readable SRT or VTT cues with valid times.");
+      setText(text);
+      notify("Subtitle track loaded.");
+    } catch (error) {
+      fail(error);
+    }
+  };
   const methodNotes = analysisOptionNotes(options, documents);
   const exportAnalysisCsv = (filename: string, [header, ...rows]: unknown[][], includeReference = false) => {
     const referenceNotes = includeReference ? analysisOptionNotes(options, reference).arabic : undefined;
@@ -2134,12 +2166,12 @@ function App() {
               <PageTitle
                 eyebrow="BILINGUAL LAB"
                 title="Parallel workspace"
-                description="Review pre-aligned translations, annotate pairs, and build a translation memory."
+                description="Align parallel texts, review subtitle timing, and build a translation memory."
               />
               <div className="notice neutral">
                 <BookOpen size={18} />
-                Line pairing preserves your order. It does not infer translation
-                equivalence or evaluate translation quality.
+                Use line pairing for pre-aligned texts. Sentence alignment
+                estimates matches from length and marks uncertain pairs for review.
               </div>
               <div className="pair-inputs">
                 <section className="panel source-panel">
@@ -2163,6 +2195,11 @@ function App() {
                     onChange={(e) => setSourceText(e.target.value)}
                     placeholder="One source segment per line…"
                   />
+                  <label>Load source subtitles <input type="file" accept=".srt,.vtt"
+                    onChange={(event) => {
+                      void loadSubtitles(event.target.files?.[0], setSourceText);
+                      event.target.value = "";
+                    }} /></label>
                 </section>
                 <section className="panel target-panel">
                   <div className="editor-heading">
@@ -2185,6 +2222,11 @@ function App() {
                     onChange={(e) => setTargetText(e.target.value)}
                     placeholder="One target segment per line…"
                   />
+                  <label>Load target subtitles <input type="file" accept=".srt,.vtt"
+                    onChange={(event) => {
+                      void loadSubtitles(event.target.files?.[0], setTargetText);
+                      event.target.value = "";
+                    }} /></label>
                 </section>
               </div>
               <div className="action-row">
@@ -2198,8 +2240,7 @@ function App() {
                         );
                       checkSize([{ name: "", text: sourceText + targetText }]);
                       const p = alignByLine(sourceText, targetText, pairs);
-                      setPairs(p);
-                      setPage(0);
+                      applyPairEdit(p);
                       notify(
                         "Lines paired in order. Review missing or mismatched segments.",
                       );
@@ -2210,6 +2251,38 @@ function App() {
                 >
                   Pair lines <ArrowRight size={16} />
                 </button>
+                <button className="button secondary" disabled={alignmentBusy} onClick={async () => {
+                  if (!sourceText.trim() || !targetText.trim()) {
+                    fail(new Error("Enter both texts to align sentences."));
+                    return;
+                  }
+                  setAlignmentBusy(true);
+                  try {
+                    const aligned = await run("align", { source: sourceText, target: targetText, sourceLocale, targetLocale });
+                    applyPairEdit(aligned);
+                    notify("Sentences aligned. Review rows marked low confidence.");
+                  } catch (error) {
+                    fail(error);
+                  } finally {
+                    setAlignmentBusy(false);
+                  }
+                }}>{alignmentBusy ? "Aligning sentences…" : "Align sentences automatically"}</button>
+                <button className="button secondary" disabled={alignmentBusy} onClick={() => {
+                  const source = subtitleCues(sourceText), target = subtitleCues(targetText);
+                  if (!source.length || !target.length) {
+                    fail(new Error("Load or paste a timed SRT or VTT track on each side."));
+                    return;
+                  }
+                  applyPairEdit(pairSubtitles(source, target));
+                  notify("Subtitles paired by time. Review incomplete rows.");
+                }}>Pair subtitles by time</button>
+                {alignmentUndo?.after === pairs && (
+                  <button className="button secondary" onClick={() => {
+                    setPairs(alignmentUndo.before);
+                    setAlignmentUndo(undefined);
+                    setPage(0);
+                  }}>Undo alignment edit</button>
+                )}
                 <button
                   className="button secondary"
                   disabled={importing}
@@ -2262,7 +2335,7 @@ function App() {
                     not translation quality scores.
                   </p>
                   <div className="results-toolbar">
-                    <strong>{fmt(pairs.length)} pairs</strong>
+                    <strong>{fmt(pairs.length)} {pairs.length === 1 ? "pair" : "pairs"}</strong>
                     <SearchField
                       value={pairFilter}
                       onChange={setPairFilter}
@@ -2273,8 +2346,12 @@ function App() {
                       title="Exports every pair, including rows hidden by search"
                       onClick={() =>
                         exportCsv("parallel-corpus", [
-                          ["Source", "Target", "Note"],
-                          ...pairs.map((p) => [p.source, p.target, p.note]),
+                          ["Source", "Target", "Note", ...(hasTimes ? ["Source start", "Source end", "Target start", "Target end"] : [])],
+                          ...pairs.map((p) => [
+                            p.source, p.target, p.note,
+                            ...(hasTimes ? [p.sourceTime?.start, p.sourceTime?.end, p.targetTime?.start, p.targetTime?.end]
+                              .map((time) => time === undefined ? "" : subtitleTimestamp(time)) : []),
+                          ]),
                         ])
                       }
                     >
@@ -2305,11 +2382,20 @@ function App() {
                   )}
                   <DataTable
                     textColumns={[1, 2, 3]}
-                    headers={["#", "Source", "Target", "Research note"]}
+                    headers={["#", "Source", "Target", "Research note", "Review"]}
                     rows={pairRows
                       .slice(page * 50, page * 50 + 50)
                       .map((p) => [
-                        p.index + 1,
+                        <span className="pair-row-number">{p.index + 1}
+                          {p.confidence !== undefined && (
+                            <span className={p.confidence < 0.55 ? "pair-confidence-low" : "fine"}>
+                              {p.confidence < 0.55 ? "Low confidence · " : "Confidence · "}
+                              {Math.round(p.confidence * 100)}%
+                            </span>
+                          )}
+                        </span>,
+                        <div>
+                        {p.sourceTime && <p className="fine" dir="ltr">{subtitleTimestamp(p.sourceTime.start)} – {subtitleTimestamp(p.sourceTime.end)}</p>}
                         <textarea
                           className="cell-input"
                           aria-label={`Source ${p.index + 1}`}
@@ -2324,7 +2410,10 @@ function App() {
                               ),
                             )
                           }
-                        />,
+                        />
+                        </div>,
+                        <div>
+                        {p.targetTime && <p className="fine" dir="ltr">{subtitleTimestamp(p.targetTime.start)} – {subtitleTimestamp(p.targetTime.end)}</p>}
                         <textarea
                           className="cell-input"
                           aria-label={`Target ${p.index + 1}`}
@@ -2339,7 +2428,8 @@ function App() {
                               ),
                             )
                           }
-                        />,
+                        />
+                        </div>,
                         <input
                           className="cell-input"
                           aria-label={`Note ${p.index + 1}`}
@@ -2354,6 +2444,15 @@ function App() {
                             )
                           }
                         />,
+                        <div className="pair-review-actions">
+                          <button type="button" className="button secondary small" disabled={p.index + 1 === pairs.length}
+                            aria-label={`Merge row ${p.index + 1} with next row`} onClick={() => mergeNextPair(p.index)}>Merge next</button>
+                          <button type="button" className="button secondary small" aria-label={`Split row ${p.index + 1}`}
+                            onClick={() => setSplitPair({ index: p.index, rows: [
+                              { ...p, confidence: undefined },
+                              { source: "", target: "", note: "", sourceTime: p.sourceTime, targetTime: p.targetTime },
+                            ] })}>Split</button>
+                        </div>,
                       ])}
                   />
                   <Pagination
@@ -3135,6 +3234,36 @@ function App() {
           )}
         </main>
       </div>
+      {splitPair && (
+        <div className="modal-backdrop">
+          <Modal labelledBy="split-pair-title" onClose={() => setSplitPair(undefined)}>
+            <div className="panel-head">
+              <h2 id="split-pair-title">Split parallel row {splitPair.index + 1}</h2>
+              <button className="icon-button" aria-label="Cancel split" onClick={() => setSplitPair(undefined)}><X size={18} /></button>
+            </div>
+            <p>Move text into the second row at the point where you want to split.</p>
+            {splitPair.rows.map((row, index) => (
+              <fieldset key={index} className="analysis-option-group">
+                <legend>{index === 0 ? "First row" : "Second row"}</legend>
+                {(["source", "target"] as const).map((side) => (
+                  <label key={side}>{side === "source" ? "Source" : "Target"}
+                    <textarea dir="auto" value={row[side]} onChange={(event) => {
+                      const rows: [ParallelPair, ParallelPair] = [...splitPair.rows];
+                      rows[index] = { ...row, [side]: event.target.value };
+                      setSplitPair({ ...splitPair, rows });
+                    }} />
+                  </label>
+                ))}
+              </fieldset>
+            ))}
+            <button className="button primary" disabled={splitPair.rows.some((row) => !row.source.trim() && !row.target.trim())}
+              onClick={() => {
+                applyPairEdit([...pairs.slice(0, splitPair.index), ...splitPair.rows, ...pairs.slice(splitPair.index + 1)]);
+                setSplitPair(undefined);
+              }}>Apply split</button>
+          </Modal>
+        </div>
+      )}
       {showAbout && (
         <div className="modal-backdrop">
           <Modal labelledBy="workspace-about-title" onClose={() => setShowAbout(false)}>

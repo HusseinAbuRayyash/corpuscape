@@ -2276,6 +2276,17 @@ label,
   border-radius: 8px;
   padding: 12px;
 }
+.pair-review-actions, .pair-row-number {
+  display: grid;
+  gap: 5px;
+}
+.pair-confidence-low {
+  color: #733800;
+  background: #fff0d4;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
 .sidebar-privacy strong {
   color: #667085;
 }
@@ -2502,4 +2513,27 @@ label,
   .sidebar { visibility: hidden; }
   .sidebar.open { visibility: visible; }
   .mobile-navigation-close { display: flex; position: absolute; top: 18px; right: 10px; }
+}
+.app .brand-name > small,
+.app .sidebar-privacy span,
+.app .breadcrumb > span,
+.app .command-trigger,
+.app .command-trigger kbd,
+.app .header-status,
+.app .section-kicker,
+.app .page-context,
+.app .corpus-toolbar small,
+.app .corpus-toolbar .button.secondary,
+.app .results-toolbar .button.secondary,
+.app .results-panel .fine,
+.app .pagination span,
+.app .pagination button,
+.app .chart-aside .eyebrow,
+.app .chart-aside .text-button,
+.app .results-panel .result-note,
+.app .method-strip,
+.app .method-strip button,
+.app .workspace footer span,
+.app .workspace main > footer > span:first-child > span:last-child {
+  color: #52627a;
 }

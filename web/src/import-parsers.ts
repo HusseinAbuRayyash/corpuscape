@@ -111,12 +111,18 @@ export function tmxDocuments(
     }))
     .filter((doc) => doc.text.trim());
 }
-export function subtitleText(input: string) {
+export interface SubtitleCue { start: number; end: number; text: string }
+
+export function subtitleCues(input: string): SubtitleCue[] {
   const blocks = input
     .replace(/^\uFEFF/, "")
     .replace(/\r\n?/g, "\n")
     .split(/\n\s*\n/);
-  const cues: string[] = [];
+  const cues: SubtitleCue[] = [];
+  const stamp = "(?:\\d{2,}:)?[0-5]\\d:[0-5]\\d[.,]\\d{3}";
+  const timingLine = new RegExp(`^\\s*(${stamp})\\s+-->\\s+(${stamp})(?:\\s|$)`);
+  const milliseconds = (value: string) =>
+    value.replace(",", ".").split(":").reduce((total, part) => total * 60 + Number(part), 0) * 1000;
   for (const block of blocks) {
     const lines = block.split("\n");
     if (
@@ -125,10 +131,11 @@ export function subtitleText(input: string) {
       )
     )
       continue;
-    const timing = lines.findIndex((line) =>
-      /(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}\s+-->/.test(line),
-    );
+    const timing = lines.findIndex((line) => timingLine.test(line));
     if (timing < 0) continue;
+    const [, from, to] = timingLine.exec(lines[timing])!;
+    const start = Math.round(milliseconds(from)), end = Math.round(milliseconds(to));
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) continue;
     const cue = lines
       .slice(timing + 1)
       .join("\n")
@@ -138,9 +145,13 @@ export function subtitleText(input: string) {
         `<body>${cue.replace(/</g, "&lt;")}</body>`,
         "text/html",
       ).body.textContent ?? "";
-    if (decoded.trim()) cues.push(decoded);
+    if (decoded.trim()) cues.push({ start, end, text: decoded });
   }
-  return cues.join("\n\n");
+  return cues;
+}
+
+export function subtitleText(input: string) {
+  return subtitleCues(input).map(({ text }) => text).join("\n\n");
 }
 export function decodeText(bytes: ArrayBuffer) {
   const data = new Uint8Array(bytes);

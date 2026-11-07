@@ -1,5 +1,6 @@
 import type { CorpusDocument, Options } from "./engine";
 import { validateBackup } from "./backup";
+import type { ParallelPair, TimeRange } from "./parallel-align";
 export interface WorkspaceSession {
   name: string;
   documents: CorpusDocument[];
@@ -9,7 +10,7 @@ export interface WorkspaceSession {
   targetText: string;
   sourceLocale: string;
   targetLocale: string;
-  pairs: { source: string; target: string; note: string }[];
+  pairs: ParallelPair[];
   activeId: string | null;
 }
 export function validateWorkspace(value: unknown): WorkspaceSession {
@@ -47,7 +48,15 @@ export function validateWorkspace(value: unknown): WorkspaceSession {
       typeof p.note !== "string"
     )
       throw new Error("Invalid parallel segment or note.");
-    return { source: p.source, target: p.target, note: p.note };
+    const result: ParallelPair = { source: p.source, target: p.target, note: p.note };
+    if (typeof p.confidence === "number" && p.confidence >= 0 && p.confidence <= 1)
+      result.confidence = p.confidence;
+    for (const key of ["sourceTime", "targetTime"] as const) {
+      const range = p[key] as TimeRange | undefined;
+      if (range && Number.isSafeInteger(range.start) && Number.isSafeInteger(range.end) && range.start >= 0 && range.end > range.start)
+        result[key] = { start: range.start, end: range.end };
+    }
+    return result;
   });
   const tag = (key: string, fallback: string) => {
     const raw = v[key] ?? fallback;

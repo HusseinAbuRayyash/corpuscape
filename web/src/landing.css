@@ -1755,3 +1755,17 @@
 @media (max-width: 767px), (prefers-reduced-motion: reduce) {
   .lp-rotate span { filter: none !important; }
 }
+.landing .lp-window-bar > span:nth-child(2),
+.landing .lp-window-live,
+.landing .lp-preview-label,
+.landing .lp-preview-metrics > span,
+.landing .lp-tool-card > p,
+.landing .lp-step > small,
+.landing .lp-step > p,
+.landing .lp-language-strip span {
+  color: #52627a;
+}
+.landing .orbit-caption,
+.landing .lp-parallel > span {
+  color: #4d6c55;
+}

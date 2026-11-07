@@ -12,6 +12,8 @@
   workspace screenshots, and author and citation details to the landing page.
 - Add optional Arabic term normalisation and experimental prefix splitting,
   with eleven editable Stopwords ISO lists.
+- Align parallel texts by sentence length or subtitle timestamps, with editable
+  pairs, review flags, undo and timed exports.
 
 ### Changed
 
@@ -32,6 +34,7 @@
   chart labels, and load specialist tools on demand.
 - Ignore invisible direction and joiner controls in matching terms while
   retaining original source text.
+- Add HSTS and a report-only Content Security Policy.
 
 ### Removed
 
