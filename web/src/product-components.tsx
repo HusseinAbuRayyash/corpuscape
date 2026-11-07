@@ -82,13 +82,15 @@ export function SampleList({
             <strong>{sample.name}</strong>
             <small>
               {sample.documents.length} documents<span>·</span>
-              {index ? "Multilingual" : "English"}
+              {index === 2 ? "English and Arabic" : index ? "Multilingual" : "English"}
               <span>·</span>Teaching dataset
             </small>
           </span>
           {!compact && (
             <span className="dataset-languages">
-              {index ? (
+              {index === 2 ? (
+                <><b>EN</b><b>AR</b></>
+              ) : index ? (
                 <>
                   <b>ES</b>
                   <b>FR</b>

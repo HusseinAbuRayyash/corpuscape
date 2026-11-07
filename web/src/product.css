@@ -1452,8 +1452,11 @@ tbody tr:hover {
 }
 .kwic-left {
   display: block;
-  text-align: end;
-  min-width: 130px;
+  direction: rtl;
+  text-align: right;
+  max-width: 32ch;
+  white-space: nowrap;
+  overflow: hidden;
 }
 mark {
   color: #5a6070;

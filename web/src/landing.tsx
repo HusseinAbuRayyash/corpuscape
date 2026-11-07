@@ -24,9 +24,12 @@ import {
   X,
 } from "lucide-react";
 import { Aurora, OrbitingWords, Reveal } from "./motion-primitives";
-import { analyze, defaultOptions } from "./engine";
+import { analyze, compare, defaultOptions } from "./engine";
 import { BrandMark } from "./product-components";
-import { multilingualSampleDocuments } from "./samples";
+import { multilingualSampleDocuments, samples } from "./samples";
+import { previewStopWords, translationPreview } from "./landing-sample";
+import { author, citation } from "./about";
+import { APP_VERSION } from "./version";
 
 export type Page =
   | "overview"
@@ -52,8 +55,19 @@ const previewDocuments = multilingualSampleDocuments.map((d, i) => ({
   ...d,
   id: `preview-${i}`,
 }));
-const preview = analyze(previewDocuments, defaultOptions);
+const previewOptions = { ...defaultOptions, stopWords: previewStopWords };
+const preview = analyze(translationPreview, previewOptions);
 const terms = preview.frequencies.slice(0, 6);
+const keyness = compare(
+  analyze(samples[0].documents, previewOptions),
+  analyze(translationPreview.slice(0, 1), previewOptions),
+).slice(0, 5);
+const keynessScale = Math.max(...keyness.map((row) => Math.abs(row.logRatio)));
+const screenshots = [
+  { file: "frequencies", title: "Word frequencies", alt: "Live Corpus Explorer showing multilingual sample totals and ranked frequencies" },
+  { file: "concordance", title: "Concordance", alt: "Live concordance table showing the Arabic word for translation in context" },
+  { file: "parallel", title: "Parallel workspace", alt: "Live parallel workspace pairing three English sentences with Arabic translations" },
+];
 const tools = [
   {
     id: "analysis",
@@ -110,7 +124,6 @@ function RotatingWord({
   return (
     <span
       className="lp-rotate"
-      aria-label="patterns, connections and possibilities"
     >
       <span aria-hidden="true">
         <AnimatePresence mode="wait">
@@ -178,6 +191,7 @@ export function Landing({
     () => savedMotionChoice() === "on",
   );
   const [menu, setMenu] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
   const prefersReduced = useReducedMotion();
   const reduced = prefersReduced && !forceMotion;
   const effectivePaused = paused || !!reduced;
@@ -249,19 +263,19 @@ export function Landing({
           >
             <Github size={19} />
           </a>
+          <button
+            className="lp-motion-header"
+            aria-label={
+              effectivePaused ? "Enable animations" : "Pause animations"
+            }
+            title={effectivePaused ? "Enable motion" : "Pause motion"}
+            onClick={toggleMotion}
+            aria-pressed={!effectivePaused}
+          >
+            {effectivePaused ? <Play size={15} /> : <Pause size={15} />}
+            <span>{effectivePaused ? "Enable motion" : "Pause motion"}</span>
+          </button>
         </nav>
-        <button
-          className="lp-motion-header"
-          aria-label={
-            effectivePaused ? "Enable animations" : "Pause animations"
-          }
-          title={effectivePaused ? "Enable motion" : "Pause motion"}
-          onClick={toggleMotion}
-          aria-pressed={!effectivePaused}
-        >
-          {effectivePaused ? <Play size={15} /> : <Pause size={15} />}
-          <span>{effectivePaused ? "Enable motion" : "Pause motion"}</span>
-        </button>
         <button
           className="lp-button lp-button-small"
           onClick={() => go("workspace")}
@@ -291,10 +305,13 @@ export function Landing({
             </div>
           </Reveal>
           <h1>
+            <span className="sr-only">Explore language. Discover patterns.</span>
+            <span aria-hidden="true">
             Explore language.{" "}
             <br />
             Discover{" "}
             <RotatingWord paused={effectivePaused} forceMotion={forceMotion} />
+            </span>
           </h1>
           <p className="lp-lead">
             A little closer to the words.{" "}
@@ -345,7 +362,7 @@ export function Landing({
               <div className="lp-product-grid">
                 <div className="lp-preview-analysis">
                   <div className="lp-preview-label">
-                    <FileText size={16} /> LANGUAGES IN CONVERSATION
+                    <FileText size={16} /> ENGLISH–ARABIC PARALLEL SAMPLE
                   </div>
                   <h2>
                     Small texts.{" "}
@@ -360,7 +377,7 @@ export function Landing({
                       <strong>{preview.types}</strong>unique types
                     </span>
                     <span>
-                      <strong>{multilingualSampleDocuments.length}</strong>
+                      <strong>{translationPreview.length}</strong>
                       languages
                     </span>
                   </div>
@@ -389,7 +406,8 @@ export function Landing({
                       </div>
                     ))}
                   </div>
-                  <button className="lp-text-link" onClick={() => onSample(1)}>
+                  <p className="lp-preview-note">Stop words hidden in this preview.</p>
+                  <button className="lp-text-link" onClick={() => onSample(2)}>
                     Explore this real dataset <ArrowRight size={16} />
                   </button>
                 </div>
@@ -397,18 +415,6 @@ export function Landing({
               </div>
             </div>
           </Reveal>
-          <button
-            className="lp-motion-control"
-            onClick={toggleMotion}
-            aria-pressed={!effectivePaused}
-          >
-            {effectivePaused ? <Play size={13} /> : <Pause size={13} />}
-            {effectivePaused
-              ? reduced
-                ? "Enable motion"
-                : "Resume motion"
-              : "Pause motion"}
-          </button>
         </div>
       </section>
 
@@ -458,15 +464,17 @@ export function Landing({
                 <div className="lp-tool-art" aria-hidden="true">
                   {i === 0 ? (
                     <div className="lp-kwic">
-                      <p>
-                        we learn <b>language</b> through people
-                      </p>
-                      <p>
-                        patterns in <b>language</b> reveal context
-                      </p>
-                      <p>
-                        the words of <b>language</b> connect us
-                      </p>
+                      {[
+                        ["we learn", "through people"],
+                        ["patterns in", "reveal context"],
+                        ["the words of", "connect us"],
+                      ].map(([left, right]) => (
+                        <div className="lp-kwic-line" key={left}>
+                          <span className="lp-kwic-left"><span>{left}</span></span>
+                          <b>language</b>
+                          <span className="lp-kwic-right">{right}</span>
+                        </div>
+                      ))}
                     </div>
                   ) : i === 1 ? (
                     <div className="lp-parallel">
@@ -478,18 +486,28 @@ export function Landing({
                     </div>
                   ) : i === 2 ? (
                     <div className="lp-compare-art">
-                      {[75, 45, 85, 60, 38].map((v, j) => (
-                        <span key={j}>
-                          <i style={{ height: v }} />
-                          <b style={{ height: 100 - v / 2 }} />
-                        </span>
+                      <strong>Keyness · log₂ frequency ratio</strong>
+                      <small>Corpus A ← 0 → Corpus B</small>
+                      {keyness.map((row) => (
+                        <div className="lp-keyness-row" key={row.term}>
+                          <span>{row.term}</span>
+                          <div className="lp-keyness-axis">
+                            <i style={{ width: `${row.logRatio > 0 ? row.logRatio / keynessScale * 50 : 0}%` }} />
+                            <b style={{ width: `${row.logRatio < 0 ? -row.logRatio / keynessScale * 50 : 0}%` }} />
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
                     <div className="lp-figure-art">
-                      {[40, 72, 55, 88, 60, 100, 76].map((v, j) => (
-                        <i key={j} style={{ height: v }} />
-                      ))}
+                      <strong>Frequent terms in the preview</strong>
+                      <div className="lp-mini-plot">
+                        <small>Token count</small>
+                        {terms.slice(0, 3).map((row) => (
+                          <span key={row.term}><i style={{ height: `${row.count / terms[0].count * 100}%` }} /><b dir="auto">{row.term}</b></span>
+                        ))}
+                      </div>
+                      <small>Term</small>
                     </div>
                   )}
                 </div>
@@ -500,6 +518,21 @@ export function Landing({
                 </span>
               </button>
             </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="lp-section lp-container lp-screens" aria-labelledby="live-workspace">
+        <h2 id="live-workspace">See it in action</h2>
+        <div className="lp-screen-grid">
+          {screenshots.map(({ file, title, alt }) => (
+            <figure key={file}>
+              <a href={`${import.meta.env.BASE_URL}screens/${file}.webp`}>
+                <img src={`${import.meta.env.BASE_URL}screens/${file}.webp`} alt={alt}
+                  loading="lazy" width={1140} height={642} />
+              </a>
+              <figcaption>{title}</figcaption>
+            </figure>
           ))}
         </div>
       </section>
@@ -650,7 +683,7 @@ export function Landing({
               key to supply, no subscription to start researching.
             </p>
             <button className="lp-button" onClick={() => go("workspace")}>
-              Your workspace is ready <ArrowRight size={18} />
+              Open the workspace <ArrowRight size={18} />
             </button>
             <button className="lp-text-link" onClick={() => go("methods")}>
               How your data is handled <ArrowUpRight size={15} />
@@ -659,6 +692,25 @@ export function Landing({
         </Reveal>
       </section>
 
+      <section className="lp-about lp-container" aria-labelledby="about-corpuscape">
+        <div>
+          <h2 id="about-corpuscape">About Corpuscape</h2>
+          <p>{author.name}<br />{author.affiliation}<br /><a href={author.orcid}>ORCID profile</a></p>
+        </div>
+        <div id="cite">
+          <h2>How to cite</h2>
+          <p>{citation}</p>
+          <button className="lp-text-link" onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(citation);
+              setCopyStatus("Citation copied.");
+            } catch {
+              setCopyStatus("Select the citation text to copy it.");
+            }
+          }}>Copy citation</button>
+          <span role="status">{copyStatus}</span>
+        </div>
+      </section>
       <section className="lp-faq lp-container">
         <h2>A few practical questions.</h2>
         {[
@@ -693,13 +745,18 @@ export function Landing({
           <BrandMark className="lp-mark" />
           corpuscape.
         </a>
-        <span>A little closer to language.</span>
+        <span>{author.name} · Kent State University · v{APP_VERSION}</span>
         <div>
+          <a href="#cite" onClick={(event) => {
+            event.preventDefault();
+            document.getElementById("cite")?.scrollIntoView({ block: "center" });
+          }}>How to cite</a>
+          <a href={`${source}/blob/main/LICENSE`}>MIT license</a>
           <button onClick={() => go("methods")}>Methods & privacy</button>
           <a href={source} target="_blank" rel="noreferrer">
             GitHub <ArrowUpRight size={14} />
           </a>
-          <span>© {new Date().getFullYear()} Corpuscape</span>
+          <a href={`${source}/issues`}>Contact</a>
         </div>
       </footer>
     </div>

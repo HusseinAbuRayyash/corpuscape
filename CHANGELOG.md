@@ -8,6 +8,8 @@
 - Use the package version as the source for the app's `APP_VERSION` constant.
 - Add share previews, a touch icon, and discovery metadata for the public site.
 - Document the repository history cleanup procedure.
+- Add an English–Arabic teaching sample, labelled research previews, live
+  workspace screenshots, and author and citation details to the landing page.
 
 ### Fixed
 
@@ -16,6 +18,8 @@
   page, workspace, and favicon.
 - Align workspace search controls and use the direction of the query text.
 - Use the same ten teaching languages for the preview count, strip, and tabs.
+- Improve mobile landing navigation, tap targets, contrast, and concordance
+  context alignment.
 
 ### Removed
 
