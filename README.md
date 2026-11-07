@@ -39,6 +39,18 @@ Deploy **the contents of `dist/`**, not server JavaScript or the repository root
 - Local library: explicit browser saves update the current record; portable JSON backups retain case, stop list and language settings. Version 2 backups still restore. Deletion requires a review dialog. Reports include document languages and resolved segmentation locales and export as self-contained HTML for printing to PDF.
 - Import TXT, Markdown, CSV, TSV, DOCX, selectable-text PDF, XLSX (select a worksheet), saved HTML, SRT/VTT subtitle text and TMX (select tagged languages; corpus imports create a document per language). Tables have explicit column and header selection. The Text extraction workspace processes scanned PDFs and images locally with Tesseract; multiple files, selectable-text fallback, editable page outputs, language selection and corpus handoff are included.
 
+## Research writing and verification version 2.3
+
+Mini paper creates a frozen source snapshot and a fresh worker analysis. Methods, numerical results, tables and figures are computed from that snapshot. Researchers edit the title, question, source description, narrative sections and review status. Reference comparisons and parallel units are explicit choices when creating a paper. A focus word or phrase supplies real concordance examples to local AI.
+
+Export editable Word, self-contained HTML with print-to-PDF, a restorable project, or a ZIP containing the manuscript, complete-precision CSV data, SVG and high-resolution PNG figures. Term-table selection does not trim exported datasets; three- and four-word sequences and optional focus concordances/collocations are included. Source hashes, analysis settings, model revisions and incomplete-generation markers travel with the paper. Restored paper results are recalculated from the source.
+
+The optional Qwen2.5-1.5B WebLLM engine runs through WebGPU (about 880 MB first download, roughly 1.6 GB GPU memory at a 4,096-token context). Automatic mode falls back to the compact Qwen3 CPU model when compatible GPU initialization is unavailable. The shared model connection survives navigation between Reports and Mini paper. No corpus text or prompt is sent to a hosted inference API. Explicit GPU mode reports incompatibility rather than changing the selected device.
+
+Actual ten-corpus model tests found invented numerical expansions, weak language control and false translation-review claims. New checks flag unmatched numerals, suspicious ratio interpretations, unknown evidence IDs and some unsupported alignment claims. These checks do not establish semantic correctness. AI prose remains an editable draft requiring researcher review; Mini paper keeps numerical results outside model-generated prose.
+
+The update also adds per-row CSV/XLSX document name and language mapping, optional reversible CJK line-wrap cleanup, preserved notes when re-pairing unchanged segments, full-library/paper workspace archives, and collocation figure recovery. The [audit and gap ledger](docs/corpus-audit-2.3.md) distinguishes automated, browser and artifact checks, and documents remaining model/hardware limits.
+
 ## Research upgrade, version 2.2.1
 
 The new Figure Studio replaces the earlier three-chart utility. **Research reports** connects to Qwen3-0.6B or Qwen3-1.7B (multilingual), or SmolLM2-135M (English-focused), through Transformers.js. No API key or hosted inference service is used. Models download only after the visitor requests a connection, and are cached for reuse. The default Qwen download is about 618 MB on CPU / 570 MB on WebGPU; the larger model is about 1.7 GB / 1.4 GB. GPU compatibility is checked, automatic mode falls back to CPU, and cancellation terminates the model worker.

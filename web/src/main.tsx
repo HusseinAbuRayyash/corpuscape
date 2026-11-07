@@ -41,10 +41,13 @@ import {
   type Options,
   type Hit,
 } from "./engine";
+import { tableDocuments } from "./table-documents";
 import { importFile, ACCEPT, RequiresOcr, type Imported } from "./files";
 import { selectTmxPairs, type TranslationMemory } from "./import-parsers";
 import { makeBackup, validateBackup } from "./backup";
 import { FigureStudio } from "./figure-studio";
+import { LocalWriterProvider } from "./local-writer";
+import { MiniPaper } from "./mini-paper";
 import { ResearchReports } from "./research-reports";
 import { TextExtraction } from "./text-extraction";
 import { validateWorkspace, type WorkspaceSession } from "./workspace-session";
@@ -57,6 +60,8 @@ import { exclusiveSave } from "./save-queue";
 import { formatPercentage } from "./format";
 import {
   listCorpora,
+  listSessions,
+  restoreArchive,
   saveCorpus,
   deleteCorpus,
   loadSession,
@@ -86,6 +91,7 @@ type View =
   | "compare"
   | "figures"
   | "reports"
+  | "papers"
   | "ocr"
   | "library"
   | "methods";
@@ -97,6 +103,7 @@ const navigation = [
   ["compare", "Compare corpora", Columns2],
   ["figures", "Figure studio", BarChart3],
   ["reports", "Research reports", Sparkles],
+  ["papers", "Mini paper", BookOpen],
   ["ocr", "Text extraction", ScanText],
   ["library", "Corpus library", Library],
   ["methods", "Methods & privacy", BookOpen],
@@ -346,6 +353,9 @@ function App() {
       })
     | null
   >(null);
+  const [separateRows, setSeparateRows] = useState(false),
+    [nameColumn, setNameColumn] = useState(-1),
+    [languageColumn, setLanguageColumn] = useState(-1);
   const [column, setColumn] = useState(0),
     [targetColumn, setTargetColumn] = useState(1),
     [noteColumn, setNoteColumn] = useState(-1),
@@ -367,6 +377,14 @@ function App() {
     { term: string; count: number; pmi: number; dice: number }[]
   >([]);
   const [queryError, setQueryError] = useState("");
+  const collocationInputs = useRef<{
+    documents: CorpusDocument[];
+    options: Options;
+    query: string;
+    document: string;
+    window: number;
+    minimum: number;
+  } | null>(null);
   const [queryBusy, setQueryBusy] = useState(false),
     [page, setPage] = useState(0);
   const [saved, setSaved] = useState<SavedCorpus[]>([]),
@@ -482,15 +500,22 @@ function App() {
   ]);
   async function exportWorkspace() {
     try {
-      const [figure, reports] = await Promise.all([
-        loadSession("figure-studio-v2"),
-        loadSession("research-reports-v1"),
-      ]);
+      const [figure, reports, corpusLibrary, paperProjects, paperSnapshots] =
+        await Promise.all([
+          loadSession("figure-studio-v2"),
+          loadSession("research-reports-v1"),
+          listCorpora(),
+          listSessions("paper-project:"),
+          listSessions("paper-snapshot:"),
+        ]);
       download(
         "corpuscape-workspace.json",
         JSON.stringify(
           {
-            format: "corpuscape-workspace-v1",
+            format: "corpuscape-workspace-v2",
+            corpusLibrary,
+            paperProjects,
+            paperSnapshots,
             workspace: {
               name,
               documents,
@@ -588,7 +613,19 @@ function App() {
     const version = ++queryVersion.current;
     setPage(0);
     setHits({ hits: [], total: 0 });
-    setCollocates([]);
+    const previous = collocationInputs.current;
+    if (
+      !previous ||
+      previous.documents !== documents ||
+      previous.options !== options ||
+      previous.query !== query ||
+      previous.document !== queryDocument ||
+      previous.window !== windowSize ||
+      previous.minimum !== minimum
+    ) {
+      setCollocates([]);
+      collocationInputs.current = null;
+    }
     setQueryError("");
     if (
       !query.trim() ||
@@ -599,6 +636,7 @@ function App() {
       return;
     }
     setQueryBusy(true);
+    if (tab === "collocations") setCollocates([]);
     const timer = setTimeout(
       () =>
         run(tab, {
@@ -615,7 +653,17 @@ function App() {
           .then((result) => {
             if (version !== queryVersion.current) return;
             if (tab === "concordance") setHits(result);
-            else setCollocates(result);
+            else {
+              setCollocates(result);
+              collocationInputs.current = {
+                documents,
+                options,
+                query,
+                document: queryDocument,
+                window: windowSize,
+                minimum,
+              };
+            }
             setQueryBusy(false);
           })
           .catch((e) => {
@@ -685,6 +733,9 @@ function App() {
           throw new Error(
             "Import tables one at a time so you can choose the text column.",
           );
+        setSeparateRows(false);
+        setNameColumn(-1);
+        setLanguageColumn(-1);
         setColumn(0);
         setTargetColumn(1);
         setNoteColumn(-1);
@@ -739,7 +790,7 @@ function App() {
           navigate("analysis");
         }
         notify(
-          `${docs.length} document${docs.length === 1 ? "" : "s"} imported on this device.`,
+          `${docs.length} document${docs.length === 1 ? "" : "s"} imported on this device. ${results.flatMap((r) => r.warnings ?? []).join(" ")}`,
         );
       }
     } catch (e) {
@@ -784,15 +835,14 @@ function App() {
         ]);
         setPairs(importedPairs);
       } else {
-        const docs = [
-          {
-            name: tableImport.name,
-            text: rows.map((row) => row[column] ?? "").join("\n"),
-          },
-        ];
+        const docs = tableDocuments(rows, {
+          name: tableImport.name,
+          text: column,
+          separate: separateRows,
+          nameColumn,
+          languageColumn,
+        });
         checkSize(docs);
-        if (!docs[0].text.trim())
-          throw new Error("The selected column has no text.");
         if (tableImport.destination === "reference") setReference(docs);
         else {
           const next = tableImport.append ? [...documents, ...docs] : docs;
@@ -1210,7 +1260,6 @@ function App() {
               tokens={analysis?.words}
             />
           )}
-
           {view === "analysis" && (
             <>
               <PageTitle
@@ -1570,6 +1619,9 @@ function App() {
                                 )}
                                 <button
                                   className="button secondary small"
+                                  disabled={
+                                    queryBusy || !!queryError || !query.trim()
+                                  }
                                   onClick={() =>
                                     tab === "concordance"
                                       ? exportCsv("concordance", [
@@ -1900,7 +1952,6 @@ function App() {
               )}
             </>
           )}
-
           {view === "bilingual" && (
             <>
               <PageTitle
@@ -1969,7 +2020,7 @@ function App() {
                           "Paste source and target segments first.",
                         );
                       checkSize([{ name: "", text: sourceText + targetText }]);
-                      const p = alignByLine(sourceText, targetText);
+                      const p = alignByLine(sourceText, targetText, pairs);
                       setPairs(p);
                       setPage(0);
                       notify(
@@ -2042,6 +2093,7 @@ function App() {
                     />
                     <button
                       className="button secondary small"
+                      title="Exports every pair, including rows hidden by search"
                       onClick={() =>
                         exportCsv("parallel-corpus", [
                           ["Source", "Target", "Note"],
@@ -2140,7 +2192,6 @@ function App() {
               )}
             </>
           )}
-
           {view === "compare" && (
             <>
               <PageTitle
@@ -2188,7 +2239,7 @@ function App() {
                   <p>
                     {documents.length
                       ? `${documents.length} ${documents.length === 1 ? "document" : "documents"} · ${analysis ? fmt(analysis.words) : "…"} word tokens`
-                      : "Load a corpus in the Monolingual lab first."}
+                      : "Load a corpus in Corpus explorer first."}
                   </p>
                   <button
                     className="button secondary"
@@ -2240,6 +2291,17 @@ function App() {
                       <Upload size={14} />
                       Import
                     </button>
+                    {reference.length > 0 && (
+                      <button
+                        className="button secondary small"
+                        onClick={() => {
+                          setReference([]);
+                          setReferencePaste("");
+                        }}
+                      >
+                        Clear reference
+                      </button>
+                    )}
                   </div>
                 </section>
               </div>
@@ -2375,7 +2437,6 @@ function App() {
               )}
             </>
           )}
-
           {view === "figures" && (
             <FigureStudio
               name={name}
@@ -2383,12 +2444,24 @@ function App() {
               documents={documents}
               comparison={comparison}
               collocates={collocates}
+              collocationContext={`Node ${JSON.stringify(query)} · symmetric window ±${windowSize} · minimum ${minimum} · ${queryDocument === "all" ? "all documents" : (documents[Number(queryDocument)]?.name ?? "selected document")} · workspace language ${options.locale}, document overrides apply`}
               pairs={pairs}
               onReports={() => navigate("reports")}
             />
           )}
           {view === "reports" && (
             <ResearchReports
+              name={name}
+              analysis={analysis}
+              documents={documents}
+              options={options}
+              comparison={comparison}
+              pairs={pairs}
+            />
+          )}{" "}
+          {view === "papers" && (
+            <MiniPaper
+              reference={reference}
               name={name}
               analysis={analysis}
               documents={documents}
@@ -2411,7 +2484,6 @@ function App() {
               }}
             />
           )}
-
           {view === "library" && (
             <>
               <PageTitle
@@ -2469,7 +2541,12 @@ function App() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const raw = JSON.parse(await file.text());
-                        if (raw?.format === "corpuscape-workspace-v1") {
+                        if (
+                          [
+                            "corpuscape-workspace-v1",
+                            "corpuscape-workspace-v2",
+                          ].includes(raw?.format)
+                        ) {
                           const workspace = validateWorkspace(raw.workspace);
                           const entries: Record<string, unknown> = {
                             "workspace-v1": workspace,
@@ -2495,12 +2572,69 @@ function App() {
                             };
                           }
                           if (raw.reports) {
-                            const { validateReportSession } =
-                              await import("./report-model");
+                            const { validateReportSession } = await import(
+                              "./report-model"
+                            );
                             entries["research-reports-v1"] =
                               validateReportSession(raw.reports);
                           }
-                          await saveSessions(entries);
+                          const corpusCopies: SavedCorpus[] = [];
+                          if (raw.format === "corpuscape-workspace-v2") {
+                            if (
+                              !Array.isArray(raw.corpusLibrary) ||
+                              !Array.isArray(raw.paperProjects) ||
+                              !Array.isArray(raw.paperSnapshots)
+                            )
+                              throw new Error(
+                                "The complete archive is missing its library or papers.",
+                              );
+                            for (const c of raw.corpusLibrary) {
+                              const checked = validateBackup({
+                                format: "corpuscape-v3",
+                                ...c,
+                              });
+                              corpusCopies.push({
+                                ...checked,
+                                id: crypto.randomUUID(),
+                                locale: checked.options.locale,
+                                savedAt: new Date().toISOString(),
+                              });
+                            }
+                            const { validatePaperBundle } = await import(
+                              "./paper-model"
+                            );
+                            for (const item of raw.paperProjects) {
+                              const original = item.value;
+                              const record = raw.paperSnapshots.find(
+                                (r: { key: string }) =>
+                                  r.key ===
+                                  `paper-snapshot:${original.snapshotId}`,
+                              );
+                              if (!record)
+                                throw new Error(
+                                  "A paper snapshot is missing from the archive.",
+                                );
+                              const checked = await validatePaperBundle({
+                                project: original,
+                                snapshot: record.value,
+                              });
+                              const snapshotId = crypto.randomUUID(),
+                                projectId = crypto.randomUUID();
+                              entries[`paper-snapshot:${snapshotId}`] = {
+                                ...checked.snapshot,
+                                id: snapshotId,
+                              };
+                              entries[`paper-project:${projectId}`] = {
+                                ...checked.project,
+                                id: projectId,
+                                snapshotId,
+                              };
+                              entries["paper-current-v1"] = projectId;
+                            }
+                          }
+                          workspace.activeId = null;
+                          await restoreArchive(entries, corpusCopies);
+                          await refreshLibrary();
                           applyWorkspace(workspace);
                           navigate("analysis");
                           notify(
@@ -2619,7 +2753,6 @@ function App() {
               )}
             </>
           )}
-
           {view === "methods" && (
             <>
               <PageTitle
@@ -2821,6 +2954,9 @@ function App() {
                         open === current ? { ...current, ...result } : open,
                       );
                       setHeader(false);
+                      setSeparateRows(false);
+                      setNameColumn(-1);
+                      setLanguageColumn(-1);
                       setColumn(0);
                       setTargetColumn(1);
                       setNoteColumn(-1);
@@ -2860,6 +2996,53 @@ function App() {
                 ))}
               </select>
             </label>
+            {tableImport.destination !== "pairs" && (
+              <>
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    checked={separateRows}
+                    onChange={(e) => setSeparateRows(e.target.checked)}
+                  />
+                  Each row is a separate document
+                </label>
+                {separateRows && (
+                  <>
+                    {[
+                      {
+                        label: "Document name column",
+                        value: nameColumn,
+                        set: setNameColumn,
+                      },
+                      {
+                        label: "Document language column (BCP 47)",
+                        value: languageColumn,
+                        set: setLanguageColumn,
+                      },
+                    ].map((field) => (
+                      <label key={field.label}>
+                        {field.label}
+                        <select
+                          value={field.value}
+                          onChange={(e) => field.set(Number(e.target.value))}
+                        >
+                          <option value={-1}>Not supplied</option>
+                          {tableImport.table!.headers.map((h, i) => (
+                            <option key={i} value={i}>
+                              {header ? tableImport.table!.rows[0][i] || h : h}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                    <p className="muted">
+                      Blank text rows are skipped. Language tags are checked
+                      before any documents are imported.
+                    </p>
+                  </>
+                )}
+              </>
+            )}
             {tableImport.destination === "pairs" && (
               <>
                 <label>
@@ -3243,6 +3426,8 @@ const root =
 if (import.meta.hot) import.meta.hot.data.root = root;
 root.render(
   <ErrorBoundary>
-    <App />
+    <LocalWriterProvider>
+      <App />
+    </LocalWriterProvider>
   </ErrorBoundary>,
 );
