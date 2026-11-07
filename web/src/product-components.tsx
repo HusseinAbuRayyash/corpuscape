@@ -145,6 +145,7 @@ type DashboardView =
   | "compare"
   | "figures"
   | "reports"
+  | "papers"
   | "ocr"
   | "library"
   | "methods";
@@ -200,11 +201,19 @@ export function Dashboard({
       code: "05",
     },
     {
+      id: "papers" as const,
+      name: "Mini paper",
+      detail:
+        "Frozen analyses, manuscript drafts, tables, figures and Word exports.",
+      icon: BookOpen,
+      code: "06",
+    },
+    {
       id: "ocr" as const,
       name: "Text extraction",
       detail: "Turn scanned PDFs and images into editable corpus text.",
       icon: FileText,
-      code: "06",
+      code: "07",
     },
   ];
   return (
@@ -230,7 +239,7 @@ export function Dashboard({
         <section className="quick-tools">
           <div className="section-label">
             <h2>Research tools</h2>
-            <span>6 workspaces</span>
+            <span>{tools.length} workspaces</span>
           </div>
           <div className="tool-grid">
             {tools.map((tool) => (

@@ -1,5 +1,6 @@
 import type { CorpusDocument } from "./engine";
 import Papa from "papaparse";
+import { joinCjkLineWraps } from "./text-cleanup";
 import {
   decodeText,
   parseTmx,
@@ -20,6 +21,7 @@ export class RequiresOcr extends Error {
   }
 }
 export interface Imported {
+  warnings?: string[];
   documents: CorpusDocument[];
   table?: {
     headers: string[];
@@ -77,8 +79,9 @@ export async function importFile(
     }
     if (!text.trim()) throw new RequiresOcr(file);
   } else if (ext === "xlsx") {
-    const { default: readXlsx, readSheetNames } =
-      await import("read-excel-file");
+    const { default: readXlsx, readSheetNames } = await import(
+      "read-excel-file"
+    );
     const sheetNames = await readSheetNames(file);
     const selectedSheet = sheet ?? sheetNames[0];
     if (!selectedSheet || !sheetNames.includes(selectedSheet))
@@ -131,7 +134,16 @@ export async function importFile(
       );
   }
   if (!text.trim()) throw new Error(`${file.name} contains no readable text.`);
-  return { documents: [{ name: file.name, text }] };
+  return {
+    documents: [{ name: file.name, text }],
+    ...(ext === "pdf" && joinCjkLineWraps(text) !== text
+      ? {
+          warnings: [
+            "PDF line wraps may split Chinese or Japanese words. Review Documents; optional Join CJK line wraps can restore continuous text.",
+          ],
+        }
+      : {}),
+  };
 }
 function tableResult(data: string[][], name: string): Imported {
   if (!data.length) throw new Error("This table is empty.");

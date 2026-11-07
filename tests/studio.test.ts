@@ -12,6 +12,7 @@ import {
   studioDatasets,
   studioErrors,
   validateStudioProject,
+  saveableStudioSnapshot,
   type DataRow,
 } from "../web/src/studio-model";
 import { analyze } from "../web/src/engine";
@@ -37,6 +38,57 @@ const rows: DataRow[] = labels.flatMap((label, i) =>
     upper: i + 5,
   })),
 );
+test("one document per language uses full-width bars; actual repeated categories retain grouped offsets", () => {
+  const onePerLanguage = labels.map((label, i) => ({
+    label,
+    series: label,
+    value: i + 1,
+  }));
+  const bar = buildStudioSpec(onePerLanguage, {
+    ...defaultStudio,
+    value: "value",
+    series: "series",
+  }) as any;
+  assert.equal(bar.layer[0].encoding.yOffset, undefined);
+  const column = buildStudioSpec(onePerLanguage, {
+    ...defaultStudio,
+    kind: "grouped",
+    value: "value",
+    series: "series",
+  }) as any;
+  assert.equal(column.layer[0].encoding.xOffset, undefined);
+  const grouped = buildStudioSpec(rows, {
+    ...defaultStudio,
+    value: "value",
+    series: "series",
+  }) as any;
+  assert.deepEqual(grouped.layer[0].encoding.yOffset, { field: "series" });
+});
+test("collocation figure recovery keeps exact query rows when the live workspace query is no longer available", () => {
+  const snapshot = {
+    source: "collocations",
+    manual: null,
+    text: "",
+    config: { ...defaultStudio, sourceNote: "Node research · window ±5" },
+  };
+  const data = [
+    { label: "语言", count: 2, pmi: 1.23456, dice: 0.125 },
+    { label: "العربية", count: 1, pmi: 0, dice: 0.1 },
+  ];
+  const stored = saveableStudioSnapshot(snapshot, data);
+  data[0].count = 999;
+  assert.equal(stored.source, "custom");
+  assert.equal(stored.manual![0].count, 2);
+  const checked = validateStudioProject({
+    format: "corpuscape-figure-v1",
+    config: stored.config,
+    rows: stored.manual,
+    name: "Recovered",
+  });
+  assert.equal(checked.rows[0].pmi, 1.23456);
+  assert.ok(stored.text.includes("العربية"));
+  assert.match(checked.config.sourceNote, /window/);
+});
 test("CSV and TSV support multiple series, Unicode, signed values, decimals and quoted labels", () => {
   const data = parseStudioCsv(
     'label,series,value,x\n"Paris, France",A,-2.5,1\n语言,B,0,2\nالعربية,A,3e2,3',

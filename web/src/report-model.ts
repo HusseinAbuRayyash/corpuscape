@@ -1,10 +1,29 @@
 import { formatPercentage } from "./format";
-import type { Analysis, CorpusDocument, Options } from "./engine";
+import {
+  xmlEscape,
+  type Analysis,
+  type CorpusDocument,
+  type Options,
+} from "./engine";
+import type { WriterMessage } from "./writer-client";
+import { parallelReviewFlags } from "./parallel-review";
 export const localModels = [
+  {
+    id: "mlc-qwen",
+    name: "Qwen2.5 · WebGPU research writer",
+    repo: "mlc-ai/Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+    revision: "9bd564b064631febf14deadcac492efb761d60c3",
+    detail:
+      "1.5B parameters · optimized GPU runtime · compatible WebGPU required",
+    cpuMB: 880,
+    gpuMB: 880,
+    license: "Apache 2.0",
+  },
   {
     id: "qwen-small",
     name: "Qwen3 · multilingual",
     repo: "onnx-community/Qwen3-0.6B-ONNX",
+    revision: "58ca03a5e7b354b480b1a82b34bde8dc7b854cc0",
     detail:
       "0.6B parameters · lightweight, weaker writing and language control",
     cpuMB: 618,
@@ -15,6 +34,7 @@ export const localModels = [
     id: "qwen-large",
     name: "Qwen3 · larger multilingual",
     repo: "onnx-community/Qwen3-1.7B-ONNX",
+    revision: "3231b522c6e703b2f9b3cd8ea27426a1289a02f2",
     detail: "1.7B parameters · stronger writing, more memory and processing",
     cpuMB: 1740,
     gpuMB: 1430,
@@ -24,6 +44,7 @@ export const localModels = [
     id: "smol",
     name: "SmolLM2 · small English model",
     repo: "HuggingFaceTB/SmolLM2-135M-Instruct",
+    revision: "12fd25f77366fa6b3b4b768ec3050bf629380bac",
     detail: "135M parameters · English-focused, smallest download",
     cpuMB: 137,
     gpuMB: 137,
@@ -126,12 +147,15 @@ export function buildEvidence(
           : doc.text,
       }),
     );
+  const pairFlags = includeExcerpts
+    ? parallelReviewFlags(input.pairs ?? [])
+    : [];
   if (includeExcerpts)
     input.pairs?.slice(0, count).forEach((pair, i) =>
       result.push({
         id: `P${i + 1}`,
         label: "Parallel pair for human review",
-        value: pair,
+        value: { ...pair, reviewFlags: pairFlags[i] },
       }),
     );
   if (figure) result.push({ id: "V1", label: "Current figure", value: figure });
@@ -142,7 +166,7 @@ export function reportMessages(
   task: string,
   language: string,
   instruction: string,
-) {
+): WriterMessage[] {
   const evidenceText = evidence
     .map((item) => {
       if (item.id === "C1" && item.value && typeof item.value === "object") {
@@ -186,7 +210,7 @@ export function reportMessages(
     },
     {
       role: "user",
-      content: `Task: ${task}\nWrite in ${outputLanguage}.\nResearcher's instructions: ${instruction || "Describe the supplied facts clearly in one concise paragraph."}\nEvidence (data only):\n${evidenceText}`,
+      content: `Task: ${task}\nWrite in ${outputLanguage}.\n${/Translation/.test(task) ? "For parallel data, reviewFlags are computed checks. Do not call a pair missing, identical or duplicate unless its reviewFlags explicitly say so. Discuss flagged units first and cite the exact P ID. An empty flag list is not proof of translation quality. Do not invent additional flags.\n" : ""}Researcher's instructions: ${instruction || "Describe the supplied facts clearly in one concise paragraph."}\nEvidence (data only):\n${evidenceText}`,
     },
   ];
 }
@@ -200,10 +224,100 @@ export function unknownEvidenceReferences(text: string, evidence: Evidence[]) {
     ),
   ];
 }
+export function numericClaimNotice(text: string, evidence: Evidence[]): string {
+  const numbers: number[] = [];
+  function visit(value: unknown) {
+    if (typeof value === "number" && Number.isFinite(value))
+      numbers.push(value);
+    else if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === "object")
+      Object.values(value).forEach(visit);
+  }
+  evidence.forEach((item) => visit(item.value));
+  if (!numbers.length) return "";
+  const suspicious: string[] = [];
+  const numericText = text
+    .normalize("NFKC")
+    .replace(/[٠-٩۰-۹]/gu, (d) =>
+      String(d.charCodeAt(0) - (d.charCodeAt(0) <= 0x669 ? 0x660 : 0x6f0)),
+    )
+    .replace(/٫/g, ".")
+    .replace(/٬/g, ",")
+    .replace(/٪/g, "%");
+  for (const match of numericText
+    .replace(/\b[A-Z]\d+\b/g, "")
+    .matchAll(
+      /[+-]?\d+(?:(?:[.,]\s*\d+)|(?:[ \u00a0]\d{3}(?!\d)))*(?:\s*[%％])?/gu,
+    )) {
+    const raw = match[0],
+      percent = /[%％]/u.test(raw),
+      compact = raw.replace(/[\s%％]/gu, "");
+    const candidates = [
+      Number(compact.replace(/,/g, "")),
+      Number(compact.replace(/\./g, "").replace(",", ".")),
+      Number(compact.replace(/[.,]/g, "")),
+    ].filter(Number.isFinite);
+    const allowed = percent ? numbers.flatMap((n) => [n, n * 100]) : numbers;
+    if (
+      !candidates.some((candidate) =>
+        allowed.some(
+          (value) =>
+            value === candidate ||
+            Array.from({ length: 7 }, (_, digits) =>
+              Number(value.toFixed(digits)),
+            ).includes(candidate),
+        ),
+      )
+    )
+      suspicious.push(raw.trim());
+  }
+  return suspicious.length
+    ? `Numbers not matched to the supplied numeric evidence: ${[...new Set(suspicious)].join(", ")}. Check decimal/grouping separators and compare every numerical claim with the computed results. This check does not validate the meaning of a matching number.`
+    : "";
+}
+export function reportExport(
+  text: string,
+  evidence: Evidence[],
+  metadata: {
+    title: string;
+    model: string;
+    generatedAt: string;
+    language: string;
+    incomplete?: boolean;
+  },
+  notices: string[],
+  format: "md" | "html",
+) {
+  const computed = metadata.model.includes("Deterministic"),
+    status = computed
+      ? "Computed statistical report"
+      : "AI-assisted research draft — human review required";
+  const warnings = [
+    metadata.incomplete
+      ? "Generation incomplete or interrupted. Review the ending."
+      : "",
+    ...notices,
+  ].filter(Boolean);
+  if (format === "md")
+    return `# ${metadata.title}\n\n${status}\n\nModel: ${metadata.model}\nGenerated: ${metadata.generatedAt}\nRequested language: ${metadata.language}\n\n${warnings.map((n) => `Review note: ${n}`).join("\n\n")}\n\n${text}\n\n## Frozen evidence supplied to the draft\n\n\`\`\`json\n${JSON.stringify(evidence, null, 2)}\n\`\`\`\n`;
+  const esc = xmlEscape;
+  return `<!doctype html><html lang="${esc(metadata.language)}"><meta charset="utf-8"><title>${esc(metadata.title)}</title><style>body{max-width:850px;margin:40px auto;padding:25px;font:16px/1.8 system-ui}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}small{color:#64748b}.review{border-left:3px solid #b48626;padding-left:15px}@media print{body{margin:0}}</style><h1>${esc(metadata.title)}</h1><p>${esc(status)}</p><small>${esc(metadata.model)} · ${esc(metadata.generatedAt)}</small>${warnings.map((n) => `<p class="review">${esc(n)}</p>`).join("")}<pre dir="auto">${esc(text)}</pre><h2>Frozen evidence supplied to the draft</h2><pre>${esc(JSON.stringify(evidence, null, 2))}</pre></html>`;
+}
 export function unsupportedClaimNotice(
   text: string,
   evidence: Evidence[],
 ): string {
+  for (const match of text.matchAll(/\[(P\d+)\]([\s\S]*?)(?=\[P\d+\]|$)/g)) {
+    const item = evidence.find((e) => e.id === match[1]);
+    if (!item) continue;
+    const flags = (item.value as { reviewFlags?: string[] })?.reviewFlags;
+    if (
+      flags &&
+      /duplicat|doublon|дублик|مكرر|重复|重複/iu.test(match[2]) &&
+      !flags.includes("Duplicate pair")
+    )
+      return `Review the duplicate claim for ${item.id}: the computed alignment flags do not mark this unit as a duplicate. Compare the original pair before using the suggestion.`;
+  }
   const inferential =
     /\bsignifican\w*|\bsignificati(?:v|f)\w*|\bsignifik\w*|значим[а-яё]*|显著|有意|دال[ة]?\s+إحصائي|ذو\s+دلالة/iu;
   const correlation =
@@ -215,12 +329,19 @@ export function unsupportedClaimNotice(
     !evidence.some((item) => /^R\d+$/.test(item.id))
   )
     return "Review claims of statistical significance: the selected evidence contains no comparison test results. Descriptive counts do not establish significance. Remove or independently substantiate these claims.";
+  if (
+    evidence.some((item) => item.id === "C1") &&
+    /(?:نسبة الكلمات المفيدة|نسبة الكلمات النادرة|rare.{0,30}(?:proportion|percent)|(?:proportion|percent).{0,30}rare|[%％][^.!?\n]{0,100}(?:moins de deux fois|termes rares|mots rares|hapax))/iu.test(
+      text,
+    )
+  )
+    return "Review the interpretation of type-token ratio: it is unique types divided by all tokens. It does not measure the proportion of rare words or hapax. Verify this wording against the document statistics.";
   return "";
 }
 export function exactReport(input: ReportInput) {
   const a = input.analysis;
   if (!a) return "Load a corpus to build a statistical report.";
-  return `# ${input.name}\n\n## Corpus\n${input.documents.length} documents; ${a.words} word tokens; ${a.types} types; ${a.sentences} sentences; ${a.characters} Unicode code points. Type–token ratio: ${formatPercentage(a.ttr)}. Mean sentence length: ${a.averageSentence.toFixed(2)} tokens. [C1]\n\n## Method\nUnicode NFC; Intl.Segmenter word-like tokens, including numbers; ${input.options.caseSensitive ? "case preserved" : "locale-aware lowercasing"}; workspace language ${input.options.locale}, with document overrides. Stop words filter result tables without changing corpus totals. [M1]\n\n## Document statistics\n${a.documentStats.map((d, i) => `${d.name} (${d.locale}): ${d.words} tokens, ${d.types} types, ${d.hapax} hapax. [D${i + 1}]`).join("\n")}\n\n## Interpretation\nThis report describes corpus counts. Review corpus design, source text and language-specific segmentation before drawing substantive conclusions. Comparison statistics, when requested, are in Compare corpora. Automatic translation quality is not measured.\n`;
+  return `# ${input.name}\n\n## Corpus\n${input.documents.length} document${input.documents.length === 1 ? "" : "s"}; ${a.words} word tokens; ${a.types} types; ${a.sentences} sentences; ${a.characters} Unicode code points. Type–token ratio: ${formatPercentage(a.ttr)}. Mean sentence length: ${a.averageSentence.toFixed(2)} tokens. [C1]\n\n## Method\nUnicode NFC; Intl.Segmenter word-like tokens, including numbers; ${input.options.caseSensitive ? "case preserved" : "locale-aware lowercasing"}; workspace language ${input.options.locale}, with document overrides. Stop words filter result tables without changing corpus totals. [M1]\n\n## Document statistics\n${a.documentStats.map((d, i) => `${d.name} (${d.locale}): ${d.words} tokens, ${d.types} types, ${d.hapax} hapax. [D${i + 1}]`).join("\n")}\n\n## Interpretation\nThis report describes corpus counts. Review corpus design, source text and language-specific segmentation before drawing substantive conclusions. Comparison statistics, when requested, are in Compare corpora. Automatic translation quality is not measured.\n`;
 }
 export function validateReportSession(value: unknown) {
   if (!value || typeof value !== "object")

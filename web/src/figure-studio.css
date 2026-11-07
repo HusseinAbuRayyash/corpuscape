@@ -810,7 +810,7 @@
     font-size: 10px !important;
   }
 }
-@media (max-width: 1020px) {
+@media (max-width: 1450px) {
   .studio-workbench {
     grid-template-columns: 170px minmax(0, 1fr);
   }
