@@ -82,6 +82,11 @@ export const samples: {
     ],
   },
 ];
+export const multilingualSampleDocuments = samples[1].documents.filter(
+  (document): document is CorpusDocument & { locale: string } =>
+    Boolean(document.locale),
+);
+
 export const locales = [
   ["und", "Automatic / mixed languages"],
   ["en", "English"],

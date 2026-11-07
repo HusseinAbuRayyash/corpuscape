@@ -29,24 +29,6 @@
 .brand-mark {
   height: 29px;
   width: 29px;
-  align-items: center;
-  gap: 3px;
-  justify-content: center;
-  margin: 0;
-  background: #172132;
-  border-radius: 8px;
-}
-.brand-mark i {
-  width: 3px;
-  height: 12px;
-  background: #fff;
-  border-radius: 1px;
-}
-.brand-mark i:nth-child(2) {
-  height: 18px;
-}
-.brand-mark i:nth-child(3) {
-  height: 9px;
 }
 .brand-dot {
   color: #245bff;

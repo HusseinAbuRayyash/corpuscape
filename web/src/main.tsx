@@ -71,6 +71,7 @@ import {
 } from "./library";
 import { samples, locales } from "./samples";
 import {
+  BrandMark,
   ToolHeading,
   CorpusStart,
   LibraryStart,
@@ -1096,11 +1097,7 @@ function App() {
           className="brand"
           onClick={() => navigate("overview")}
         >
-          <span className="brand-mark">
-            <i />
-            <i />
-            <i />
-          </span>
+          <BrandMark className="brand-mark" />
           <span className="brand-name">
             corpuscape<span className="brand-dot">.</span>
             <small>CORPUS RESEARCH WORKSPACE</small>
@@ -3312,20 +3309,25 @@ function SearchField({
   placeholder: string;
 }) {
   return (
-    <label className="search-field">
-      <Search size={16} />
+    <div className="search-field" dir="ltr">
+      <Search size={16} aria-hidden="true" />
       <input
         aria-label={placeholder}
+        dir="auto"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
       />
       {value && (
-        <button aria-label="Clear search" onClick={() => onChange("")}>
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+        >
           <X size={14} />
         </button>
       )}
-    </label>
+    </div>
   );
 }
 function DataTable({

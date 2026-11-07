@@ -16,6 +16,18 @@ import {
 } from "lucide-react";
 import { samples } from "./samples";
 
+export function BrandMark({ className }: { className: string }) {
+  return (
+    <img
+      className={className}
+      src={`${import.meta.env.BASE_URL}favicon.svg`}
+      alt=""
+      width={31}
+      height={31}
+    />
+  );
+}
+
 const pageNames: Record<string, { title: string; section: string }> = {
   "MONOLINGUAL LAB": { title: "Corpus explorer", section: "ANALYZE" },
   "BILINGUAL LAB": { title: "Parallel workspace", section: "ALIGN & REVIEW" },

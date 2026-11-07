@@ -71,10 +71,7 @@
   color: #101726;
 }
 .lp-mark {
-  display: grid;
-  place-items: center;
-  background: #245bff;
-  color: #fff;
+  flex: none;
   width: 31px;
   height: 31px;
   border-radius: 9px;
@@ -1185,7 +1182,6 @@
 .lp-footer .lp-mark {
   width: 27px;
   height: 27px;
-  border-radius: 7px;
 }
 .lp-footer > div {
   display: flex;
@@ -1407,7 +1403,6 @@
   .lp-mark {
     width: 26px;
     height: 26px;
-    border-radius: 7px;
   }
   .lp-brand {
     font-size: 20px;
