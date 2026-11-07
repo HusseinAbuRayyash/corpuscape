@@ -27,6 +27,14 @@ export interface OcrPage {
   source: "text" | "ocr";
   confidence?: number;
 }
+
+const rtlOcrLanguage = /^(?:ara|fas|heb|urd|pus|snd|uig|yid|syr|div|kur_ara|script\/(?:Arabic|Hebrew|Syriac|Thaana))$/i;
+const rtlScript = /\p{Script=Arabic}|\p{Script=Hebrew}|\p{Script=Syriac}|\p{Script=Thaana}|\p{Script=Nko}|\p{Script=Adlam}|\p{Script=Hanifi_Rohingya}|\p{Script=Samaritan}|\p{Script=Mandaic}|\p{Script=Mende_Kikakui}/u;
+
+export function needsRtlOcrReview(page: OcrPage, languages: string[]) {
+  return page.source === "ocr" &&
+    (languages.some((language) => rtlOcrLanguage.test(language)) || rtlScript.test(page.text));
+}
 export interface OcrProgress {
   stage: string;
   page: number;

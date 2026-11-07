@@ -23,7 +23,7 @@ import {
   detectLanguage,
   draftLanguageNotice,
 } from "../web/src/language-detection";
-import { ocrDocuments, withOcrCancellation } from "../web/src/ocr-engine";
+import { needsRtlOcrReview, ocrDocuments, withOcrCancellation } from "../web/src/ocr-engine";
 globalThis.indexedDB = indexedDB;
 test("result families no longer stop at the old 500/1000 cutoffs", () => {
   const documents = [
@@ -277,4 +277,12 @@ test("OCR cancellation preserves normal results and underlying errors", async ()
     /bad scan/,
   );
   controller.abort();
+});
+test("OCR review warns for RTL languages and detected RTL text, including failed recognition", () => {
+  const page = { name: "scan", page: 1, source: "ocr" as const, text: "Uncertain text" };
+  assert.equal(needsRtlOcrReview(page, ["eng", "ara"]), true);
+  assert.equal(needsRtlOcrReview(page, ["urd"]), true);
+  assert.equal(needsRtlOcrReview({ ...page, text: "OCR עברית" }, ["eng"]), true);
+  assert.equal(needsRtlOcrReview(page, ["eng"]), false);
+  assert.equal(needsRtlOcrReview({ ...page, source: "text" }, ["ara"]), false);
 });
