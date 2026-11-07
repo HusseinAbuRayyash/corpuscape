@@ -713,7 +713,7 @@ export function Landing({
         {[
           [
             "Does this use an LLM?",
-            "The core analysis does not. Frequencies, concordance, n-grams, collocations and corpus comparison use Unicode segmentation and standard corpus statistics. Research reports are an optional extra. If you turn them on, a small open model (Qwen or SmolLM, Apache 2.0) downloads once to your browser and runs on your device. Your texts are never sent to a server.",
+            "The core analysis does not. Frequencies, concordance, n-grams, collocations and corpus comparison use Unicode segmentation and standard corpus statistics. Research reports are an optional extra. If you turn them on, a small open model (Qwen, Apache 2.0) downloads once to your browser and runs on your device. Your texts are never sent to a server.",
           ],
           [
             "Where are my documents stored?",

@@ -17,6 +17,7 @@ import { tableDocuments } from "../web/src/table-documents";
 import { benjaminiHochberg } from "../web/src/statistics";
 import {
   numericClaimNotice,
+  unmatchedDraftNumbers,
   unsupportedClaimNotice,
   reportExport,
 } from "../web/src/report-model";
@@ -136,6 +137,15 @@ test("Arabic, Persian and fullwidth AI numerals use the same evidence mismatch c
   ];
   assert.equal(numericClaimNotice("١٥٦ ؛ ۱۵۶ ؛ １５６ ؛ ٩١٪", e), "");
   assert.match(numericClaimNotice("١٥٦٠", e), /1560/);
+});
+test("draft highlights preserve original text offsets and distinguish decimals from counts", () => {
+  const text = "📄 [CO1] ۱۵۶ ؛ 91٪; １２．５; ۹۹۹; 1.25e-3.";
+  const findings = unmatchedDraftNumbers(text, new Set([156, 0.91, 125, 0.00125]));
+  assert.deepEqual(findings.map(({ start, end }) => text.slice(start, end)), [
+    "１２．５",
+    "۹۹۹",
+  ]);
+  assert.deepEqual(unmatchedDraftNumbers("No evidence for 42.", new Set()).map(({ normalized }) => normalized), ["42"]);
 });
 test("report exports retain frozen title, requested language, incomplete status, checks and evidence", () => {
   const metadata = {

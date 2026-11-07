@@ -38,6 +38,8 @@
 
 ### Removed
 
+- Remove SmolLM2 from the local research writing model list.
+
 - Remove the unused legacy workspace styles and illustration component.
 
 - Remove `attached_assets/` from the source tree and ignore future uploads to
