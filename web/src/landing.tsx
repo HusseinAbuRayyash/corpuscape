@@ -25,7 +25,8 @@ import {
 } from "lucide-react";
 import { Aurora, OrbitingWords, Reveal } from "./motion-primitives";
 import { analyze, defaultOptions } from "./engine";
-import { samples } from "./samples";
+import { BrandMark } from "./product-components";
+import { multilingualSampleDocuments } from "./samples";
 
 export type Page =
   | "overview"
@@ -47,22 +48,9 @@ function savedMotionChoice() {
     return null;
   }
 }
-const languageCodes = [
-  "es",
-  "fr",
-  "ru",
-  "zh",
-  "ja",
-  "ar",
-  "de",
-  "pt",
-  "hi",
-  "ko",
-];
-const previewDocuments = samples[1].documents.map((d, i) => ({
+const previewDocuments = multilingualSampleDocuments.map((d, i) => ({
   ...d,
   id: `preview-${i}`,
-  locale: languageCodes[i],
 }));
 const preview = analyze(previewDocuments, defaultOptions);
 const terms = preview.frequencies.slice(0, 6);
@@ -220,9 +208,7 @@ export function Landing({
     >
       <header className="lp-header">
         <a className="lp-brand" href="#overview" aria-label="Corpuscape home">
-          <span className="lp-mark">
-            <Search size={20} />
-          </span>
+          <BrandMark className="lp-mark" />
           corpuscape<span className="lp-brand-dot">.</span>
         </a>
         <nav
@@ -305,14 +291,15 @@ export function Landing({
             </div>
           </Reveal>
           <h1>
-            Explore language.
+            Explore language.{" "}
             <br />
             Discover{" "}
             <RotatingWord paused={effectivePaused} forceMotion={forceMotion} />
           </h1>
           <p className="lp-lead">
-            A little closer to the words.
-            <br className="lp-mobile-break" /> A whole new view of the text.
+            A little closer to the words.{" "}
+            <br className="lp-mobile-break" />
+            A whole new view of the text.{" "}
             <br />
             Your open workspace for multilingual corpus research.
           </p>
@@ -361,7 +348,7 @@ export function Landing({
                     <FileText size={16} /> LANGUAGES IN CONVERSATION
                   </div>
                   <h2>
-                    Small texts.
+                    Small texts.{" "}
                     <br />
                     Shared discoveries.
                   </h2>
@@ -373,7 +360,8 @@ export function Landing({
                       <strong>{preview.types}</strong>unique types
                     </span>
                     <span>
-                      <strong>{previewDocuments.length}</strong>languages
+                      <strong>{multilingualSampleDocuments.length}</strong>
+                      languages
                     </span>
                   </div>
                   <div
@@ -426,24 +414,12 @@ export function Landing({
 
       <section
         className="lp-language-strip"
-        aria-label="Some of the languages you can explore"
+        aria-label="Languages in the teaching sample"
       >
         <div>
-          {[
-            "English",
-            "العربية",
-            "Español",
-            "Français",
-            "Русский",
-            "中文",
-            "日本語",
-            "Deutsch",
-            "Português",
-            "한국어",
-            "हिन्दी",
-          ].map((t) => (
-            <span dir="auto" key={t}>
-              {t}
+          {multilingualSampleDocuments.map(({ name, locale }) => (
+            <span dir="auto" lang={locale} key={locale}>
+              {name}
             </span>
           ))}
         </div>
@@ -456,7 +432,7 @@ export function Landing({
               THE RESEARCH, WITHOUT THE FRICTION
             </span>
             <h2>
-              From a single word
+              From a single word{" "}
               <br />
               to the bigger picture.
             </h2>
@@ -535,9 +511,9 @@ export function Landing({
               BUILT FOR THE WAY THE WORLD WRITES
             </span>
             <h2>
-              Language has
+              Language has{" "}
               <br />
-              many forms.
+              many forms.{" "}
               <br />
               <span>Curiosity is universal.</span>
             </h2>
@@ -561,20 +537,15 @@ export function Landing({
                 role="group"
                 aria-label="Preview a sample language"
               >
-                {[
-                  ["es", "Español"],
-                  ["fr", "Français"],
-                  ["ru", "Русский"],
-                  ["zh", "中文"],
-                  ["ja", "日本語"],
-                  ["ar", "العربية"],
-                ].map(([code, label]) => (
+                {multilingualSampleDocuments.map(({ name, locale }) => (
                   <button
-                    key={code}
-                    aria-pressed={language === code}
-                    onClick={() => setLanguage(code)}
+                    key={locale}
+                    lang={locale}
+                    dir="auto"
+                    aria-pressed={language === locale}
+                    onClick={() => setLanguage(locale)}
                   >
-                    {label}
+                    {name}
                   </button>
                 ))}
               </div>
@@ -613,7 +584,7 @@ export function Landing({
           <div className="lp-section-intro">
             <span className="lp-eyebrow">A STRAIGHTFORWARD WORKFLOW</span>
             <h2>
-              Bring your texts.
+              Bring your texts.{" "}
               <br />
               Follow the evidence.
             </h2>
@@ -670,7 +641,7 @@ export function Landing({
               LOCAL BY DESIGN. OPEN TO EVERYONE.
             </span>
             <h2>
-              Keep your texts close.
+              Keep your texts close.{" "}
               <br />
               Keep your possibilities open.
             </h2>
@@ -693,7 +664,7 @@ export function Landing({
         {[
           [
             "Does this use an LLM?",
-            "No. The analysis uses Unicode text segmentation and descriptive corpus statistics. It does not call a language model or require a provider API key.",
+            "The core analysis does not. Frequencies, concordance, n-grams, collocations and corpus comparison use Unicode segmentation and standard corpus statistics. Research reports are an optional extra. If you turn them on, a small open model (Qwen or SmolLM, Apache 2.0) downloads once to your browser and runs on your device. Your texts are never sent to a server.",
           ],
           [
             "Where are my documents stored?",
@@ -705,7 +676,7 @@ export function Landing({
           ],
           [
             "Does it translate or transcribe?",
-            "The bilingual workspace reviews and edits existing parallel texts. Automatic translation, transcription and AI chat are not included in this browser edition.",
+            "No. The parallel workspace helps you review and edit translations you already have. Text extraction can read scanned PDFs and images with OCR, but it does not translate them.",
           ],
         ].map(([q, a]) => (
           <details key={q}>
@@ -719,9 +690,7 @@ export function Landing({
       </section>
       <footer className="lp-footer lp-container">
         <a className="lp-brand" href="#overview">
-          <span className="lp-mark">
-            <Search size={19} />
-          </span>
+          <BrandMark className="lp-mark" />
           corpuscape.
         </a>
         <span>A little closer to language.</span>
