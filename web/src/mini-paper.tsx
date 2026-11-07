@@ -32,7 +32,7 @@ import type { ReportInput } from "./report-model";
 import type { CorpusDocument } from "./engine";
 import { ModelConnection, useLocalWriter } from "./local-writer";
 import "./mini-paper.css";
-import { version } from "../../package.json";
+import { APP_VERSION } from "./version";
 function download(
   name: string,
   data: Blob | string,
@@ -153,7 +153,7 @@ export function MiniPaper(
           pairs: includePairs ? (input.pairs ?? []) : [],
           reference: includeReference ? (input.reference ?? []) : [],
         },
-        version,
+        APP_VERSION,
         `${navigator.userAgent}; locale ${Intl.DateTimeFormat().resolvedOptions().locale}`,
         async (documents, options) =>
           await new Promise((resolve, reject) => {
