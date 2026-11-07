@@ -841,9 +841,6 @@ label {
   width: 16px;
   height: 16px;
 }
-.metrics > div:nth-child(2) strong {
-  color: #4773c4;
-}
 .settings {
   padding: 22px;
   background: #fafcff;
@@ -2213,6 +2210,63 @@ label,
 .sidebar-label {
   font-size: 11px;
   color: #7a8495;
+}
+.sidebar nav [role="group"] + [role="group"] {
+  margin-top: 6px;
+}
+.sidebar nav [role="group"] .sidebar-label {
+  margin-block: 6px 2px;
+  color: #586174;
+}
+.sidebar-credit {
+  display: grid;
+  gap: 2px;
+  margin: 8px 10px 0;
+  color: #40516b;
+  font-size: 11px;
+}
+.sidebar-credit > * {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-align: start;
+}
+.sidebar-credit > *:hover {
+  color: #244fcf;
+  text-decoration: underline;
+}
+.frequency-chart {
+  margin: 12px 0;
+}
+.frequency-chart figcaption {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.frequency-chart ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.frequency-chart li {
+  display: grid;
+  grid-template-columns: minmax(5.5em, 1fr) minmax(22px, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+.frequency-chart bdi {
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.frequency-bar, .frequency-bar > span {
+  display: block;
+  height: 10px;
+  border-radius: 2px;
+}
+.frequency-bar {
+  background: #edf2fc;
 }
 .sidebar-privacy strong {
   color: #667085;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowDownToLine,
@@ -45,15 +45,13 @@ import { tableDocuments } from "./table-documents";
 import { importFile, ACCEPT, RequiresOcr, type Imported } from "./files";
 import { selectTmxPairs, type TranslationMemory } from "./import-parsers";
 import { makeBackup, validateBackup } from "./backup";
-import { FigureStudio } from "./figure-studio";
 import { LocalWriterProvider } from "./local-writer";
-import { MiniPaper } from "./mini-paper";
-import { ResearchReports } from "./research-reports";
-import { TextExtraction } from "./text-extraction";
 import { validateWorkspace, type WorkspaceSession } from "./workspace-session";
 import { validateStudioProject } from "./studio-model";
 import type { LanguageSuggestion } from "./language-detection";
-import { FrequencyChart } from "./figure-chart";
+import { CompactFrequencyChart } from "./figure-chart";
+import { author, citation } from "./about";
+import { APP_VERSION } from "./version";
 import { DocumentManager } from "./document-manager";
 import { Modal } from "./modal";
 import { exclusiveSave } from "./save-queue";
@@ -84,6 +82,11 @@ import { WorkspaceSearch } from "./workspace-search";
 import "./workspace-theme.css";
 import "./landing.css";
 
+const FigureStudio = lazy(() => import("./figure-studio").then(({ FigureStudio }) => ({ default: FigureStudio })));
+const ResearchReports = lazy(() => import("./research-reports").then(({ ResearchReports }) => ({ default: ResearchReports })));
+const MiniPaper = lazy(() => import("./mini-paper").then(({ MiniPaper }) => ({ default: MiniPaper })));
+const TextExtraction = lazy(() => import("./text-extraction").then(({ TextExtraction }) => ({ default: TextExtraction })));
+
 type View =
   | "overview"
   | "workspace"
@@ -96,19 +99,26 @@ type View =
   | "ocr"
   | "library"
   | "methods";
-const navigation = [
-  ["overview", "Home", Globe2],
-  ["workspace", "Workspace", LayoutDashboard],
-  ["analysis", "Corpus explorer", FileText],
-  ["bilingual", "Parallel workspace", Languages],
-  ["compare", "Compare corpora", Columns2],
-  ["figures", "Figure studio", BarChart3],
-  ["reports", "Research reports", Sparkles],
-  ["papers", "Mini paper", BookOpen],
-  ["ocr", "Text extraction", ScanText],
-  ["library", "Corpus library", Library],
-  ["methods", "Methods & privacy", BookOpen],
-] as const;
+const navigation: { label: string; routes: [View, string, typeof Globe2][] }[] = [
+  { label: "Start", routes: [
+    ["overview", "Home", Globe2],
+    ["workspace", "Import texts", LayoutDashboard],
+    ["ocr", "Text extraction", ScanText],
+    ["library", "Corpus library", Library],
+  ] },
+  { label: "Analyse", routes: [
+    ["analysis", "Corpus explorer", FileText],
+    ["bilingual", "Parallel workspace", Languages],
+    ["compare", "Compare corpora", Columns2],
+  ] },
+  { label: "Present", routes: [
+    ["figures", "Figure studio", BarChart3],
+    ["reports", "Research reports", Sparkles],
+    ["papers", "Mini paper", BookOpen],
+  ] },
+  { label: "Help", routes: [["methods", "Methods & privacy", BookOpen]] },
+];
+const routes = navigation.flatMap(({ routes }) => routes);
 const fmt = (n: number, maximumFractionDigits = 0) =>
   n.toLocaleString(undefined, { maximumFractionDigits });
 function download(
@@ -268,9 +278,10 @@ function LocaleSelect({
   );
 }
 function App() {
+  const [showAbout, setShowAbout] = useState(false);
   const initial = location.hash.slice(1) as View;
   const [view, setView] = useState<View>(
-    navigation.some(([id]) => id === initial) ? initial : "overview",
+    routes.some(([id]) => id === initial) ? initial : "overview",
   );
   const [menu, setMenu] = useState(false),
     [optionsOpen, setOptionsOpen] = useState(false);
@@ -577,7 +588,7 @@ function App() {
   useEffect(() => {
     const handler = () => {
       const next = location.hash.slice(1) as View;
-      if (navigation.some(([id]) => id === next)) setView(next);
+      if (routes.some(([id]) => id === next)) setView(next);
     };
     window.addEventListener("hashchange", handler);
     return () => window.removeEventListener("hashchange", handler);
@@ -1114,19 +1125,23 @@ function App() {
           <Plus size={16} />
           New corpus
         </button>
-        <div className="sidebar-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
-          {navigation.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={view === id ? "nav-item active" : "nav-item"}
-              aria-current={view === id ? "page" : undefined}
-              onClick={() => navigate(id)}
-            >
-              <Icon size={18} />
-              <span className="nav-label">{label}</span>
-              {view === id && <span className="nav-dot" />}
-            </button>
+          {navigation.map(({ label, routes }) => (
+            <div key={label} role="group" aria-label={label}>
+              <div className="sidebar-label" aria-hidden="true">{label}</div>
+              {routes.map(([id, title, Icon]) => (
+                <button
+                  key={id}
+                  className={view === id ? "nav-item active" : "nav-item"}
+                  aria-current={view === id ? "page" : undefined}
+                  onClick={() => navigate(id)}
+                >
+                  <Icon size={18} />
+                  <span className="nav-label">{title}</span>
+                  {view === id && <span className="nav-dot" />}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -1137,18 +1152,14 @@ function App() {
               <span>Your texts stay on this device.</span>
             </div>
           </div>
-          <a
-            className="maker"
-            href="https://github.com/HusseinAbuRayyash/corpuscape"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span>HA</span>
-            <div>
-              Hussein Abu-Rayyash<small>PROJECT ON GITHUB</small>
-            </div>
-            <ArrowUpRight size={14} />
-          </a>
+          <div className="sidebar-credit">
+            <button onClick={() => { setMenu(false); setShowAbout(true); }}>
+              Made by {author.name}
+            </button>
+            <a href="https://github.com/HusseinAbuRayyash/corpuscape" target="_blank" rel="noreferrer">
+              GitHub <ArrowUpRight size={13} />
+            </a>
+          </div>
         </div>
       </aside>
       {menu && (
@@ -1172,7 +1183,7 @@ function App() {
             </button>
             <span>Workspace</span>
             <ChevronRight size={13} />
-            <strong>{navigation.find(([id]) => id === view)?.[1]}</strong>
+            <strong>{routes.find(([id]) => id === view)?.[1]}</strong>
           </div>
           <div className="header-actions">
             <WorkspaceSearch onNavigate={navigate} />
@@ -1373,7 +1384,7 @@ function App() {
                                 />
 
                                 <span className="fine">
-                                  {fmt(frequencies.length)} terms
+                                  {fmt(frequencies.length)} {frequencies.length === 1 ? "term" : "terms"}
                                 </span>
                                 <button
                                   className="button secondary small"
@@ -1401,6 +1412,7 @@ function App() {
                               <div className="analysis-grid">
                                 <div>
                                   <DataTable
+                                    textColumns={[0]}
                                     headers={[
                                       "Term",
                                       "Frequency",
@@ -1435,14 +1447,12 @@ function App() {
                                   <span className="eyebrow">
                                     MOST FREQUENT WORDS
                                   </span>
-                                  <FrequencyChart
+                                  <CompactFrequencyChart
                                     rows={frequencies.slice(0, 12).map((r) => ({
                                       label: r.term,
                                       value: r.count,
                                     }))}
                                     title="Word frequencies"
-                                    color="#4f46e5"
-                                    type="bar"
                                   />
                                   <button
                                     className="text-button"
@@ -1497,6 +1507,7 @@ function App() {
                                 </button>
                               </div>
                               <DataTable
+                                textColumns={[0]}
                                 headers={["Sequence", "Frequency"]}
                                 rows={gramRows
                                   .slice(page * 50, page * 50 + 50)
@@ -1683,6 +1694,7 @@ function App() {
                                     words
                                   </p>
                                   <DataTable
+                                    textColumns={[0, 1, 2, 3]}
                                     headers={[
                                       "Left context",
                                       "Match",
@@ -1709,6 +1721,7 @@ function App() {
                               ) : (
                                 <>
                                   <DataTable
+                                    textColumns={[0]}
                                     headers={[
                                       "Collocate",
                                       "Window count",
@@ -2124,6 +2137,7 @@ function App() {
                     </div>
                   )}
                   <DataTable
+                    textColumns={[1, 2, 3]}
                     headers={["#", "Source", "Target", "Research note"]}
                     rows={pairRows
                       .slice(page * 50, page * 50 + 50)
@@ -2379,6 +2393,7 @@ function App() {
                       </button>
                     </div>
                     <DataTable
+                      textColumns={[0]}
                       headers={[
                         "Term",
                         "A count",
@@ -2434,53 +2449,55 @@ function App() {
               )}
             </>
           )}
-          {view === "figures" && (
-            <FigureStudio
-              name={name}
-              analysis={analysis}
-              documents={documents}
-              comparison={comparison}
-              collocates={collocates}
-              collocationContext={`Node ${JSON.stringify(query)} · symmetric window ±${windowSize} · minimum ${minimum} · ${queryDocument === "all" ? "all documents" : (documents[Number(queryDocument)]?.name ?? "selected document")} · workspace language ${options.locale}, document overrides apply`}
-              pairs={pairs}
-              onReports={() => navigate("reports")}
-            />
-          )}
-          {view === "reports" && (
-            <ResearchReports
-              name={name}
-              analysis={analysis}
-              documents={documents}
-              options={options}
-              comparison={comparison}
-              pairs={pairs}
-            />
-          )}{" "}
-          {view === "papers" && (
-            <MiniPaper
-              reference={reference}
-              name={name}
-              analysis={analysis}
-              documents={documents}
-              options={options}
-              comparison={comparison}
-              pairs={pairs}
-            />
-          )}
-          {view === "ocr" && (
-            <TextExtraction
-              initialFile={ocrFile}
-              onUse={(docs) => {
-                setDocuments(docs);
-                setName(ocrFile?.name ?? "Extracted corpus");
-                setActiveId(null);
-                navigate("analysis");
-                notify(
-                  "Extracted text loaded. Review document language tags before analysis.",
-                );
-              }}
-            />
-          )}
+          <Suspense fallback={<p className="notice neutral" role="status">Loading tool…</p>}>
+            {view === "figures" && (
+              <FigureStudio
+                name={name}
+                analysis={analysis}
+                documents={documents}
+                comparison={comparison}
+                collocates={collocates}
+                collocationContext={`Node ${JSON.stringify(query)} · symmetric window ±${windowSize} · minimum ${minimum} · ${queryDocument === "all" ? "all documents" : (documents[Number(queryDocument)]?.name ?? "selected document")} · workspace language ${options.locale}, document overrides apply`}
+                pairs={pairs}
+                onReports={() => navigate("reports")}
+              />
+            )}
+            {view === "reports" && (
+              <ResearchReports
+                name={name}
+                analysis={analysis}
+                documents={documents}
+                options={options}
+                comparison={comparison}
+                pairs={pairs}
+              />
+            )}
+            {view === "papers" && (
+              <MiniPaper
+                reference={reference}
+                name={name}
+                analysis={analysis}
+                documents={documents}
+                options={options}
+                comparison={comparison}
+                pairs={pairs}
+              />
+            )}
+            {view === "ocr" && (
+              <TextExtraction
+                initialFile={ocrFile}
+                onUse={(docs) => {
+                  setDocuments(docs);
+                  setName(ocrFile?.name ?? "Extracted corpus");
+                  setActiveId(null);
+                  navigate("analysis");
+                  notify(
+                    "Extracted text loaded. Review document language tags before analysis.",
+                  );
+                }}
+              />
+            )}
+          </Suspense>
           {view === "library" && (
             <>
               <PageTitle
@@ -2919,6 +2936,22 @@ function App() {
           )}
         </main>
       </div>
+      {showAbout && (
+        <div className="modal-backdrop">
+          <Modal labelledBy="workspace-about-title" onClose={() => setShowAbout(false)}>
+            <div className="panel-head">
+              <h2 id="workspace-about-title">About Corpuscape</h2>
+              <button className="icon-button" aria-label="Close About" onClick={() => setShowAbout(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <p><strong>{author.name}</strong> · {author.affiliation}</p>
+            <p><a href={author.orcid} target="_blank" rel="noreferrer">ORCID profile</a> · Version {APP_VERSION}</p>
+            <h3>How to cite</h3>
+            <p>{citation}</p>
+          </Modal>
+        </div>
+      )}
       {tableImport?.table && (
         <div className="modal-backdrop">
           <Modal labelledBy="table-title" onClose={() => setTableImport(null)}>
@@ -3333,9 +3366,11 @@ function SearchField({
 function DataTable({
   headers,
   rows,
+  textColumns = [],
 }: {
   headers: string[];
   rows: React.ReactNode[][];
+  textColumns?: number[];
 }) {
   return (
     <div className="table-scroll">
@@ -3352,7 +3387,7 @@ function DataTable({
             rows.map((row, i) => (
               <tr key={i}>
                 {row.map((cell, j) => (
-                  <td key={j}>{cell}</td>
+                  <td key={j} dir={textColumns.includes(j) ? "auto" : undefined}>{cell}</td>
                 ))}
               </tr>
             ))
