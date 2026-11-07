@@ -1,0 +1,799 @@
+/*
+ * Workspace refresh (2.4.x)
+ * One visual layer for every workspace page. Loaded after all other
+ * stylesheets and scoped under .app:not(.workspace-view-overview) so it wins over page-level rules.
+ *
+ * Principles
+ * - Quiet chrome, text first. Borders instead of shadows; one radius scale.
+ * - Every page opens the same way: title, one sentence, actions on the right.
+ * - Labels are sentence case. Numbers are tabular and right-aligned.
+ * - Corpus text (terms, concordance lines, segments) gets the reading style.
+ */
+
+.app:not(.workspace-view-overview) {
+  --ink: #1a2232;
+  --ink-2: #4b5568;
+  --ink-3: #636d7f;
+  --line: #e3e7ee;
+  --line-2: #cdd4df;
+  --canvas: #f4f6f9;
+  --surface: #ffffff;
+  --accent: #245bff;
+  --accent-hover: #1d4ad8;
+  --accent-ink: #1d4ad8;
+  --accent-soft: #edf2ff;
+  --focus: 0 0 0 3px rgba(36, 91, 255, 0.22);
+  --r-panel: 12px;
+  --r-control: 8px;
+  --r-chip: 6px;
+  color: var(--ink);
+  background: var(--canvas);
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* ---------- Shell ---------- */
+
+.app:not(.workspace-view-overview) .sidebar {
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  padding: 20px 14px 16px;
+}
+.app:not(.workspace-view-overview) .brand {
+  padding: 2px 8px 18px;
+}
+.app:not(.workspace-view-overview) .brand-name {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.app:not(.workspace-view-overview) .sidebar-create {
+  height: 38px;
+  border-radius: var(--r-control);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.app:not(.workspace-view-overview) .sidebar nav [role="group"] + [role="group"] {
+  margin-top: 6px;
+}
+.app:not(.workspace-view-overview) .sidebar-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  padding: 12px 10px 4px;
+}
+.app:not(.workspace-view-overview) .nav-item {
+  height: 34px;
+  border-radius: var(--r-control);
+  font-size: 14px;
+  color: var(--ink-2);
+  gap: 11px;
+  padding: 0 10px;
+}
+.app:not(.workspace-view-overview) .nav-item svg {
+  color: var(--ink-3);
+  flex: none;
+}
+.app:not(.workspace-view-overview) .nav-item:hover {
+  background: var(--canvas);
+  color: var(--ink);
+}
+.app:not(.workspace-view-overview) .nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.app:not(.workspace-view-overview) .nav-item.active svg {
+  color: var(--accent);
+}
+.app:not(.workspace-view-overview) .nav-dot {
+  display: none;
+}
+.app:not(.workspace-view-overview) .sidebar-bottom {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.app:not(.workspace-view-overview) .sidebar-privacy {
+  background: none;
+  border: 0;
+  padding: 0 8px 12px;
+}
+.app:not(.workspace-view-overview) .sidebar-privacy strong {
+  font-size: 13px;
+}
+.app:not(.workspace-view-overview) .sidebar-privacy span {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.app:not(.workspace-view-overview) .sidebar-credit {
+  padding: 0 8px;
+  font-size: 12.5px;
+}
+
+.app:not(.workspace-view-overview) .topbar {
+  height: 56px;
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.app:not(.workspace-view-overview) .breadcrumb {
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+.app:not(.workspace-view-overview) .breadcrumb strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.app:not(.workspace-view-overview) .header-status {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+}
+
+.app:not(.workspace-view-overview) main#main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 40px 56px;
+}
+
+/* ---------- Page header: one pattern everywhere ---------- */
+
+.app:not(.workspace-view-overview) .page-heading,
+.app:not(.workspace-view-overview) .dashboard-heading,
+.app:not(.workspace-view-overview) .studio-header,
+.app:not(.workspace-view-overview) .research-page .research-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.app:not(.workspace-view-overview) .page-heading h1,
+.app:not(.workspace-view-overview) .dashboard-heading h1,
+.app:not(.workspace-view-overview) .studio-header h1,
+.app:not(.workspace-view-overview) .research-page .research-heading h1 {
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+  color: var(--ink);
+  margin: 0;
+}
+.app:not(.workspace-view-overview) .page-heading p,
+.app:not(.workspace-view-overview) .dashboard-heading p,
+.app:not(.workspace-view-overview) .studio-header p,
+.app:not(.workspace-view-overview) .research-page .research-heading p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 64ch;
+}
+.app:not(.workspace-view-overview) .section-kicker,
+.app:not(.workspace-view-overview) .studio-kicker,
+.app:not(.workspace-view-overview) .research-kicker,
+.app:not(.workspace-view-overview) .page-context,
+.app:not(.workspace-view-overview) .workspace-stamp,
+.app:not(.workspace-view-overview) .research-local-badge,
+.app:not(.workspace-view-overview) .studio-version {
+  display: none;
+}
+
+/* ---------- Surfaces ---------- */
+
+.app:not(.workspace-view-overview) .panel,
+.app:not(.workspace-view-overview) .research-card,
+.app:not(.workspace-view-overview) .results-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  box-shadow: none;
+}
+.app:not(.workspace-view-overview) .panel-head {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+.app:not(.workspace-view-overview) .panel h2,
+.app:not(.workspace-view-overview) .research-card h2,
+.app:not(.workspace-view-overview) .section-label h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.app:not(.workspace-view-overview) .panel-head p,
+.app:not(.workspace-view-overview) .research-muted,
+.app:not(.workspace-view-overview) .fine {
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.app:not(.workspace-view-overview) .eyebrow,
+.app:not(.workspace-view-overview) .panel-label,
+.app:not(.workspace-view-overview) .figure-source small,
+.app:not(.workspace-view-overview) .active-dataset small {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.app:not(.workspace-view-overview) .tag {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  border-radius: var(--r-chip);
+}
+
+/* ---------- Controls ---------- */
+
+.app:not(.workspace-view-overview) .button,
+.app:not(.workspace-view-overview) .research-button,
+.app:not(.workspace-view-overview) .studio-button {
+  height: 36px;
+  border-radius: var(--r-control);
+  font-size: 13.5px;
+  font-weight: 550;
+  box-shadow: none;
+  gap: 7px;
+}
+.app:not(.workspace-view-overview) .button.small {
+  height: 32px;
+  font-size: 13px;
+  padding: 0 12px;
+}
+.app:not(.workspace-view-overview) .button.secondary,
+.app:not(.workspace-view-overview) .research-button:not(.primary),
+.app:not(.workspace-view-overview) .studio-button:not(.primary) {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  color: var(--ink);
+}
+.app:not(.workspace-view-overview) .button.secondary:hover,
+.app:not(.workspace-view-overview) .research-button:not(.primary):hover,
+.app:not(.workspace-view-overview) .studio-button:not(.primary):hover {
+  background: var(--canvas);
+  border-color: #b9c2d1;
+}
+.app:not(.workspace-view-overview) .button.primary,
+.app:not(.workspace-view-overview) .research-button.primary,
+.app:not(.workspace-view-overview) .studio-button.primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+.app:not(.workspace-view-overview) .button.primary:hover,
+.app:not(.workspace-view-overview) .research-button.primary:hover,
+.app:not(.workspace-view-overview) .studio-button.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.app:not(.workspace-view-overview) :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 0;
+  box-shadow: var(--focus);
+}
+
+.app:not(.workspace-view-overview) input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+.app:not(.workspace-view-overview) select,
+.app:not(.workspace-view-overview) textarea {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-control);
+  background-color: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+}
+.app:not(.workspace-view-overview) input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+.app:not(.workspace-view-overview) select {
+  min-height: 36px;
+}
+.app:not(.workspace-view-overview) textarea {
+  line-height: 1.6;
+}
+.app:not(.workspace-view-overview) :is(input, select, textarea):focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+  outline: 0;
+}
+.app:not(.workspace-view-overview) ::placeholder {
+  color: #8a93a3;
+}
+.app:not(.workspace-view-overview) label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* Inputs that sit inside their own frame or act as titles. */
+.app:not(.workspace-view-overview) .search-field {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  min-height: 36px;
+  padding: 0 10px;
+}
+.app:not(.workspace-view-overview) .search-field:focus-within {
+  outline: 0;
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+.app:not(.workspace-view-overview) .search-field input,
+.app:not(.workspace-view-overview) .search-field input:focus {
+  border: 0;
+  box-shadow: none;
+  min-height: 34px;
+  padding: 0;
+  background: transparent;
+  font-size: 14px;
+}
+.app:not(.workspace-view-overview) .corpus-toolbar input {
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 0 8px;
+  margin-inline-start: -9px;
+}
+.app:not(.workspace-view-overview) .corpus-toolbar input:hover {
+  border-color: var(--line);
+}
+.app:not(.workspace-view-overview) .corpus-toolbar input:focus {
+  border-color: var(--accent);
+}
+.app:not(.workspace-view-overview) .corpus-toolbar small {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* Native file pickers look like the other buttons. */
+.app:not(.workspace-view-overview) input[type="file"] {
+  font-size: 13px;
+  color: var(--ink-3);
+  max-width: 100%;
+}
+.app:not(.workspace-view-overview) input[type="file"]::file-selector-button {
+  font: inherit;
+  font-weight: 550;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-control);
+  height: 32px;
+  padding: 0 12px;
+  margin-inline-end: 10px;
+  cursor: pointer;
+}
+.app:not(.workspace-view-overview) input[type="file"]::file-selector-button:hover {
+  background: var(--canvas);
+}
+
+.app:not(.workspace-view-overview) .segmented {
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  padding: 3px;
+}
+.app:not(.workspace-view-overview) .segmented button {
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.app:not(.workspace-view-overview) .segmented button.selected {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(26, 34, 50, 0.08);
+}
+
+/* ---------- Corpus summary: one strip, not four cards ---------- */
+
+.app:not(.workspace-view-overview) .metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  overflow: hidden;
+}
+.app:not(.workspace-view-overview) .metric-card {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 22px;
+  min-height: 0;
+}
+.app:not(.workspace-view-overview) .metric-card + .metric-card {
+  border-inline-start: 1px solid var(--line);
+}
+.app:not(.workspace-view-overview) .metric-card strong,
+.app:not(.workspace-view-overview) .metric-card b {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.app:not(.workspace-view-overview) .metric-card span,
+.app:not(.workspace-view-overview) .metric-card small {
+  color: var(--ink-3);
+}
+.app:not(.workspace-view-overview) .metric-symbol {
+  display: none;
+}
+
+/* ---------- Tabs ---------- */
+
+.app:not(.workspace-view-overview) .tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+.app:not(.workspace-view-overview) .tabs button {
+  position: relative;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.app:not(.workspace-view-overview) .tabs button:hover {
+  color: var(--ink);
+  background: none;
+}
+.app:not(.workspace-view-overview) .tabs button.selected,
+.app:not(.workspace-view-overview) .tabs button.active,
+.app:not(.workspace-view-overview) .tabs button[aria-selected="true"] {
+  color: var(--ink);
+  background: none;
+  font-weight: 600;
+}
+.app:not(.workspace-view-overview) .tabs button.selected::after,
+.app:not(.workspace-view-overview) .tabs button.active::after,
+.app:not(.workspace-view-overview) .tabs button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 10px -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ---------- Results tables ---------- */
+
+.app:not(.workspace-view-overview) .results-toolbar {
+  padding: 14px 16px;
+  gap: 10px;
+}
+.app:not(.workspace-view-overview) .result-note {
+  padding: 0 16px 12px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.app:not(.workspace-view-overview) .data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.app:not(.workspace-view-overview) .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  text-align: start;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.app:not(.workspace-view-overview) .data-table th button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.app:not(.workspace-view-overview) .data-table th button span {
+  color: #a3abb9;
+}
+.app:not(.workspace-view-overview) .data-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #eef1f5;
+  color: var(--ink-2);
+  vertical-align: baseline;
+}
+.app:not(.workspace-view-overview) .data-table :is(th, td).num {
+  text-align: end;
+}
+.app:not(.workspace-view-overview) .data-table tbody tr:hover td {
+  background: #f8f9fc;
+}
+.app:not(.workspace-view-overview) .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.app:not(.workspace-view-overview) .term-link {
+  padding: 0;
+  min-height: 0;
+  height: auto;
+  line-height: 1.4;
+  background: none;
+  border: 0;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--accent-ink);
+}
+
+/* Concordance lines read as text, with the node word in one column. */
+.app:not(.workspace-view-overview) .data-table .kwic-left {
+  display: block;
+  text-align: end;
+}
+.app:not(.workspace-view-overview) .data-table mark {
+  background: none;
+  color: var(--ink);
+  font-weight: 650;
+  box-shadow: inset 0 -2px 0 var(--accent);
+  padding: 0 1px;
+}
+
+.app:not(.workspace-view-overview) .pagination {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* Side chart in Corpus explorer sits as a column, not a floating card. */
+.app:not(.workspace-view-overview) .analysis-grid {
+  gap: 0;
+}
+.app:not(.workspace-view-overview) .chart-aside {
+  align-self: stretch;
+  background: none;
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  border-radius: 0;
+}
+
+/* ---------- Dashboard (Import texts) ---------- */
+
+.app:not(.workspace-view-overview) .dashboard-grid {
+  gap: 24px;
+}
+.app:not(.workspace-view-overview) .dropzone {
+  background: var(--canvas);
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--r-panel);
+  min-height: 240px;
+}
+@media (hover: hover) {
+  .app:not(.workspace-view-overview) .dropzone:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+.app:not(.workspace-view-overview) .upload-symbol {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.app:not(.workspace-view-overview) .browse-action {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-control);
+  font-size: 13.5px;
+  font-weight: 550;
+}
+.app:not(.workspace-view-overview) .local-note {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.app:not(.workspace-view-overview) .quick-tools .section-label {
+  margin-bottom: 10px;
+}
+.app:not(.workspace-view-overview) .tool-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  overflow: hidden;
+}
+.app:not(.workspace-view-overview) .tool-card {
+  display: grid;
+  grid-template-columns: 36px 1fr 16px;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  padding: 13px 16px;
+  text-align: start;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.app:not(.workspace-view-overview) .tool-card + .tool-card {
+  border-top: 1px solid var(--line);
+}
+.app:not(.workspace-view-overview) .tool-card:hover {
+  background: #f8f9fc;
+  transform: none;
+}
+.app:not(.workspace-view-overview) .tool-card-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-control);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.app:not(.workspace-view-overview) .tool-card-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.app:not(.workspace-view-overview) .tool-card-text strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.app:not(.workspace-view-overview) .tool-card-text span {
+  font-size: 13px;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+.app:not(.workspace-view-overview) .tool-card-arrow {
+  color: #a3abb9;
+}
+.app:not(.workspace-view-overview) .tool-card:hover .tool-card-arrow {
+  color: var(--accent);
+}
+
+.app:not(.workspace-view-overview) .active-dataset {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  box-shadow: none;
+}
+.app:not(.workspace-view-overview) .active-dataset-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- Notices ---------- */
+
+.app:not(.workspace-view-overview) .notice {
+  border-radius: var(--r-control);
+  font-size: 13.5px;
+}
+
+/* ---------- Research pages (reports, extraction, mini paper) ---------- */
+
+.app:not(.workspace-view-overview) .research-page {
+  padding: 0;
+}
+.app:not(.workspace-view-overview) .research-page .research-heading h1 span {
+  display: none;
+}
+.app:not(.workspace-view-overview) .research-card {
+  padding: 20px;
+}
+.app:not(.workspace-view-overview) .research-card label {
+  display: grid;
+  gap: 6px;
+  font-weight: 500;
+}
+.app:not(.workspace-view-overview) .research-card > h2:not(:first-child) {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- Figure studio ---------- */
+
+.app:not(.workspace-view-overview) .studio-header-actions {
+  gap: 8px;
+}
+.app:not(.workspace-view-overview) .studio-save {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 900px) {
+  .app:not(.workspace-view-overview) main#main {
+    padding: 20px 16px 40px;
+  }
+  .app:not(.workspace-view-overview) .page-heading,
+  .app:not(.workspace-view-overview) .dashboard-heading,
+  .app:not(.workspace-view-overview) .studio-header,
+  .app:not(.workspace-view-overview) .research-page .research-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .app:not(.workspace-view-overview) .page-heading h1,
+  .app:not(.workspace-view-overview) .dashboard-heading h1,
+  .app:not(.workspace-view-overview) .studio-header h1,
+  .app:not(.workspace-view-overview) .research-page .research-heading h1 {
+    font-size: 24px;
+  }
+  .app:not(.workspace-view-overview) .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app:not(.workspace-view-overview) .metric-card:nth-child(3) {
+    border-inline-start: 0;
+  }
+  .app:not(.workspace-view-overview) .metric-card:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .app:not(.workspace-view-overview) .chart-aside {
+    border-inline-start: 0;
+    border-top: 1px solid var(--line);
+  }
+  .app:not(.workspace-view-overview) .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .app:not(.workspace-view-overview) .tabs button {
+    flex: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app:not(.workspace-view-overview) * {
+    transition: none !important;
+  }
+}
+
+/* Checkbox and radio labels stay on one line. */
+.app:not(.workspace-view-overview) label:has(> input[type="checkbox"]),
+.app:not(.workspace-view-overview) label:has(> input[type="radio"]),
+.app:not(.workspace-view-overview) .research-card label:has(> input[type="checkbox"]),
+.app:not(.workspace-view-overview) .research-card label:has(> input[type="radio"]) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  font-weight: 400;
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--ink);
+}
+.app:not(.workspace-view-overview) .ocr-languages {
+  gap: 8px 12px;
+}
+.app:not(.workspace-view-overview) .ocr-languages .research-check {
+  margin: 0;
+  font-size: 13.5px;
+}
+.app:not(.workspace-view-overview) input[type="checkbox"],
+.app:not(.workspace-view-overview) input[type="radio"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}

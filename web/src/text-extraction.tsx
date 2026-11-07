@@ -106,22 +106,9 @@ export function TextExtraction({
     <section className="research-page">
       <header className="research-heading">
         <div>
-          <span className="research-kicker">
-            CORPUSCAPE / DOCUMENT PREPARATION
-          </span>
-          <h1>
-            Text extraction
-            <span>
-              <ScanText size={14} />
-              Local OCR
-            </span>
-          </h1>
+          <h1>Text extraction</h1>
           <p>Bring scanned pages and images into your research corpus.</p>
         </div>
-        <span className="research-local-badge">
-          <span />
-          No account · no API key
-        </span>
       </header>
       <div className="ocr-layout">
         <aside className="research-card ocr-settings">

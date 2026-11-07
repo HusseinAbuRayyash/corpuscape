@@ -352,16 +352,7 @@ export function MiniPaper(
     <section className="research-page paper-page">
       <header className="research-heading">
         <div>
-          <span className="research-kicker">
-            CORPUSCAPE / MANUSCRIPT WORKSPACE
-          </span>
-          <h1>
-            Mini paper{" "}
-            <span>
-              <BookOpen size={14} />
-              Evidence first
-            </span>
-          </h1>
+          <h1>Mini paper</h1>
           <p>
             Turn a frozen analysis into a manuscript with editable writing,
             computed tables and publication figures.

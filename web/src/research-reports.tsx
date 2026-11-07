@@ -354,20 +354,12 @@ export function ResearchReports(input: ReportInput) {
     <section className="research-page">
       <header className="research-heading">
         <div>
-          <span className="research-kicker">CORPUSCAPE / RESEARCH WRITING</span>
-          <h1>
-            Research reports
-            <span>
-              <Sparkles size={14} />
-              Local AI
-            </span>
-          </h1>
-          <p>Connect your evidence to a clear, editable research draft.</p>
+          <h1>Research reports</h1>
+          <p>
+            Turn your results into an editable draft, written by a small model
+            that runs on this device.
+          </p>
         </div>
-        <span className="research-local-badge">
-          <span />
-          No API key · no account · local inference
-        </span>
       </header>
       <div className="research-report-layout">
         <aside className="research-card report-settings">

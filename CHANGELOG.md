@@ -17,6 +17,10 @@
 
 ### Changed
 
+- Redesign the workspace pages with one page-header pattern, sentence-case
+  labels, a single corpus summary strip, underlined tabs, right-aligned
+  numeric columns, styled file pickers and a compact tool list. The landing
+  page is unchanged.
 - Concordance right-context sorting now compares words, ignoring punctuation, spacing and capitalisation, matching left-context sorting. Hit counts are unchanged; only the order of some lines differs from 2.3.0.
 - Add token patterns, position sorts, directional collocation windows and four additional collocation measures.
 - Add DP, DPnorm and Juilland’s D, selectable normalised frequency units, and filters for keyness results.
