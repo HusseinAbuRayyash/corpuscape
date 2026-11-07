@@ -53,7 +53,11 @@ export function benjaminiHochberg(pValues: number[]) {
     result = new Array<number>(pValues.length);
   let minimum = 1;
   for (let i = ordered.length - 1; i >= 0; i--) {
-    minimum = Math.min(minimum, (ordered[i].p * ordered.length) / (i + 1));
+    // Roundoff in p*m/m must not make an adjusted probability smaller than p.
+    minimum = Math.min(
+      minimum,
+      Math.max(ordered[i].p, (ordered[i].p * ordered.length) / (i + 1)),
+    );
     result[ordered[i].index] = minimum;
   }
   return result;

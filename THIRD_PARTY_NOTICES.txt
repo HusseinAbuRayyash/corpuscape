@@ -58,3 +58,5 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+
+WebLLM 0.2.87 (Apache 2.0), docx 9.15.2 (MIT), fflate 0.8.3 (MIT). License texts are distributed in licenses/. Pinned Qwen2.5 WebLLM and Qwen3 model weights use Apache 2.0; see the linked model cards. No model weights are bundled with Corpuscape.

@@ -75,3 +75,63 @@ export const saveSessions = (entries: Record<string, unknown>) =>
     },
     "sessions",
   );
+export const listSessions = async <T>(
+  prefix: string,
+): Promise<{ key: string; value: T }[]> => {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("sessions", "readonly"),
+      rows: { key: string; value: T }[] = [];
+    const request = tx
+      .objectStore("sessions")
+      .openCursor(IDBKeyRange.bound(prefix, prefix + "\uffff"));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        rows.push({ key: String(cursor.key), value: cursor.value });
+        cursor.continue();
+      }
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(rows);
+    };
+    tx.onerror = tx.onabort = () => {
+      db.close();
+      reject(
+        new Error(
+          "Could not read saved papers. Export backups before clearing browser storage.",
+        ),
+      );
+    };
+  });
+};
+/** Restore sessions and library copies together, so a quota failure cannot leave half an archive. */
+export async function restoreArchive(
+  sessions: Record<string, unknown>,
+  corpora: SavedCorpus[],
+) {
+  const db = await open();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(["corpora", "sessions"], "readwrite");
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = tx.onabort = () => {
+      db.close();
+      reject(
+        new Error(
+          "Archive restore failed. Existing data was preserved; export a backup or free browser storage.",
+        ),
+      );
+    };
+    try {
+      for (const c of corpora) tx.objectStore("corpora").put(c);
+      for (const [key, value] of Object.entries(sessions))
+        tx.objectStore("sessions").put(value, key);
+    } catch {
+      tx.abort();
+    }
+  });
+}

@@ -17,6 +17,7 @@ import {
   type OcrProgress,
 } from "./ocr-engine";
 import type { CorpusDocument } from "./engine";
+import { joinCjkLineWraps } from "./text-cleanup";
 import "./research-tools.css";
 export function TextExtraction({
   initialFile,
@@ -40,6 +41,7 @@ export function TextExtraction({
     });
   const input = useRef<HTMLInputElement>(null),
     abort = useRef<AbortController | null>(null);
+  const [cleanupUndo, setCleanupUndo] = useState<Record<number, string>>({});
   useEffect(() => {
     if (initialFile) setFiles([initialFile]);
   }, [initialFile]);
@@ -52,6 +54,7 @@ export function TextExtraction({
     setBusy(true);
     setError("");
     setPages([]);
+    setCleanupUndo({});
     const controller = new AbortController();
     abort.current = controller;
     try {
@@ -315,20 +318,70 @@ export function TextExtraction({
                         : `OCR · engine confidence ${page.confidence?.toFixed(1)}%`}
                     </span>
                   </div>
+                  <div className="action-row">
+                    <button
+                      className="research-text-button"
+                      disabled={
+                        busy || joinCjkLineWraps(page.text) === page.text
+                      }
+                      onClick={() => {
+                        setCleanupUndo((old) => ({
+                          ...old,
+                          [index]: page.text,
+                        }));
+                        setPages((old) =>
+                          old.map((p, i) =>
+                            i === index
+                              ? { ...p, text: joinCjkLineWraps(p.text) }
+                              : p,
+                          ),
+                        );
+                      }}
+                    >
+                      Join CJK line wraps
+                    </button>
+                    {cleanupUndo[index] !== undefined && (
+                      <button
+                        className="research-text-button"
+                        disabled={busy}
+                        onClick={() => {
+                          setPages((old) =>
+                            old.map((p, i) =>
+                              i === index
+                                ? { ...p, text: cleanupUndo[index] }
+                                : p,
+                            ),
+                          );
+                          setCleanupUndo((old) => {
+                            const next = { ...old };
+                            delete next[index];
+                            return next;
+                          });
+                        }}
+                      >
+                        Undo line-wrap cleanup
+                      </button>
+                    )}
+                  </div>
                   <textarea
                     disabled={busy}
                     aria-label={`Extracted text page ${index + 1}`}
                     dir="auto"
                     value={page.text}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setCleanupUndo((old) => {
+                        const next = { ...old };
+                        delete next[index];
+                        return next;
+                      });
                       setPages((old) =>
                         old.map((item, i) =>
                           i === index
                             ? { ...item, text: e.target.value }
                             : item,
                         ),
-                      )
-                    }
+                      );
+                    }}
                   />
                 </section>
               ))}

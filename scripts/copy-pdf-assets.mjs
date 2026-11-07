@@ -24,6 +24,9 @@ for (const [file, name] of [
   ["tesseract.js/LICENSE.md", "Tesseract-JS.txt"],
   ["tesseract.js-core/LICENSE", "Tesseract-Core.txt"],
   ["jspdf/LICENSE", "jsPDF.txt"],
+  ["@mlc-ai/web-llm/LICENSE", "WebLLM.txt"],
+  ["docx/LICENSE", "docx.txt"],
+  ["fflate/LICENSE", "fflate.txt"],
 ]) {
   cpSync(
     new URL(`../node_modules/${file}`, import.meta.url),

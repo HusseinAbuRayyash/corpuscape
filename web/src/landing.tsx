@@ -35,6 +35,7 @@ export type Page =
   | "compare"
   | "figures"
   | "reports"
+  | "papers"
   | "ocr"
   | "library"
   | "methods";

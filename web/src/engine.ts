@@ -381,7 +381,11 @@ export function compare(a: Analysis, b: Analysis) {
   const adjusted = benjaminiHochberg(rows.map((row) => row.pValue));
   return rows.map((row, index) => ({ ...row, qValue: adjusted[index] }));
 }
-export function alignByLine(source: string, target: string) {
+export function alignByLine(
+  source: string,
+  target: string,
+  previous: { source: string; target: string; note: string }[] = [],
+) {
   function lines(text: string) {
     const rows = text.split(/\r\n?|\n/);
     while (rows.length && !rows.at(-1)!.trim()) rows.pop();
@@ -389,10 +393,23 @@ export function alignByLine(source: string, target: string) {
   }
   const a = lines(source),
     b = lines(target);
+  const notes = new Map<string, string[]>();
+  for (const p of previous) {
+    const key = JSON.stringify([p.source, p.target]);
+    const queue = notes.get(key) ?? [];
+    queue.push(p.note);
+    notes.set(key, queue);
+  }
+  const cursors = new Map<string, number>();
+  const noteFor = (key: string) => {
+    const cursor = cursors.get(key) ?? 0;
+    cursors.set(key, cursor + 1);
+    return notes.get(key)?.[cursor] ?? "";
+  };
   return Array.from({ length: Math.max(a.length, b.length) }, (_, i) => ({
     source: a[i] ?? "",
     target: b[i] ?? "",
-    note: "",
+    note: noteFor(JSON.stringify([a[i] ?? "", b[i] ?? ""])),
   }));
 }
 export function csv(rows: unknown[][]): string {
