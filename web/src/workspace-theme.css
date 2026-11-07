@@ -2533,6 +2533,7 @@ label,
 .app .results-panel .result-note,
 .app .method-strip,
 .app .method-strip button,
-.app .workspace footer span {
+.app .workspace footer span,
+.app .workspace main > footer > span:first-child > span:last-child {
   color: #52627a;
 }

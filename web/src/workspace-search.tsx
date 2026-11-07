@@ -68,6 +68,7 @@ export function WorkspaceSearch({
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+  const shortcut = navigator.platform.startsWith("Mac") ? "⌘ K" : "Ctrl K";
   const results = destinations.filter((x) =>
     `${x.title} ${x.detail}`
       .toLocaleLowerCase()
@@ -98,11 +99,12 @@ export function WorkspaceSearch({
       <button
         className="command-trigger"
         onClick={open}
-        aria-label="Search tools…"
+        aria-label={`Search tools… ${shortcut}`}
+        aria-keyshortcuts="Control+K Meta+K"
       >
         <Search size={15} />
         <span>Search tools…</span>
-        <kbd aria-hidden="true">{navigator.platform.startsWith("Mac") ? "⌘ K" : "Ctrl K"}</kbd>
+        <kbd aria-hidden="true">{shortcut}</kbd>
       </button>
       <dialog
         ref={dialog}
