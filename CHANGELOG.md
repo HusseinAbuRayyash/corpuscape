@@ -6,6 +6,7 @@
 
 - Add the MIT license and citation metadata.
 - Use the package version as the source for the app's `APP_VERSION` constant.
+- Add share previews, a touch icon, and discovery metadata for the public site.
 - Document the repository history cleanup procedure.
 
 ### Fixed
